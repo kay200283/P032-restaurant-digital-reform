@@ -39,13 +39,13 @@
             <nav class="sidebar-nav">
                 <div class="nav-section">
                     <div class="nav-section-title">工作管理</div>
-                    <a href="/work-calendar" class="nav-item {% if request.path == '/work-calendar' %}active{% endif %}">
+                    <a href="/work-calendar" class="nav-item {% if request.path == '/work-mgmt/calendar' %}active{% endif %}">
                         <i class="fa-solid fa-calendar-days"></i><span>日历排班</span>
                     </a>
-                    <a href="/work-recurring" class="nav-item {% if request.path == '/work-recurring' %}active{% endif %}">
+                    <a href="/work-recurring" class="nav-item {% if request.path == '/work-mgmt/recurring' %}active{% endif %}">
                         <i class="fa-solid fa-repeat"></i><span>周期性工作</span>
                     </a>
-                    <a href="/work-tasks" class="nav-item {% if request.path == '/work-tasks' %}active{% endif %}">
+                    <a href="/work-tasks" class="nav-item {% if request.path == '/work-mgmt/tasks' %}active{% endif %}">
                         <i class="fa-solid fa-list-check"></i><span>任务管理</span>
                     </a>
                 </div>
