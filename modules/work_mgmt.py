@@ -2284,7 +2284,7 @@ daily / weekly / biweekly / monthly / bimonthly / quarterly / yearly / on_demand
 - 信息不足先追问"""
 
 def _build_name_map(conn):
-    users = conn.execute("SELECT id, display_name, username FROM users WHERE id IN (1,2,3,4,6,13)").fetchall()
+    users = conn.execute("SELECT id, display_name, username FROM users WHERE is_active=1").fetchall()
     name_to_code = {}
     code_to_name = {}
     for i, u in enumerate(users, 1):
