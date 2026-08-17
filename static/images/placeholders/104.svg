@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="120" height="160">
+  <!-- 服饰杂货 - 衣架+上衣形状 -->
+  <rect width="120" height="160" fill="#F5F0E8" rx="4"/>
+  <!-- 衣架钩 -->
+  <path d="M60 15 L60 30" stroke="#7A9E8F" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <circle cx="60" cy="12" r="4" fill="none" stroke="#7A9E8F" stroke-width="2"/>
+  <!-- 衣架三角 -->
+  <path d="M60 30 L35 48 L85 48 Z" fill="none" stroke="#7A9E8F" stroke-width="2" stroke-linejoin="round"/>
+  <!-- 上衣主体 -->
+  <path d="M30 48 L20 52 L25 75 L35 70 L35 120 L85 120 L85 70 L95 75 L100 52 L90 48 L75 48 L70 55 Q60 60 50 55 L45 48 Z" fill="#8FA8A0" opacity="0.85"/>
+  <!-- 领口 -->
+  <path d="M50 55 Q60 62 70 55" fill="none" stroke="#7A9E8F" stroke-width="1.5"/>
+</svg>

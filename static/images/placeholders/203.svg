@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="120" height="160">
+  <!-- 饮料·冷食 - 饮料瓶形状 -->
+  <rect width="120" height="160" fill="#F5F0E8" rx="4"/>
+  <!-- 瓶身 -->
+  <path d="M40 55 L38 130 Q38 140 60 140 Q82 140 82 130 L80 55 Z" fill="#8FA8A0" opacity="0.85"/>
+  <!-- 瓶颈 -->
+  <path d="M48 40 L48 55 L72 55 L72 40 Z" fill="#7A9E8F"/>
+  <!-- 瓶盖 -->
+  <rect x="46" y="28" width="28" height="14" rx="4" fill="#9CA89E"/>
+  <!-- 标签 -->
+  <rect x="34" y="78" width="52" height="35" rx="2" fill="#FBF9F4" opacity="0.7"/>
+  <line x1="40" y1="90" x2="80" y2="90" stroke="#7A9E8F" stroke-width="1.5"/>
+  <line x1="44" y1="99" x2="76" y2="99" stroke="#7A9E8F" stroke-width="1"/>
+  <!-- 瓶底凹槽 -->
+  <path d="M38 130 Q60 140 82 130" fill="none" stroke="#7A9E8F" stroke-width="1.5"/>
+</svg>

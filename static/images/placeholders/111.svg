@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="120" height="160">
+  <!-- 电子产品 - 耳机/电子设备形状 -->
+  <rect width="120" height="160" fill="#F5F0E8" rx="4"/>
+  <!-- 头梁 -->
+  <path d="M25 75 Q25 35 60 35 Q95 35 95 75" fill="none" stroke="#8FA8A0" stroke-width="4" stroke-linecap="round"/>
+  <!-- 左耳罩 -->
+  <rect x="15" y="65" width="25" height="35" rx="8" fill="#7A9E8F" opacity="0.85"/>
+  <!-- 右耳罩 -->
+  <rect x="80" y="65" width="25" height="35" rx="8" fill="#7A9E8F" opacity="0.85"/>
+  <!-- 耳垫 -->
+  <rect x="18" y="72" width="8" height="20" rx="4" fill="#9EB3AA"/>
+  <rect x="94" y="72" width="8" height="20" rx="4" fill="#9EB3AA"/>
+</svg>

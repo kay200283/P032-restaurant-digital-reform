@@ -1,0 +1,731 @@
+{% extends "base.html" %}
+{% block title %}\u5de5\u4f5c\u65e5\u5386 - \u7f57\u68ee\u6279\u53d1\u7ba1\u7406{% endblock %}
+{% block extra_css %}
+<style>
+.calendar-wrap{padding:16px 20px;max-width:1400px;margin:0 auto}
+.calendar-header{margin-bottom:12px}
+.calendar-header-row{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+
+.calendar-header h3{color:var(--brand-primary);margin:0;font-size:1.1rem;white-space:nowrap}
+.calendar-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.calendar-toolbar .btn-nav{background:var(--brand-primary);color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:.8rem;cursor:pointer}
+.calendar-toolbar .btn-nav:hover{opacity:.85}
+.calendar-toolbar .today-label{font-weight:600;color:var(--brand-primary);font-size:.9rem;min-width:140px;text-align:center}
+.calendar-toolbar select{border:1px solid #d0d0d0;border-radius:4px;padding:4px 8px;font-size:.8rem;background:#fff}
+#calendar{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px;font-family:"Noto Sans SC","Inter",sans-serif;overflow:hidden}
+.fc .fc-timegrid-slot{height:36px!important}
+.fc .fc-timegrid-slot-label{font-size:.7rem!important;color:#8C8C8C!important}
+.fc .fc-col-header-cell{font-size:.8rem!important;font-weight:600;color:var(--brand-primary)!important;padding:6px 0!important}
+.fc-lunch-break{position:absolute;left:0;right:0;background:rgba(0,0,0,.04);pointer-events:none;z-index:1}
+.fc-holiday-col{background:rgba(0,0,0,.04)!important}
+.fc-holiday-col .fc-timegrid-col-frame{pointer-events:none}
+.fc-event{font-size:.75rem!important;border-radius:3px!important;border-left-width:3px!important;padding:1px 4px!important;cursor:pointer;color:#333!important}
+.fc-event.recurring-event{background:#e8f0ec!important;border-color:#2D4A3E!important;color:#2D4A3E!important;font-weight:600}
+.fc-event.recurring-event.completed{background:#d5f5e3!important;border-color:#2D6A3E!important;color:#2D6A3E!important;text-decoration:line-through}
+.fc-event.task-event{border-color:#A0522D!important;color:#333!important;font-weight:600}
+.fc-event.task-event.status-pending{background:#F5E6DC!important;border-color:#A0522D!important}
+.fc-event.task-event.status-in_progress{background:#F5E6DC!important;border-color:#A0522D!important}
+.fc-event.task-event.status-pending_review{background:#F3E5F5!important;border-color:#7B1FA2!important}
+.fc-event.task-event.status-completed{background:#d5f5e3!important;border-color:#2D6A3E!important;text-decoration:line-through}
+.fc-event.leave-event{background:#e0e0e0!important;border-color:#8C8C8C!important;color:#666!important}
+.fc-event.overtime-event{border-left:3px solid #E6A23C!important;box-shadow:inset 2px 0 0 #E6A23C}
+/* Day header: dark green bg, today=clay red bg, white text */
+.fc .fc-col-header-cell{background:#2D4A3E!important;vertical-align:middle!important}
+.fc .fc-col-header-cell-cushion{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:center!important;gap:4px;text-decoration:none!important;color:#fff!important;padding:6px 2px!important;line-height:1.35!important}
+.fc-date-line{font-size:.82rem;font-weight:600;color:#fff!important;line-height:1.35}
+.fc-weekday-line{font-size:.68rem;color:rgba(255,255,255,.8)!important;font-weight:400;line-height:1.35}
+.fc-weather-icon{font-size:.75rem}
+.fc-weather-icon i{color:rgba(255,255,255,.9)!important}
+/* Today header: clay red bg */
+.fc th.fc-day-today{background:#A0522D!important}
+/* AI FAB inline */
+#aiFab{position:relative;bottom:auto!important;right:auto!important;width:36px;height:36px;border-radius:50%;background:var(--brand-primary) url(/static/img/ai-avatar.png) center/cover no-repeat;cursor:pointer;box-shadow:0 2px 8px rgba(45,74,62,.25);transition:transform .2s;vertical-align:middle;display:inline-block;flex-shrink:0}
+
+.ai-fab-wrap{position:relative;flex-shrink:0}
+#aiPanel{display:none;position:fixed;bottom:90px;right:28px;width:380px;max-height:520px;background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:901;flex-direction:column;overflow:hidden}
+
+.event-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.18);padding:20px;z-index:2000;min-width:300px;max-width:420px;display:none}
+.event-popup .popup-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.event-popup .popup-header h4{margin:0;font-size:.95rem;color:var(--brand-primary)}
+.event-popup .popup-close{background:none;border:none;font-size:1.2rem;cursor:pointer;color:#8C8C8C}
+.event-popup .popup-body{font-size:.85rem;color:#333;line-height:1.6}
+.event-popup .popup-body .field{display:flex;gap:8px;margin-bottom:6px}
+.event-popup .popup-body .field-label{color:#8C8C8C;min-width:70px}
+.event-popup .popup-actions{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
+.event-popup .popup-actions button{padding:5px 14px;border-radius:4px;border:1px solid #d0d0d0;background:#fff;font-size:.8rem;cursor:pointer}
+.event-popup .popup-actions .btn-primary{background:var(--brand-primary);color:#fff;border-color:var(--brand-primary)}
+.event-popup .popup-actions .btn-cancel{background:transparent;color:var(--brand-primary);border:1px solid var(--brand-primary);border-radius:4px;padding:5px 14px;font-size:.8rem;cursor:pointer;transition:all .15s}
+.event-popup .popup-actions .btn-cancel:hover{background:var(--brand-primary);color:#fff}
+.popup-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.25);z-index:1999;display:none}
+.leave-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.18);padding:20px;z-index:2002;min-width:320px;display:none}
+.leave-popup h4{margin:0 0 12px;font-size:.95rem;color:var(--brand-primary)}
+.leave-popup label{font-size:.8rem;color:#666;display:block;margin-bottom:4px}
+.leave-popup select,.leave-popup textarea{width:100%;border:1px solid #d0d0d0;border-radius:4px;padding:6px 8px;font-size:.8rem;margin-bottom:10px;box-sizing:border-box}
+.leave-popup textarea{height:60px;resize:vertical}
+.leave-popup .btn-primary{background:var(--brand-primary);color:#fff;border-color:var(--brand-primary);border-radius:4px;padding:5px 14px;font-size:.8rem;cursor:pointer}
+.leave-popup .btn-cancel{background:transparent;color:var(--brand-primary);border:1px solid var(--brand-primary);border-radius:4px;padding:5px 14px;font-size:.8rem;cursor:pointer;transition:all .15s}
+.leave-popup .btn-cancel:hover{background:var(--brand-primary);color:#fff}
+#aiPanel.open{display:flex}
+.ai-panel-header{background:#2D4A3E;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
+.ai-panel-header span:first-child{font-weight:600;font-size:.9rem}
+.ai-panel-header img{width:22px;height:22px;border-radius:50%;margin-right:6px;vertical-align:middle;border:1.5px solid rgba(255,255,255,.3);background:#2D4A3E}
+.ai-panel-header .header-actions{display:flex;gap:10px;align-items:center}
+.ai-panel-header .header-actions i,.ai-panel-header .header-actions span{cursor:pointer;opacity:.7;transition:opacity .15s}
+.ai-panel-header .header-actions i:hover,.ai-panel-header .header-actions span:hover{opacity:1}
+.ai-msg{margin-bottom:10px;padding:8px 12px;border-radius:8px;max-width:90%;word-break:break-word;white-space:pre-wrap}
+.ai-msg-user{background:#e8efe9;color:#2D4A3E;margin-left:auto;text-align:right}
+.ai-msg-bot{background:#f5f5f5;color:#333}
+.ai-msg-bot code{background:#e8efe9;padding:1px 4px;border-radius:3px;font-size:.75rem;color:#A0522D}
+.ai-typing{color:#8C8C8C;font-style:italic}
+#aiMessages{flex:1;overflow-y:auto;padding:12px 14px;min-height:280px;max-height:380px;font-size:.82rem;line-height:1.6}
+.ai-input-row{padding:10px 12px;border-top:1px solid #eee;display:flex;gap:6px}
+.ai-input-row textarea{flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:.8rem;outline:none;resize:none;max-height:80px;min-height:32px;line-height:1.4;font-family:inherit}
+.ai-input-row textarea:focus{border-color:#2D4A3E}
+.ai-input-row button{background:#2D4A3E;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:.8rem;cursor:pointer}
+.ai-input-row button:hover{background:#1a2e25}
+.calendar-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:.75rem;color:#666;align-items:center}
+.calendar-legend .legend-item{display:flex;align-items:center;gap:4px}
+.calendar-legend .legend-dot{width:12px;height:12px;border-radius:2px;display:inline-block}
+
+.fc-event .fc-event-main{color:inherit!important}
+.fc-event .fc-event-title{color:inherit!important;font-weight:inherit!important}
+.fc-event .fc-event-time{display:none!important}
+.fc-event.time-locked{border-left-width:5px!important;border-left-color:#1976D2!important}
+@media(max-width:768px){
+.calendar-wrap{padding:10px 8px}
+.calendar-header{flex-direction:column;align-items:flex-start}
+#aiPanel{width:calc(100vw - 16px);right:0;max-height:420px}
+#aiFab{width:32px;height:32px}
+.calendar-header-row{flex-wrap:wrap}
+.fc .fc-timegrid-slot{height:30px!important}
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="calendar-wrap">
+    <div class="calendar-header">
+    <div class="calendar-header-row">
+        <h3><i class="fa-solid fa-calendar-days"></i> 日程管理</h3>
+        <div class="calendar-legend">
+            <span class="legend-item"><span class="legend-dot" style="background:#e8f0ec;border:2px solid #2D4A3E"></span>周期性工作</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#FFF8E1;border:2px solid #E6A23C"></span>待办任务</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#F5E6DC;border:2px solid #A0522D"></span>进行中</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#F3E5F5;border:2px solid #7B1FA2"></span>待验收</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#d5f5e3;border:2px solid #2D6A3E"></span>已完成</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#e0e0e0;border:2px solid #8C8C8C"></span>请假/假日</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#fff;border-left:3px solid #E6A23C"></span>加班</span>
+        </div>
+        <div class="ai-fab-wrap">
+            <div id="aiFab" title="AI助手"></div>
+            <div id="aiPanel">
+                <div class="ai-panel-header"><span><img src="/static/img/ai-avatar.png" alt="">早点下班AI助手</span><span class="header-actions"><i class="fa-solid fa-trash-can" id="aiClearBtn" title="清空对话"></i><span id="aiCloseBtn" style="font-size:1.1rem">&times;</span></span></div>
+                <div id="aiMessages"></div>
+                <div class="ai-input-row"><textarea id="aiInput" placeholder="描述需求... (Enter发送)" rows="1"></textarea><button id="aiSend"><i class="fa-solid fa-paper-plane"></i></button></div>
+            </div>
+        </div>
+    </div>
+    </div>
+    <div class="calendar-toolbar">
+        <button class="btn-nav" id="btnPrev"><i class="fa-solid fa-chevron-left"></i></button>
+        <span class="today-label" id="weekLabel"></span>
+        <button class="btn-nav" id="btnNext"><i class="fa-solid fa-chevron-right"></i></button>
+        <button class="btn-nav" id="btnToday" style="background:#8C8C8C">今天</button>
+        <button id="btnCompact" onclick="compactDay()" title="紧凑排列当日锁定工作" style="background:var(--brand-primary);color:#fff;border:none;border-radius:4px;padding:5px 10px;font-size:.75rem;cursor:pointer;margin-right:6px"><i class="fa-solid fa-compress"></i> 紧凑</button><select id="executorFilter"></select>
+    </div>
+    <div id="calendar"></div>
+</div>
+
+<div class="popup-overlay" id="popupOverlay"></div>
+<div class="event-popup" id="eventPopup">
+    <div class="popup-header"><h4 id="popupTitle">事件详情</h4><button class="popup-close" id="popupClose"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="popup-body" id="popupBody"></div>
+    <div class="popup-actions" id="popupActions"></div>
+</div>
+
+<div class="leave-popup" id="leavePopup">
+    <h4><i class="fa-solid fa-calendar-xmark"></i> 请假/休假</h4>
+    <label>请假日期</label>
+    <input type="date" id="leaveDate" readonly style="width:100%;border:1px solid #d0d0d0;border-radius:4px;padding:6px 8px;font-size:.8rem;margin-bottom:10px;box-sizing:border-box">
+    <label>移交执行人（可选）</label>
+    <select id="leaveTransfer"><option value="">不移交</option></select>
+    <label>移交说明</label>
+    <textarea id="leaveInstructions" placeholder="如：到期任务请帮忙处理..."></textarea>
+    <div class="popup-actions">
+        <button class="btn-primary" id="leaveConfirm">确认请假</button>
+        <button class="btn-cancel" id="leaveCancel">取消</button>
+    </div>
+</div>
+
+
+<div class="leave-popup" id="splitPopup" style="min-width:360px">
+    <h4><i class="fa-solid fa-scissors"></i> 拆分工作</h4>
+    <div id="splitInfo" style="font-size:.8rem;color:#666;margin-bottom:10px"></div>
+    <label style="font-size:.8rem;color:#666">拆成几片</label>
+    <input type="number" id="splitPieces" min="2" max="10" value="2" style="width:100%;border:1px solid #d0d0d0;border-radius:4px;padding:6px 8px;font-size:.8rem;margin-bottom:10px;box-sizing:border-box">
+    <div id="splitDurationPreview" style="font-size:.78rem;color:#2D4A3E;margin-bottom:14px"></div>
+    <div class="popup-actions">
+        <button class="btn-primary" id="splitConfirm">确认拆分</button>
+        <button class="btn-cancel" id="splitCancel">取消</button>
+    </div>
+</div>
+
+<div class="leave-popup" id="scopePopup" style="min-width:340px">
+    <h4><i class="fa-solid fa-arrows-up-down"></i> 调整方式</h4>
+    <div style="font-size:.82rem;color:#555;margin-bottom:14px;line-height:1.5">
+        拖动的是周期性锁定/拆分工作，请选择调整范围：
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+        <label style="display:flex;align-items:flex-start;gap:8px;font-size:.82rem;cursor:pointer;padding:8px;border:1px solid #d0d0d0;border-radius:4px;transition:all .15s" id="scopeOnceLabel">
+            <input type="radio" name="scopeChoice" value="once" checked style="margin-top:2px">
+            <div><strong>仅本次调整</strong><br><span style="color:#8C8C8C;font-size:.75rem">不影响后续实例和固定时间</span></div>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:8px;font-size:.82rem;cursor:pointer;padding:8px;border:1px solid #d0d0d0;border-radius:4px;transition:all .15s" id="scopeLongtermLabel">
+            <input type="radio" name="scopeChoice" value="longterm" style="margin-top:2px">
+            <div><strong>长期调整</strong><br><span style="color:#8C8C8C;font-size:.75rem">同步后续实例和固定时间</span></div>
+        </label>
+    </div>
+    <div class="popup-actions">
+        <button class="btn-primary" id="scopeConfirm">确认</button>
+        <button class="btn-cancel" id="scopeCancel">取消</button>
+    </div>
+</div>
+
+<div class="leave-popup" id="compactPopup" style="min-width:320px">
+    <h4><i class="fa-solid fa-compress"></i> 紧凑排列</h4>
+    <label style="font-size:.8rem;color:#666">选择日期（YYYY-MM-DD）</label>
+    <input type="date" id="compactDateInput" style="width:100%;border:1px solid #d0d0d0;border-radius:4px;padding:6px 8px;font-size:.8rem;margin-bottom:10px;box-sizing:border-box">
+    <div class="popup-actions">
+        <button class="btn-primary" id="compactConfirm">确认排列</button>
+        <button class="btn-cancel" id="compactCancel">取消</button>
+    </div>
+</div>
+
+
+
+<script src="/static/lib/fullcalendar/fullcalendar.min.js"></script>
+
+<script>
+(function(){
+    var WORK_START="09:00",WORK_END="20:00",SCHED_END="18:30",SLOT_MIN=30;
+    var calendar,holidayCache={},allExecutors=[];
+    var weatherCache={};
+    var WMO_ICONS={"0":"fa-sun","1":"fa-sun","2":"fa-cloud-sun","3":"fa-cloud","45":"fa-smog","48":"fa-smog","51":"fa-cloud-rain","53":"fa-cloud-rain","55":"fa-cloud-rain","56":"fa-cloud-rain","57":"fa-cloud-rain","61":"fa-cloud-showers-heavy","63":"fa-cloud-showers-heavy","65":"fa-cloud-showers-heavy","66":"fa-cloud-showers-heavy","67":"fa-cloud-showers-heavy","71":"fa-snowflake","73":"fa-snowflake","75":"fa-snowflake","77":"fa-snowflake","80":"fa-cloud-sun-rain","81":"fa-cloud-sun-rain","82":"fa-cloud-sun-rain","85":"fa-snowflake","86":"fa-snowflake","95":"fa-cloud-bolt","96":"fa-cloud-bolt","99":"fa-cloud-bolt"};
+    var WMO_COLORS={"0":"#E6A23C","1":"#E6A23C","2":"#8C8C8C","3":"#8C8C8C","45":"#8C8C8C","48":"#8C8C8C","51":"#1976D2","53":"#1976D2","55":"#1976D2","56":"#1976D2","57":"#1976D2","61":"#1976D2","63":"#1976D2","65":"#1976D2","66":"#1976D2","67":"#1976D2","71":"#5C9BD4","73":"#5C9BD4","75":"#5C9BD4","77":"#5C9BD4","80":"#1976D2","81":"#1976D2","82":"#1976D2","85":"#5C9BD4","86":"#5C9BD4","95":"#7B1FA2","96":"#7B1FA2","99":"#7B1FA2"};
+    function fetchWeather(){
+        var now=new Date(),s=new Date(now),e=new Date(now);
+        s.setDate(s.getDate()-7);e.setDate(e.getDate()+14);
+        var fmt=function(d){return d.toISOString().slice(0,10)};
+        fetch("https://api.open-meteo.com/v1/forecast?latitude=31.23&longitude=121.47&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia%2FShanghai&start_date="+fmt(s)+"&end_date="+fmt(e))
+        .then(function(r){return r.json()}).then(function(d){
+            if(d&&d.daily){
+                for(var i=0;i<d.daily.time.length;i++){
+                    weatherCache[d.daily.time[i]]={code:String(d.daily.weather_code[i]),max:d.daily.temperature_2m_max[i],min:d.daily.temperature_2m_min[i]};
+                }
+                calendar.refetchEvents();
+                setTimeout(function(){patchDayHeaders();applyHolidayStyles();applyLunchBreak()},100);
+            }
+        }).catch(function(){});
+    }
+
+    document.addEventListener("DOMContentLoaded",function(){loadExecutors();initCalendar();fetchWeather();bindEvents();bindAI()});
+
+    function loadExecutors(){
+        fetch("/work-mgmt/api/options").then(function(r){return r.json()}).then(function(d){
+            if(!d.success)return;allExecutors=d.executors||[];
+            var sel=document.getElementById("executorFilter");
+            allExecutors.forEach(function(e){var o=document.createElement("option");o.value=e.id;o.textContent=e.name;sel.appendChild(o)});
+            if(allExecutors.length>0){sel.value=allExecutors[0].id;calendar.refetchEvents();}
+        });
+    }
+
+    function dateStr(d){var y=d.getFullYear(),m=('0'+(d.getMonth()+1)).slice(-2),dd=('0'+d.getDate()).slice(-2);return y+'-'+m+'-'+dd}
+
+    function patchDayHeaders(){
+        if(!calendar)return;
+        var start=new Date(calendar.view.activeStart);
+        var end=new Date(calendar.view.activeEnd);
+        var dates=[];
+        for(var d=new Date(start);d<end;d.setDate(d.getDate()+1))dates.push(new Date(d));
+        var cells=document.querySelectorAll('.fc-col-header-cell');
+        if(cells.length===0){setTimeout(patchDayHeaders,150);return}
+        cells.forEach(function(th,i){
+            if(i>=dates.length)return;
+            var d=dates[i],mm=d.getMonth()+1,dd=d.getDate();
+            var wd=["\u65e5","\u4e00","\u4e8c","\u4e09","\u56db","\u4e94","\u516d"][d.getDay()];
+            var ds=dateStr(d),w=weatherCache[ds],wh='';
+            if(w){var ic=WMO_ICONS[w.code]||"fa-cloud";wh='<span class="fc-weather-icon"><i class="fa-solid '+ic+'"></i></span>'}
+            var html='<span class="fc-date-line">'+mm+'/'+dd+'</span><span class="fc-weekday-line">\u5468'+wd+'</span>'+wh;
+            var c=th.querySelector('.fc-col-header-cell-cushion');
+            if(c)c.innerHTML=html;
+        });
+    }
+
+
+
+    
+    window._startSplit=function(id){
+        window._closePopup();
+        fetch("/work-mgmt/api/calendar/"+id,{method:"GET"}).then(function(){});
+        // Get event info from calendar
+        var evt=calendar.getEventById(String(id));
+        if(!evt){alert("事件不存在");return}
+        var dur=evt.end?Math.round((evt.end-evt.start)/60000):30;
+        document.getElementById("splitInfo").textContent=evt.title+" (\u5de5\u65f6"+dur+"\u5206\u949f)";
+        document.getElementById("splitPieces").value=2;
+        document.getElementById("splitPieces").dataset.instanceId=id;
+        document.getElementById("splitPieces").dataset.duration=dur;
+        window._updateSplitPreview();
+        document.getElementById("splitPopup").style.display="block";
+        document.getElementById("popupOverlay").style.display="block";
+    };
+
+    window._updateSplitPreview=function(){
+        var pcs=parseInt(document.getElementById("splitPieces").value)||2;
+        var dur=parseInt(document.getElementById("splitPieces").dataset.duration)||30;
+        var base=Math.floor(dur/pcs),rem=dur-base*pcs;
+        var parts=[];
+        for(var i=0;i<pcs;i++)parts.push((i<pcs-1?base:base+rem)+"\u5206\u949f");
+        document.getElementById("splitDurationPreview").innerHTML="\u5404\u7247\u5de5\u65f6\uff1a"+parts.join(" + ");
+    };
+
+    document.getElementById("splitPieces").addEventListener("input",window._updateSplitPreview);
+
+    document.getElementById("splitConfirm").addEventListener("click",function(){
+        var id=parseInt(document.getElementById("splitPieces").dataset.instanceId);
+        var pcs=parseInt(document.getElementById("splitPieces").value)||2;
+        var isResplit=document.getElementById("splitPieces").dataset.isResplit==="1";
+        document.getElementById("splitPieces").dataset.isResplit="";
+        document.getElementById("splitConfirm").textContent="确认拆分";
+        if(pcs<2||pcs>10){alert("拆分片数须在2~10之间");return}
+        var url=isResplit?"/work-mgmt/api/calendar/re-split/"+id:"/work-mgmt/api/calendar/split/"+id;
+        fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pieces:pcs})})
+        .then(function(r){return r.json()}).then(function(d){
+            if(d.success){
+                calendar.refetchEvents();
+                document.getElementById("splitPopup").style.display="none";
+                document.getElementById("popupOverlay").style.display="none";
+            }else alert(d.message||"拆分失败");
+        });
+    });
+
+    document.getElementById("splitCancel").addEventListener("click",function(){
+        document.getElementById("splitPopup").style.display="none";
+        document.getElementById("popupOverlay").style.display="none";
+    });
+
+        window._startResplit=function(id){
+        window._closePopup();
+        var evt=calendar.getEventById(String(id));
+        if(!evt){alert("事件不存在");return}
+        var ext=evt.extendedProps;
+        fetch("/work-mgmt/api/recurring?active_only=0").then(function(r){return r.json()}).then(function(d){
+            var rec=(d.data||[]).find(function(r){return r.id===ext.source_id});
+            var totalDur=rec?rec.duration_minutes:30;
+            document.getElementById("splitInfo").textContent=evt.title+" (总工时"+totalDur+"分钟, 当前"+ext.split_total+"片)";
+            document.getElementById("splitPieces").value=ext.split_total;
+            document.getElementById("splitPieces").dataset.instanceId=id;
+            document.getElementById("splitPieces").dataset.duration=totalDur;
+            document.getElementById("splitPieces").dataset.isResplit="1";
+            document.getElementById("splitConfirm").textContent="重新拆分";
+            window._updateSplitPreview();
+            document.getElementById("splitPopup").style.display="block";
+            document.getElementById("popupOverlay").style.display="block";
+        });
+    };
+
+    window._saveSplitPattern=function(recurringId){
+        if(!confirm("\u4fdd\u5b58\u5f53\u524d\u62c6\u5206\u6392\u5217\u4e3a\u9ed8\u8ba4\u6a21\u5f0f\uff1f\u672a\u6765\u5b9e\u4f8b\u5c06\u6309\u6b64\u6a21\u5f0f\u751f\u6210\u3002"))return;
+        fetch("/work-mgmt/api/calendar/save-split-pattern",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({recurring_id:recurringId})})
+        .then(function(r){return r.json()}).then(function(d){
+            if(d.success){alert("\u62c6\u5206\u6a21\u5f0f\u5df2\u4fdd\u5b58\uff0c\u672a\u6765\u5b9e\u4f8b\u5c06\u6309\u6b64\u6a21\u5f0f\u751f\u6210");calendar.refetchEvents();window._closePopup()}
+            else alert(d.message||"\u4fdd\u5b58\u5931\u8d25");
+        });
+    };
+
+    function compactDay(){
+        var ex=document.getElementById("executorFilter").value;
+        if(!ex){alert("请先选择人员");return;}
+        var s=calendar.view.activeStart,e=new Date(calendar.view.activeEnd.getTime()-1);
+        var dates=[];
+        for(var d=new Date(s);d<=e;d.setDate(d.getDate()+1)){dates.push(d.toISOString().slice(0,10));}
+        var todayStr=new Date().toISOString().slice(0,10);
+        document.getElementById("compactDateInput").value=todayStr;
+        document.getElementById("compactPopup").style.display="block";
+        document.getElementById("popupOverlay").style.display="block";
+        return;
+        fetch("/work-mgmt/api/calendar/compact",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({executor_id:parseInt(ex),date:dateStr})})
+        .then(function(r){return r.json()}).then(function(d){
+            if(d.success){calendar.refetchEvents();}else{alert(d.message||"紧凑排列失败");}
+        });
+    }
+    function initCalendar(){
+        calendar=new FullCalendar.Calendar(document.getElementById("calendar"),{
+            initialView:"timeGridWeek",locale:"zh-cn",firstDay:1,headerToolbar:false,
+            slotMinTime:WORK_START,slotMaxTime:WORK_END,
+            slotDuration:{minutes:SLOT_MIN},snapDuration:{minutes:5},slotLabelInterval:{minutes:60},
+            slotLabelFormat:{hour:"2-digit",minute:"2-digit",hour12:false},
+            dayHeaderContent:function(){return{html:"&nbsp;"}},
+            height:Math.max(600,window.innerHeight-200),nowIndicator:true,editable:true,droppable:true,
+            eventStartEditable:true,eventDurationEditable:true,eventOverlap:true,allDaySlot:false,displayEventTime:false,
+            events:loadEvents,eventClick:onEventClick,eventDrop:onEventDrop,eventResize:onEventResize,
+            datesSet:onDatesSet,eventDidMount:onEventMount
+        });
+        calendar.render();updateWeekLabel();setTimeout(function(){patchDayHeaders()},120);
+    }
+
+    function loadEvents(info,successCb,failureCb){
+        var s=info.startStr.slice(0,10),e=info.endStr.slice(0,10),ex=document.getElementById("executorFilter").value;
+        // Auto-generate missing instances for visible range
+        fetch("/work-mgmt/api/calendar/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({start_date:s,end_date:e,executor_id:ex?parseInt(ex):null})}).catch(function(){});
+        var evUrl="/work-mgmt/api/calendar?start="+s+"&end="+e+(ex?"&executor="+ex:"");
+        var holUrl="/work-mgmt/api/calendar/holidays?start="+s+"&end="+e;
+        Promise.all([fetch(evUrl).then(function(r){return r.json()}),fetch(holUrl).then(function(r){return r.json()})])
+            .then(function(res){
+                var events=res[0],holidays=res[1];
+                if(holidays.success) holidays.data.forEach(function(h){holidayCache[h.date]=h.holiday_type});
+                setTimeout(function(){applyHolidayStyles();applyLunchBreak()},50);
+                successCb(events);
+            }).catch(failureCb);
+    }
+
+    function applyHolidayStyles(){
+        document.querySelectorAll(".fc .fc-timegrid-col").forEach(function(col){
+            var d=col.getAttribute("data-date");if(!d)return;
+            var ht=holidayCache[d];
+            if(ht&&ht!=="\u5de5\u4f5c\u65e5"&&ht!=="\u5de5\u4f5c\u65e5-\u8865\u73ed") col.classList.add("fc-holiday-col");
+            else col.classList.remove("fc-holiday-col");
+        });
+    }
+
+    function applyLunchBreak(){
+        document.querySelectorAll(".fc-lunch-break").forEach(function(el){el.remove()});
+        var slotH=36,pxPerMin=slotH/SLOT_MIN;
+        var lunchPx=60*pxPerMin;
+        var startMin=9*60,lunchTop=(12*60+30-startMin)*pxPerMin;
+        document.querySelectorAll(".fc-timegrid-body").forEach(function(body){
+            var div=document.createElement("div");div.className="fc-lunch-break";
+            div.style.top=lunchTop+"px";div.style.height=lunchPx+"px";
+            body.style.position="relative";body.appendChild(div);
+        });
+    }
+
+    function onEventMount(arg){var el=arg.el;if(arg.event.extendedProps.time_locked){el.classList.add("time-locked");var lock=document.createElement("i");lock.className="fa-solid fa-lock";lock.style.cssText="font-size:.6rem;margin-left:3px;opacity:.7";var title=el.querySelector(".fc-event-title");if(title){title.appendChild(lock);if(!arg.event.extendedProps.has_fixed_time){var badge=document.createElement("span");badge.textContent="仅本次";badge.style.cssText="font-size:.55rem;background:#8C8C8C;color:#fff;border-radius:3px;padding:0 3px;margin-left:3px;vertical-align:middle";title.appendChild(badge);}}}
+        var ext=arg.event.extendedProps,el=arg.el;
+        el.classList.remove("recurring-event","task-event","leave-event","overtime-event","completed");
+        if(ext.source_type==="recurring"){el.classList.add("recurring-event");if(ext.completed_at)el.classList.add("completed")}
+        else if(ext.source_type==="task"){
+            el.classList.add("task-event");
+            var sm={pending:"status-pending",in_progress:"status-in_progress",pending_review:"status-pending_review",completed:"status-completed"};
+            if(sm[ext.status])el.classList.add(sm[ext.status]);
+        }
+        if(ext.status==="leave")el.classList.add("leave-event");
+        if(ext.is_overtime)el.classList.add("overtime-event");
+    }
+
+    function onDatesSet(){updateWeekLabel();setTimeout(function(){patchDayHeaders();applyHolidayStyles();applyLunchBreak()},100)}
+
+    function updateWeekLabel(){
+        if(!calendar)return;
+        var s=calendar.view.activeStart,e=new Date(calendar.view.activeEnd.getTime()-1);
+        var f=function(d){return(d.getMonth()+1)+"\u6708"+d.getDate()+"\u65e5"};
+        document.getElementById("weekLabel").textContent=f(s)+" - "+f(e);
+    }
+
+    function onEventClick(info){info.jsEvent.preventDefault();info.jsEvent.stopPropagation();showEventPopup(info.event)}
+
+    function onEventDrop(info){
+        var evt=info.event,nd=evt.startStr.slice(0,10),ns=evt.startStr.slice(11,16),ne=evt.endStr?evt.endStr.slice(11,16):null;
+        if(holidayCache[nd]&&holidayCache[nd]!=="工作日"&&holidayCache[nd]!=="工作日-补班"){
+            if(!confirm("该日期为假日/节假日，确认排到这天吗？")){info.revert();return}
+        }
+        var ext=evt.extendedProps;
+        var ot=0;if(ne&&ne>SCHED_END)ot=1;
+        if(ext.source_type==="recurring"){
+            window._pendingDrop={id:evt.id,date:nd,start_time:ns,end_time:ne,is_overtime:ot,revert:function(){info.revert()}};
+            document.getElementById("scopePopup").style.display="block";
+            document.getElementById("popupOverlay").style.display="block";
+            document.querySelector('input[name="scopeChoice"][value="once"]').checked=true;
+            return;
+        }
+        fetch("/work-mgmt/api/calendar/"+evt.id,{method:"PUT",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({action:"move",date:nd,start_time:ns,end_time:ne,is_overtime:ot})
+        }).then(function(r){return r.json()}).then(function(d){
+            if(!d.success){alert(d.message||"移动失败");info.revert()}else calendar.refetchEvents();
+        }).catch(function(){info.revert()});
+    }
+
+    
+    function onEventResize(info){
+        var evt=info.event,ne=evt.endStr?evt.endStr.slice(11,16):null;
+        var ot=0;if(ne&&ne>SCHED_END)ot=1;
+        fetch("/work-mgmt/api/calendar/"+evt.id,{method:"PUT",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({action:"edit",start_time:evt.startStr.slice(11,16),end_time:ne,is_overtime:ot})
+        }).then(function(r){return r.json()}).then(function(d){if(!d.success){alert(d.message||"\u66f4\u65b0\u5931\u8d25");info.revert()}});
+    }
+
+    function showEventPopup(evt){
+        var ext=evt.extendedProps;
+        document.getElementById("popupTitle").textContent=evt.title;
+        var h="";
+        h+='<div class="field"><span class="field-label">\u7c7b\u578b</span><span>'+(ext.source_type==="recurring"?"\u5468\u671f\u6027\u5de5\u4f5c":"\u4e00\u6b21\u6027\u4efb\u52a1")+"</span></div>";
+        h+='<div class="field"><span class="field-label">\u6267\u884c\u4eba</span><span>'+(ext.executor_name||"-")+"</span></div>";
+        h+='<div class="field"><span class="field-label">\u65e5\u671f</span><span>'+evt.startStr.slice(0,10)+"</span></div>";
+        h+='<div class="field"><span class="field-label">\u65f6\u95f4</span><span>'+evt.startStr.slice(11,16)+" - "+(evt.endStr?evt.endStr.slice(11,16):"-")+"</span></div>";
+        h+='<div class="field"><span class="field-label">\u72b6\u6001</span><span>'+statusLabel(ext)+"</span></div>";
+        if(ext.is_overtime)h+='<div class="field"><span class="field-label" style="color:#E6A23C">\u52a0\u73ed</span><span>18:30\u540e</span></div>';
+        if(ext.transfer_to_id)h+='<div class="field"><span class="field-label">\u79fb\u4ea4\u81f3</span><span>\u5458\u5de5#'+ext.transfer_to_id+"</span></div>";
+        document.getElementById("popupBody").innerHTML=h;
+        var a="";
+        if(ext.source_type==="recurring"&&!ext.completed_at&&ext.status!=="leave")a+='<button class="btn-primary" onclick="window._completeEvent('+evt.id+')"><i class="fa-solid fa-check"></i> \u5b8c\u6210</button>';
+        if(ext.source_type==="recurring")a+='<button style="background:'+(ext.time_locked?'#1976D2':'#8C8C8C')+'";color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:.75rem;cursor:pointer" onclick="window._toggleLock('+evt.id+','+(ext.time_locked?0:1)+')"><i class="fa-solid fa-lock"></i> '+(ext.time_locked?'\u89e3\u9501':'\u9501\u5b9a\u65f6\u95f4')+'</button>';
+        if(ext.source_type==="recurring"&&ext.split_total<=1)a+='<button style="background:#A0522D;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:.75rem;cursor:pointer" onclick="window._startSplit('+evt.id+')"><i class="fa-solid fa-scissors"></i> \u62c6\u5206</button>';
+        if(ext.source_type==="recurring"&&ext.split_total>1){a+='<button style="background:#A0522D;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:.75rem;cursor:pointer" onclick="window._startResplit('+evt.id+')"><i class="fa-solid fa-scissors"></i> 编辑拆分</button>';a+='<button style="background:#2D4A3E;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:.75rem;cursor:pointer" onclick="window._saveSplitPattern('+ext.source_id+')"><i class="fa-solid fa-bookmark"></i> 保存拆分模式</button>'};
+if(ext.source_type==="task"&&ext.status!=="leave"){
+            if(ext.status==="pending")a+='<button class="btn-primary" onclick="window._taskAction('+ext.source_id+',\'start\')"><i class="fa-solid fa-play"></i> 执行</button>';
+            else if(ext.status==="in_progress")a+='<button class="btn-primary" onclick="window._taskAction('+ext.source_id+',\'submit_review\')"><i class="fa-solid fa-paper-plane"></i> 提交验收</button>';
+            else if(ext.status==="pending_review")a+='<button class="btn-primary" onclick="window._taskAction('+ext.source_id+',\'approve\')"><i class="fa-solid fa-check"></i> 确认验收</button>';
+        }
+        if(ext.status!=="leave")a+='<button onclick="window._startLeave('+evt.id+",\x27"+evt.startStr.slice(0,10)+"\x27,"+(ext.executor_id||0)+')"><i class="fa-solid fa-calendar-xmark"></i> \u8bf7\u5047</button>';
+        a+='<button onclick="window._closePopup()">\u5173\u95ed</button>';
+        document.getElementById("popupActions").innerHTML=a;
+        document.getElementById("eventPopup").style.display="block";document.getElementById("popupOverlay").style.display="block";
+    }
+
+    function statusLabel(ext){
+        if(ext.status==="leave")return"\u8bf7\u5047";if(ext.completed_at)return"\u5df2\u5b8c\u6210";
+        if(ext.source_type==="task"){return{pending:"\u5f85\u529e",in_progress:"\u8fdb\u884c\u4e2d",pending_review:"\u5f85\u9a8c\u6536",completed:"\u5df2\u5b8c\u6210"}[ext.status]||ext.status}
+        return"\u6b63\u5e38";
+    }
+
+    window._closePopup=function(){document.getElementById("eventPopup").style.display="none";document.getElementById("popupOverlay").style.display="none"};
+
+    window._toggleLock=function(id,lock){fetch("/work-mgmt/api/calendar/lock/"+id,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({locked:!!lock})}).then(function(r){return r.json()}).then(function(d){if(d.success){calendar.refetchEvents();window._closePopup()}})};
+window._completeEvent=function(id){
+        fetch("/work-mgmt/api/calendar/"+id,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"complete"})})
+        .then(function(r){return r.json()}).then(function(d){if(d.success){calendar.refetchEvents();window._closePopup()}else alert(d.message||"\u64cd\u4f5c\u5931\u8d25")});
+    };
+    window._taskAction=function(taskId,action){
+        var msgs={start:"确认开始执行此任务？",submit_review:"确认提交验收？",approve:"确认验收通过？"};
+        if(!confirm(msgs[action]||"确认操作？"))return;
+        fetch("/work-mgmt/api/tasks/"+taskId,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:action})})
+        .then(function(r){return r.json()}).then(function(d){if(d.success){calendar.refetchEvents();window._closePopup()}else alert(d.message||"操作失败")});
+    };
+
+    window._startLeave=function(iid,date,eid){
+        window._closePopup();
+        document.getElementById("leaveDate").value=date;
+        document.getElementById("leaveDate").dataset.executorId=eid;
+        var ts=document.getElementById("leaveTransfer");ts.innerHTML='<option value="">\u4e0d\u79fb\u4ea4</option>';
+        allExecutors.forEach(function(e){if(e.id!==eid){var o=document.createElement("option");o.value=e.id;o.textContent=e.name;ts.appendChild(o)}});
+        document.getElementById("leavePopup").style.display="block";document.getElementById("popupOverlay").style.display="block";
+    };
+
+    document.getElementById("leaveConfirm").addEventListener("click",function(){
+        var date=document.getElementById("leaveDate").value,sid=document.getElementById("leaveDate").dataset.executorId;
+        var tt=document.getElementById("leaveTransfer").value,ins=document.getElementById("leaveInstructions").value;
+        fetch("/work-mgmt/api/leaves",{method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({staff_id:parseInt(sid),date:date,transfer_to_id:tt?parseInt(tt):null,instructions:ins})
+        }).then(function(r){return r.json()}).then(function(d){
+            if(d.success){calendar.refetchEvents();document.getElementById("leavePopup").style.display="none";document.getElementById("popupOverlay").style.display="none";document.getElementById("leaveInstructions").value=""}
+            else alert(d.message||"\u8bf7\u5047\u767b\u8bb0\u5931\u8d25");
+        });
+    });
+    document.getElementById("leaveCancel").addEventListener("click",function(){document.getElementById("leavePopup").style.display="none";document.getElementById("popupOverlay").style.display="none"});
+
+    function toggleLock(id,lock){fetch("/work-mgmt/api/calendar/lock/"+id,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({locked:!!lock})}).then(function(r){return r.json()}).then(function(d){if(d.success){calendar.refetchEvents()}})}
+function bindEvents(){
+        document.getElementById("btnPrev").addEventListener("click",function(){calendar.prev()});
+        document.getElementById("btnNext").addEventListener("click",function(){calendar.next()});
+        document.getElementById("btnToday").addEventListener("click",function(){calendar.today()});
+        document.getElementById("executorFilter").addEventListener("change",function(){calendar.refetchEvents()});
+        document.getElementById("popupClose").addEventListener("click",window._closePopup);
+        document.getElementById("popupOverlay").addEventListener("click",window._closePopup);
+
+    // Scope popup handlers (adjust method for recurring move)
+    document.getElementById("scopeConfirm").addEventListener("click",function(){
+        var scope=document.querySelector('input[name="scopeChoice"]:checked').value;
+        document.getElementById("scopePopup").style.display="none";
+        document.getElementById("popupOverlay").style.display="none";
+        // Resume the pending drop with chosen scope
+        if(window._pendingDrop){
+            var pd=window._pendingDrop;
+            window._pendingDrop=null;
+            fetch("/work-mgmt/api/calendar/"+pd.id,{method:"PUT",headers:{"Content-Type":"application/json"},
+                body:JSON.stringify({action:"move",date:pd.date,start_time:pd.start_time,end_time:pd.end_time,is_overtime:pd.is_overtime,scope:scope})
+            }).then(function(r){return r.json()}).then(function(d){
+                if(!d.success){alert(d.message||"移动失败");pd.revert()}else calendar.refetchEvents();
+            }).catch(function(){pd.revert()});
+        }
+    });
+    document.getElementById("scopeCancel").addEventListener("click",function(){
+        document.getElementById("scopePopup").style.display="none";
+        document.getElementById("popupOverlay").style.display="none";
+        if(window._pendingDrop){window._pendingDrop.revert();window._pendingDrop=null;}
+    });
+
+    // Compact popup handlers
+    document.getElementById("compactConfirm").addEventListener("click",function(){
+        var dateStr=document.getElementById("compactDateInput").value;
+        if(!dateStr||!/\d{4}-\d{2}-\d{2}/.test(dateStr)){alert("请输入有效日期(YYYY-MM-DD)");return;}
+        document.getElementById("compactPopup").style.display="none";
+        document.getElementById("popupOverlay").style.display="none";
+        var ex=document.getElementById("executorFilter").value;
+        fetch("/work-mgmt/api/calendar/compact",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({executor_id:parseInt(ex),date:dateStr})})
+        .then(function(r){return r.json()}).then(function(d){
+            if(d.success){calendar.refetchEvents();}else{alert(d.message||"紧凑排列失败");}
+        });
+    });
+    document.getElementById("compactCancel").addEventListener("click",function(){
+        document.getElementById("compactPopup").style.display="none";
+        document.getElementById("popupOverlay").style.display="none";
+    });
+
+    }
+
+
+    var _aiMessages=[];
+    function toggleAiChat(){
+        var p=document.getElementById('aiPanel');
+        if(p.style.display==='none'||!p.style.display||p.classList.contains('open')===false){
+            p.classList.add('open');p.style.display='flex';
+            if(!_aiMessages.length){
+                appendAiMsg('bot','你好！我是早点下班AI助手，可以帮你：\n1. 查询日程和工时分布\n2. 创建一次性任务\n3. 分析工作负荷\n例如：帮我创建一个明天下午的巡店任务');
+                _aiMessages.push({role:'assistant',content:'你好！我是早点下班AI助手，可以帮你查询日程、创建任务、分析工时。'});
+            }
+            document.getElementById('aiInput').focus();
+        }else{p.classList.remove('open');p.style.display='none';}
+    }
+    function clearAiHistory(){
+        if(!confirm('清空AI对话记录？'))return;
+        fetch('/work-mgmt/api/ai/chat/clear?module=calendar',{method:'DELETE'}).then(function(r){return r.json()}).then(function(d){
+            if(d.success){document.getElementById('aiMessages').innerHTML='';_aiMessages=[];appendAiMsg('bot','对话已清空');}
+        }).catch(function(){});
+    }
+    function appendAiMsg(type,text){
+        var box=document.getElementById('aiMessages');
+        var div=document.createElement('div');
+        div.className='ai-msg ai-msg-'+type;
+        var html=text.replace(/```json\n?([\s\S]*?)```/g,function(m,json){
+            try{
+                var obj=JSON.parse(json);
+                var isUpdate=obj.action==='update';var summary=isUpdate?'\u4fee\u6539\u4efb\u52a1'+(obj.task_no||'?')+(obj.title?'\uff1a\u003cb\u003e'+obj.title+'\u003c/b\u003e':''):'\u003cb\u003e'+obj.title+'\u003c/b\u003e \u2192 '+(obj.executor||'\u672a\u6307\u5b9a')+'\uff0c\u622a\u6b62'+(obj.expected_end||'\u672a\u5b9a')+'\uff0c\u9884\u4f30'+(obj.estimated_minutes||0)+'min';if(isUpdate&&obj.expected_end)summary+='\uff0c\u622a\u6b62\u2192'+obj.expected_end;if(isUpdate&&obj.estimated_minutes)summary+='\uff0c\u5de5\u65f6\u2192'+obj.estimated_minutes+'min';
+                return '<div style="background:#e8efe9;padding:8px 10px;border-radius:6px;margin:4px 0;border-left:3px solid '+(isUpdate?'#E6A23C':'#2D4A3E')+'">'+summary
+                    +'<div style="margin-top:6px"><button class="ai-confirm-create" data-json="'+encodeURIComponent(json)+'" style="background:#2D4A3E;color:#fff;border:none;border-radius:4px;padding:4px 12px;font-size:0.75rem;cursor:pointer">'+(isUpdate?'\u786e\u8ba4\u4fee\u6539':'\u786e\u8ba4\u521b\u5efa')+'</button></div></div>';
+            }catch(e){return '<pre>'+json+'</pre>';}
+        }).replace(/`([^`]+)`/g,'$1');
+        div.innerHTML=html;
+        // bind confirm buttons
+        div.querySelectorAll('.ai-confirm-create').forEach(function(btn){
+            btn.addEventListener('click',function(){confirmCreateTask(btn)});
+        });
+        box.appendChild(div);
+        box.scrollTop=box.scrollHeight;
+    }
+    function confirmCreateTask(btn){
+        var jsonStr=decodeURIComponent(btn.getAttribute('data-json'));
+        var task=JSON.parse(jsonStr);
+        var isUpdate=task.action==='update';
+        if(!isUpdate && !task.executor_id){
+            var found=allExecutors.find(function(u){return u.name===task.executor;});
+            if(found) task.executor_id=found.id;
+            else{
+                // Show executor picker
+                var picker=document.createElement('select');
+                picker.style.cssText='margin:4px 0;padding:2px 6px;border:1px solid #ccc;border-radius:4px;font-size:0.75rem;max-width:100%';
+                var defOpt=document.createElement('option');defOpt.value='';defOpt.textContent='\u8bf7\u9009\u62e9\u6267\u884c\u4eba';picker.appendChild(defOpt);
+                allExecutors.forEach(function(u){var o=document.createElement('option');o.value=u.id;o.textContent=u.name;picker.appendChild(o);});
+                var wrap=document.createElement('div');
+                wrap.style.cssText='background:#e8efe9;padding:8px 10px;border-radius:6px;margin:4px 0;border-left:3px solid #E6A23C';
+                wrap.innerHTML='<div style="font-size:0.75rem;color:#8C8C8C;margin-bottom:4px">\u627e\u4e0d\u5230\u6267\u884c\u4eba\u300c'+task.executor+'\u300d\uff0c\u8bf7\u9009\u62e9\uff1a</div>';
+                var confirmBtn=document.createElement('button');
+                confirmBtn.textContent='\u786e\u8ba4\u521b\u5efa';confirmBtn.disabled=true;
+                confirmBtn.style.cssText='background:#2D4A3E;color:#fff;border:none;border-radius:4px;padding:4px 12px;font-size:0.75rem;cursor:pointer;margin-top:4px';
+                picker.addEventListener('change',function(){confirmBtn.disabled=!picker.value;});
+                confirmBtn.addEventListener('click',function(){
+                    task.executor_id=parseInt(picker.value);delete task.executor;
+                    confirmBtn.disabled=true;confirmBtn.textContent='\u521b\u5efa\u4e2d...';
+                    fetch('/work-mgmt/api/tasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(task)}).then(function(r){return r.json()}).then(function(d){
+                        if(d.success||d.id){confirmBtn.textContent='\u5df2\u521b\u5efa';confirmBtn.style.background='#8C8C8C';confirmBtn.style.cursor='default';btn.disabled=true;btn.textContent='\u5df2\u521b\u5efa';btn.style.background='#8C8C8C';appendAiMsg('bot','\u4efb\u52a1\u5df2\u521b\u5efa\u6210\u529f\uff01');}
+                        else{confirmBtn.textContent='\u521b\u5efa\u5931\u8d25';confirmBtn.style.background='#A0522D';appendAiMsg('bot','\u521b\u5efa\u5931\u8d25\uff1a'+(d.message||'\u672a\u77e5\u9519\u8bef'));}
+                    }).catch(function(){confirmBtn.textContent='\u521b\u5efa\u5931\u8d25';confirmBtn.style.background='#A0522D';appendAiMsg('bot','\u7f51\u7edc\u9519\u8bef');});
+                });
+                wrap.appendChild(picker);wrap.appendChild(document.createElement('br'));wrap.appendChild(confirmBtn);
+                document.getElementById('aiMessages').appendChild(wrap);
+                document.getElementById('aiMessages').scrollTop=99999;
+                return;
+            }
+            delete task.executor;
+        }
+        btn.disabled=true;
+        btn.textContent=isUpdate?'\u4fee\u6539\u4e2d...':'\u521b\u5efa\u4e2d...';
+        var url=isUpdate?'/work-mgmt/api/tasks/no/'+task.task_no:'/work-mgmt/api/tasks';
+        var method=isUpdate?'PUT':'POST';
+        var body=Object.assign({},task);
+        if(isUpdate){delete body.action;delete body.task_no;delete body.executor;if(!body.title)delete body.title;}
+        else{delete body.action;}
+        fetch(url,{
+            method:method,
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify(body)
+        }).then(function(r){return r.json()}).then(function(d){
+            if(d.success||d.id){
+                btn.textContent=isUpdate?'\u5df2\u4fee\u6539':'\u5df2\u521b\u5efa';
+                btn.style.background='#8C8C8C';
+                btn.style.cursor='default';
+                appendAiMsg('bot',isUpdate?'\u4efb\u52a1\u5df2\u4fee\u6539\u6210\u529f\uff01':'\u4efb\u52a1\u5df2\u521b\u5efa\u6210\u529f\uff01');
+            }else{
+                btn.textContent=isUpdate?'\u4fee\u6539\u5931\u8d25':'\u521b\u5efa\u5931\u8d25';
+                btn.style.background='#A0522D';
+                appendAiMsg('bot',(isUpdate?'\u4fee\u6539':'\u521b\u5efa')+'\u5931\u8d25\uff1a'+(d.message||'\u672a\u77e5\u9519\u8bef'));
+            }
+        }).catch(function(e){
+            btn.textContent=isUpdate?'\u4fee\u6539\u5931\u8d25':'\u521b\u5efa\u5931\u8d25';
+            btn.style.background='#A0522D';
+            appendAiMsg('bot','\u7f51\u7edc\u9519\u8bef\uff0c\u8bf7\u91cd\u8bd5');
+        });
+    }
+    function sendAiMessage(){
+        var input=document.getElementById('aiInput');
+        var text=input.value.trim();if(!text)return;
+        appendAiMsg('user',text);
+        _aiMessages.push({role:'user',content:text});
+        input.value='';input.style.height='auto';
+        var typing=document.createElement('div');
+        typing.className='ai-msg ai-msg-bot ai-typing';typing.id='aiTyping';typing.textContent='思考中...';
+        document.getElementById('aiMessages').appendChild(typing);
+        document.getElementById('aiMessages').scrollTop=99999;
+        fetch('/work-mgmt/api/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({messages:_aiMessages,module:'calendar',current_user_id:window.CURRENT_USER_ID||null})
+        }).then(function(r){return r.json()}).then(function(d){
+            var t=document.getElementById('aiTyping');if(t)t.remove();
+            if(d.success){var rp=d.reply||d.message||'(无回复)';appendAiMsg('bot',rp);_aiMessages.push({role:'assistant',content:rp});}
+            else appendAiMsg('bot','出错了：'+d.message);
+        }).catch(function(){var t=document.getElementById('aiTyping');if(t)t.remove();appendAiMsg('bot','网络错误，请重试');});
+    }
+    function bindAI(){
+        var fab=document.getElementById('aiFab');
+        var input=document.getElementById('aiInput');
+        fab.addEventListener('click',function(){toggleAiChat()});
+        document.getElementById('aiCloseBtn').addEventListener('click',function(){toggleAiChat()});
+        document.getElementById('aiClearBtn').addEventListener('click',function(){clearAiHistory()});
+        document.getElementById('aiSend').addEventListener('click',sendAiMessage);
+        input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAiMessage();}});
+        input.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px';});
+        // Restore chat history
+        fetch('/work-mgmt/api/ai/chat/history?module=calendar').then(function(r){return r.json()}).then(function(d){
+            if(d.success&&d.messages&&d.messages.length){
+                d.messages.forEach(function(m){
+                    if(m.role==='user')appendAiMsg('user',m.content);
+                    else if(m.role==='assistant')appendAiMsg('bot',m.content);
+                    _aiMessages.push({role:m.role,content:m.content});
+                });
+                var box=document.getElementById('aiMessages');if(box)box.scrollTop=box.scrollHeight;
+            }
+        }).catch(function(){});
+    }
+    function escHtml(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML}
+    window.CURRENT_USER_ID={{ session.get("user_id","null") }};
+})();
+</script>
+{% endblock %}

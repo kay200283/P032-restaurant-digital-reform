@@ -1,0 +1,1025 @@
+{% extends "base.html" %}
+{% block title %}任务管理 - 罗森批发管理{% endblock %}
+{% block content %}
+
+<!-- AI 任务管理助手 -->
+<div id="aiFab" style="position:fixed;bottom:28px;right:28px;width:52px;height:52px;border-radius:50%;background:#2D4A3E url(/static/img/ai-avatar.png) center/cover no-repeat;cursor:grab;box-shadow:0 4px 16px rgba(45,74,62,0.35);z-index:900;transition:transform .2s;touch-action:none;" title="AI助手"></div>
+
+<div id="aiChatPanel" style="display:none;position:fixed;bottom:90px;right:28px;width:380px;max-height:520px;background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.18);z-index:901;flex-direction:column;overflow:hidden;">
+  <div style="background:#2D4A3E;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
+    <span style="font-weight:600;font-size:0.9rem;"><img src="/static/img/ai-avatar.png" style="width:22px;height:22px;border-radius:50%;margin-right:6px;vertical-align:middle;border:1.5px solid rgba(255,255,255,0.3);background:#2D4A3E;">AI 任务管理助手</span>
+    <span style="display:flex;gap:10px;align-items:center;"><i onclick="clearAiHistory()" title="清空对话" style="cursor:pointer;font-size:0.8rem;opacity:0.7;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7" class="fa-solid fa-trash-can"></i><span style="cursor:pointer;font-size:1.1rem;opacity:0.8;" onclick="toggleAiChat()" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.8">&times;</span></span>
+  </div>
+  <div id="aiChatMessages" style="flex:1;overflow-y:auto;padding:12px 14px;min-height:280px;max-height:380px;font-size:0.82rem;line-height:1.6;"></div>
+  <div style="padding:10px 12px;border-top:1px solid #eee;display:flex;gap:6px;">
+    <textarea id="aiChatInput" placeholder="描述需求，如: 下周三前让杨洁整理退货数据... (Enter发送)" rows="1" style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:0.8rem;outline:none;resize:none;max-height:80px;min-height:32px;line-height:1.4;font-family:inherit;" onkeydown="if(event.key===Enter&&!event.shiftKey){event.preventDefault();sendAiMessage();}" onfocus="this.style.borderColor=#2D4A3E" onblur="this.style.borderColor=#ddd" oninput="this.style.height=auto;this.style.height=Math.min(this.scrollHeight,80)+px;"></textarea>
+    <button onclick="sendAiMessage()" style="background:#2D4A3E;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:0.8rem;cursor:pointer;" onmouseover="this.style.background='#1a2e25'" onmouseout="this.style.background='#2D4A3E'"><i class="fa-solid fa-paper-plane"></i></button>
+  </div>
+</div>
+
+<style>
+.ai-msg{margin-bottom:10px;padding:8px 12px;border-radius:8px;max-width:90%;word-break:break-word;white-space:pre-wrap;}
+.ai-msg-user{background:#e8efe9;color:#2D4A3E;margin-left:auto;text-align:right;}
+.ai-msg-bot{background:#f5f5f5;color:#333;}
+.ai-msg-bot code{background:#e8efe9;padding:1px 4px;border-radius:3px;font-size:0.75rem;color:#A0522D;}
+.ai-msg-bot pre{background:#1a2e25;color:#e0e0e0;padding:10px;border-radius:6px;overflow-x:auto;font-size:0.75rem;margin:6px 0;}
+.ai-typing{color:#8C8C8C;font-style:italic;}
+</style>
+
+<style>
+.task-status-pending{display:inline-block;padding:2px 8px;border-radius:3px;font-size:0.72rem;background:#f0f0f0;color:#8C8C8C;font-weight:600;}
+.task-status-in_progress{display:inline-block;padding:2px 8px;border-radius:3px;font-size:0.72rem;background:#fdf2f0;color:#A0522D;font-weight:600;}
+.task-status-pending_review{display:inline-block;padding:2px 8px;border-radius:3px;font-size:0.72rem;background:#fdf6ec;color:#E6A23C;font-weight:600;}
+.task-status-completed{display:inline-block;padding:2px 8px;border-radius:3px;font-size:0.72rem;background:#e8efe9;color:#2D4A3E;font-weight:600;}
+.detail-section{margin-bottom:16px;}
+.detail-label{font-size:0.75rem;color:#8C8C8C;margin-bottom:2px;}
+.detail-value{font-size:0.85rem;color:#333;}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 16px;}
+.tl-wrap{display:flex;align-items:flex-start;}
+.tl-node{flex:0 0 auto;text-align:center;min-width:56px;}
+.tl-conn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:14px;}
+.tl-conn-line{height:2px;width:100%;}
+.tl-conn-dur{font-size:0.65rem;font-weight:600;margin-top:3px;min-height:15px;}
+.tl-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:4px auto;}
+.tl-label{font-size:0.68rem;color:#8C8C8C;}
+.tl-time{font-size:0.72rem;color:#333;margin-top:2px;white-space:nowrap;}
+.attach-item{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#f5f5f5;border-radius:4px;margin:2px;font-size:0.72rem;}
+.result-area{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;outline:none;resize:vertical;min-height:60px;}
+.result-area:focus{border-color:#2D4A3E;}
+.paste-hint{font-size:0.72rem;color:#8C8C8C;margin-top:4px;}
+</style>
+
+<div style="max-width:1400px;padding:0 30px;">
+  <div class="intro-card" style="background:#f8f9fa;border-radius:6px;padding:16px 20px;margin-bottom:16px;">
+    <h3 style="margin:0 0 4px;font-size:1rem;color:#2D4A3E;"><i class="fa-solid fa-list-check" style="margin-right:6px;"></i>任务管理</h3>
+    <p style="margin:0;font-size:0.8rem;color:#8C8C8C;">派活 → 执行 → 反馈 → 验收，一站式任务闭环</p>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+    <select id="filterExecutor" style="padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.8rem;">
+      <option value="">全部执行人</option>
+    </select>
+    <select id="filterStatus" style="padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.8rem;">
+      <option value="">全部状态</option>
+      <option value="pending">待办</option>
+      <option value="in_progress">进行中</option>
+      <option value="pending_review">待验收</option>
+      <option value="completed">已完成</option>
+    </select>
+    <div style="position:relative;display:flex;align-items:center;">
+      <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:8px;color:#8C8C8C;font-size:0.72rem;"></i>
+      <input type="text" id="filterSearch" placeholder="搜索任务..." oninput="loadList()" style="padding:4px 8px 4px 26px;border:1px solid #ddd;border-radius:4px;font-size:0.78rem;width:200px;outline:none;" onfocus="this.style.borderColor='#2D4A3E'" onblur="this.style.borderColor='#ddd'">
+    </div>
+    <div style="flex:1;"></div>
+    <button onclick="openAddModal()" style="background:#2D4A3E;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:0.78rem;cursor:pointer;" onmouseover="this.style.background='#1a2e25'" onmouseout="this.style.background='#2D4A3E'">
+      <i class="fa-solid fa-plus"></i> 新增
+    </button>
+  </div>
+
+  <div style="background:#fff;border:1px solid #e0e0e0;border-radius:6px;overflow-x:auto;">
+    <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:0.82rem;">
+      <thead>
+        <tr>
+          <th style="padding:8px 6px;text-align:center;border-bottom:2px solid #2D4A3E;width:36px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;">工单号</th>
+          <th style="padding:8px 6px;text-align:left;border-bottom:2px solid #2D4A3E;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;">任务名称</th>
+          <th style="padding:8px 6px;text-align:left;border-bottom:2px solid #2D4A3E;width:72px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;">执行人</th>
+          <th style="padding:8px 6px;text-align:left;border-bottom:2px solid #2D4A3E;width:72px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;">负责人</th>
+          <th style="padding:8px 6px;text-align:center;border-bottom:2px solid #2D4A3E;width:100px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;">发起时间</th>
+          <th style="padding:8px 6px;text-align:center;border-bottom:2px solid #2D4A3E;width:85px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;">截止时间</th>
+          <th style="padding:8px 6px;text-align:right;border-bottom:2px solid #2D4A3E;width:60px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;">预估工时</th>
+          <th style="padding:8px 6px;text-align:right;border-bottom:2px solid #2D4A3E;width:60px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;">实际工时</th>
+          <th style="padding:8px 6px;text-align:center;border-bottom:2px solid #2D4A3E;width:70px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;">状态</th>
+          <th style="padding:8px 6px;text-align:center;border-bottom:2px solid #2D4A3E;width:90px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;">操作</th>
+        </tr>
+      </thead>
+      <tbody id="taskBody"></tbody>
+    </table>
+  </div>
+  <div id="pageInfo" style="margin-top:8px;font-size:0.75rem;color:#8C8C8C;text-align:right;"></div>
+</div>
+
+<!-- 详情弹窗 -->
+<div id="detailOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;" onclick="if(event.target===this)return;">
+  <div style="background:#fff;border-radius:8px;padding:24px;width:720px;max-width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div>
+        <h3 id="detailTitle" style="margin:0;font-size:1rem;color:#2D4A3E;"></h3>
+        <div id="detailTaskNo" style="font-size:0.75rem;color:#8C8C8C;font-family:monospace;margin-top:2px;"></div>
+      </div>
+      <span id="detailStatus"></span>
+    </div>
+
+    <!-- 基本信息 3列 -->
+    <div class="detail-section">
+      <div class="detail-grid" style="grid-template-columns:1fr 1fr 1fr;">
+        <div><div class="detail-label">负责人</div><div class="detail-value" id="detailCreator"></div></div>
+        <div><div class="detail-label">执行人</div><div class="detail-value" id="detailExecutor"></div></div>
+        <div><div class="detail-label">截止时间</div><div class="detail-value" id="detailDue"></div></div>
+        <div><div class="detail-label">预估工时</div><div class="detail-value" id="detailMinutes"></div></div>
+        <div id="detailRejectCountWrap" style="display:none;"><div class="detail-label">退回次数</div><div class="detail-value" id="detailRejectCount" style="color:#A0522D;font-weight:600;"></div></div>
+      </div>
+    </div>
+    <!-- 时间流程线 -->
+    <div class="detail-section" style="background:#f8f9fa;border-radius:6px;padding:14px 16px 10px;">
+      <div id="detailTimeline"></div>
+      <div id="detailRejectReason" style="display:none;margin-top:8px;padding:6px 10px;background:#fff3e0;border-radius:4px;border-left:3px solid #A0522D;font-size:0.78rem;color:#A0522D;"></div>
+    </div>
+
+
+
+    <div class="detail-section" id="detailDescSection">
+      <div class="detail-label">任务说明</div>
+      <div class="detail-value" id="detailDesc" style="white-space:pre-wrap;background:#f8f9fa;padding:8px 10px;border-radius:4px;"></div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-label"><i class="fa-solid fa-paperclip" style="margin-right:4px;"></i>任务材料</div>
+      <div id="detailMaterials"></div>
+    </div>
+
+    <div class="detail-section" id="detailResultSection">
+      <div class="detail-label"><i class="fa-solid fa-clipboard-check" style="margin-right:4px;"></i>执行结果</div>
+      <div id="detailResultText" class="detail-value" style="white-space:pre-wrap;background:#f8f9fa;padding:8px 10px;border-radius:4px;"></div>
+    </div>
+
+    <div class="detail-section" id="detailResultAttachSection">
+      <div class="detail-label"><i class="fa-solid fa-file-circle-check" style="margin-right:4px;"></i>结果附件</div>
+      <div id="detailResultAttach"></div>
+    </div>
+
+    <!-- 审批历史 -->
+    <div class="detail-section" id="detailHistorySection" style="display:none;">
+      <div class="detail-label" style="font-weight:600;color:#2D4A3E;margin-bottom:6px;"><i class="fa-solid fa-clock-rotate-left" style="margin-right:4px;"></i>审批记录</div>
+      <div id="detailHistory"></div>
+    </div>
+
+        <!-- 退回原因弹窗 -->
+    <div id="rejectReasonOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:1100;align-items:center;justify-content:center;" onclick="if(event.target===this)closeRejectReason();">
+      <div style="background:#fff;border-radius:8px;padding:20px;width:400px;max-width:90vw;box-shadow:0 10px 40px rgba(0,0,0,0.15);">
+        <div style="font-weight:600;color:#A0522D;margin-bottom:10px;font-size:0.9rem;"><i class="fa-solid fa-rotate-left" style="margin-right:4px;"></i>退回修改</div>
+        <textarea id="rejectReasonText" rows="3" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;outline:none;resize:vertical;" placeholder="请填写修改意见..."></textarea>
+        <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end;">
+          <button onclick="closeRejectReason()" style="padding:6px 14px;border:1px solid #ddd;border-radius:4px;font-size:0.8rem;cursor:pointer;background:#fff;color:#555;">取消</button>
+          <button onclick="confirmReject()" style="padding:6px 14px;border:none;border-radius:4px;font-size:0.8rem;cursor:pointer;background:#A0522D;color:#fff;" onmouseover="this.style.background='#8a3f1f'" onmouseout="this.style.background='#A0522D'">确认退回</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 执行反馈区 (仅in_progress时显示) -->
+    <div class="detail-section" id="detailFeedbackArea" style="display:none;">
+      <div class="detail-label" style="font-weight:600;color:#2D4A3E;margin-bottom:6px;">填写执行反馈</div>
+      <textarea id="feedbackText" class="result-area" rows="4" placeholder="请填写执行结果..."></textarea>
+      <div style="margin-top:6px;">
+        <label style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px solid #ddd;border-radius:4px;font-size:0.75rem;cursor:pointer;color:#555;background:#fafafa;" onmouseover="this.style.borderColor='#2D4A3E'" onmouseout="this.style.borderColor='#ddd'">
+          <i class="fa-solid fa-upload"></i> 上传结果附件
+          <input type="file" multiple onchange="handleResultFileSelect(this.files)" style="display:none;">
+        </label>
+        <span class="paste-hint">Ctrl+V 粘贴截图</span>
+      </div>
+      <div id="resultPastePreview" style="display:none;margin-top:6px;">
+        <div id="resultPastePreviewImgs" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button onclick="submitFeedback()" style="padding:6px 14px;border:1px solid #2D4A3E;border-radius:4px;font-size:0.8rem;cursor:pointer;background:#fff;color:#2D4A3E;" onmouseover="this.style.background='#f0f5f3'" onmouseout="this.style.background='#fff'">反馈</button>
+        <button onclick="submitForReview()" style="padding:6px 14px;border:none;border-radius:4px;font-size:0.8rem;cursor:pointer;background:#2D4A3E;color:#fff;" onmouseover="this.style.background='#1a2e25'" onmouseout="this.style.background='#2D4A3E'">提交验收</button>
+      </div>
+    </div>
+
+    <!-- 验收区 (仅pending_review + 负责人可见) -->
+    <div class="detail-section" id="detailReviewArea" style="display:none;">
+      <div style="background:#fdf6ec;border-radius:4px;padding:12px 14px;margin-bottom:8px;">
+        <div style="font-size:0.82rem;color:#E6A23C;font-weight:600;margin-bottom:4px;"><i class="fa-solid fa-clipboard-check" style="margin-right:4px;"></i>待验收</div>
+        <div style="font-size:0.75rem;color:#555;">执行人已提交结果，请审核确认</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="approveTask()" style="padding:6px 14px;border:none;border-radius:4px;font-size:0.8rem;cursor:pointer;background:#2D4A3E;color:#fff;" onmouseover="this.style.background='#1a2e25'" onmouseout="this.style.background='#2e7d32'"><i class="fa-solid fa-check" style="margin-right:3px;"></i>验收通过</button>
+        <button onclick="rejectTask()" style="padding:6px 14px;border:1px solid #A0522D;border-radius:4px;font-size:0.8rem;cursor:pointer;background:#fff;color:#A0522D;" onmouseover="this.style.background='#fdf2f0'" onmouseout="this.style.background='#fff'"><i class="fa-solid fa-rotate-left" style="margin-right:3px;"></i>退回修改</button>
+      </div>
+    </div>
+
+    <div style="text-align:right;margin-top:16px;">
+      <button onclick="closeDetailModal()" style="padding:6px 16px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;cursor:pointer;background:#fff;color:#555;">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 图片预览弹窗 -->
+<div id="imgPreviewOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:2000;align-items:center;justify-content:center;cursor:zoom-out;" onclick="closeImgPreview()">
+  <img id="imgPreviewSrc" style="max-width:92vw;max-height:90vh;object-fit:contain;border-radius:4px;box-shadow:0 4px 24px rgba(0,0,0,0.4);">
+</div>
+
+<!-- 新增/编辑弹窗 -->
+<div id="modalOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;" onclick="if(event.target===this)return;">
+  <div style="background:#fff;border-radius:8px;padding:24px;width:520px;max-width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+    <h3 id="modalTitle" style="margin:0 0 16px;font-size:0.95rem;color:#2D4A3E;">新增任务</h3>
+    <input type="hidden" id="editId">
+    <div style="margin-bottom:12px;">
+      <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">任务名称 <span style="color:#A0522D;">*</span></label>
+      <input type="text" id="editTitle" placeholder="如：上海罗森4sku上新尺寸测量" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;outline:none;" onfocus="this.style.borderColor='#2D4A3E'" onblur="this.style.borderColor='#ddd'">
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:12px;">
+      <div style="flex:1;">
+        <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">执行人 <span style="color:#A0522D;">*</span></label>
+        <select id="editExecutor" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;outline:none;">
+          <option value="">请选择</option>
+        </select>
+      </div>
+      <div style="flex:1;">
+        <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">截止时间</label>
+        <input type="datetime-local" id="editDue" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;outline:none;" onfocus="this.style.borderColor='#2D4A3E'" onblur="this.style.borderColor='#ddd'">
+      </div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">开始时间 <span style="color:#8C8C8C;font-weight:normal">(可选，无明确开始时间可不填)</span></label>
+      <input type="datetime-local" id="editStartTime" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;outline:none;" onfocus="this.style.borderColor='#2D4A3E'" onblur="this.style.borderColor='#ddd'">
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">预估工时(分钟)</label>
+      <input type="number" id="editMinutes" placeholder="0" style="width:120px;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;outline:none;" onfocus="this.style.borderColor='#2D4A3E'" onblur="this.style.borderColor='#ddd'">
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">任务说明</label>
+      <textarea id="editDesc" rows="3" placeholder="任务具体内容和要求..." style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;outline:none;resize:vertical;" onfocus="this.style.borderColor='#2D4A3E'" onblur="this.style.borderColor='#ddd'"></textarea>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px solid #ddd;border-radius:4px;font-size:0.75rem;cursor:pointer;color:#555;background:#fafafa;" onmouseover="this.style.borderColor='#2D4A3E'" onmouseout="this.style.borderColor='#ddd'">
+        <i class="fa-solid fa-upload"></i> 上传附件
+        <input type="file" multiple onchange="handleFileSelect(this.files)" style="display:none;">
+      </label>
+      <span class="paste-hint">Ctrl+V 粘贴截图</span>
+      <div id="pastePreview" style="display:none;margin-top:6px;">
+        <div id="pastePreviewImgs" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
+      </div>
+    </div>
+    <div id="attachList"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+      <button onclick="closeTaskModal()" style="padding:6px 16px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;cursor:pointer;background:#fff;color:#555;">取消</button>
+      <button onclick="saveTask()" style="padding:6px 16px;border:none;border-radius:4px;font-size:0.82rem;cursor:pointer;background:#2D4A3E;color:#fff;" onmouseover="this.style.background='#1a2e25'" onmouseout="this.style.background='#2D4A3E'">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* VERSION_20260815_B */
+var API = '/work-mgmt/api';
+var CURRENT_USER_ID = {{ current_user_id | default(0) }};
+var usersList = [];
+var pendingFiles = [];
+var resultPendingFiles = [];
+var currentDetailId = null;
+
+function esc(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtDateTime(s){ if(!s) return '-'; return String(s).replace('T',' ').substring(0,16); }
+function fmtExpectedEnd(s){ if(!s) return '-'; return s.replace('T',' '); }
+function fmtSize(bytes){ if(!bytes) return ''; if(bytes<1024) return bytes+'B'; if(bytes<1048576) return (bytes/1024).toFixed(1)+'KB'; return (bytes/1048576).toFixed(1)+'MB'; }
+function statusLabel(status){ return '<span class="task-status-'+status+'">'+({pending:'待办',in_progress:'进行中',pending_review:'待验收',completed:'已完成'}[status]||status)+'<\/span>'; }
+
+async function loadOptions(){
+  var res = await fetch(API+'/options');
+  var d = await res.json();
+  if(!d.success) return;
+  usersList = d.executors || [];
+  var sel1 = document.getElementById('filterExecutor');
+  var sel2 = document.getElementById('editExecutor');
+  usersList.forEach(function(u){
+    var o1 = document.createElement('option'); o1.value=u.id; o1.textContent=u.display_name||u.name||u.username; sel1.appendChild(o1);
+    var o2 = document.createElement('option'); o2.value=u.id; o2.textContent=u.display_name||u.name||u.username; sel2.appendChild(o2);
+  });
+}
+
+async function loadList(){
+  var ex = document.getElementById('filterExecutor').value;
+  var st = document.getElementById('filterStatus').value;
+  var q = document.getElementById('filterSearch').value.trim().toLowerCase();
+  var url = API+'/tasks';
+  var params = [];
+  if(ex) params.push('executor='+ex);
+  if(st) params.push('status='+st);
+  if(params.length) url += '?'+params.join('&');
+  var res = await fetch(url);
+  var d = await res.json();
+  if(!d.success){ document.getElementById('taskBody').innerHTML=''; return; }
+  var list = d.data || [];
+  if(q) list = list.filter(function(t){ return (t.title||'').toLowerCase().indexOf(q)>=0 || (t.description||'').toLowerCase().indexOf(q)>=0; });
+  var html = '';
+  list.forEach(function(r){
+    html += '<tr>';
+    html += '<td style="padding:6px;text-align:center;border-bottom:1px solid #eee;color:#8C8C8C;font-size:0.75rem;font-family:monospace;">'+(r.task_no||('#'+r.id))+'</td>';
+    html += '<td style="padding:6px;border-bottom:1px solid #eee;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+esc(r.title)+'">'+esc(r.title)+'</td>';
+    html += '<td style="padding:6px;border-bottom:1px solid #eee;">'+esc(r.executor_name)+'</td>';
+    html += '<td style="padding:6px;border-bottom:1px solid #eee;">'+esc(r.creator_name)+'</td>';
+    html += '<td style="padding:6px;text-align:center;border-bottom:1px solid #eee;font-size:0.75rem;">'+fmtDateTime(r.created_at)+'</td>';
+    html += '<td style="padding:6px;text-align:center;border-bottom:1px solid #eee;">'+fmtExpectedEnd(r.expected_end)+'</td>';
+    html += '<td style="padding:6px;text-align:right;border-bottom:1px solid #eee;">'+(r.estimated_minutes?r.estimated_minutes+'min':'-')+'</td>';
+    // 实际工时
+    var actualMin='-';
+    if(r.started_at&&r.submitted_at){
+      var s=new Date(r.started_at.replace(/-/g,'/'));
+      var e=new Date(r.submitted_at.replace(/-/g,'/'));
+      var diffSec=Math.round((e-s)/1000);
+      if(diffSec>=60) actualMin=Math.floor(diffSec/60)+'min';
+      else if(diffSec>0) actualMin=diffSec+'s';
+    }
+    html+='<td style="padding:6px;text-align:right;border-bottom:1px solid #eee;color:#E6A23C;font-weight:600;">'+actualMin+'</td>';
+    html += '<td style="padding:6px;text-align:center;border-bottom:1px solid #eee;">'+statusLabel(r.status)+'</td>';
+    html += '<td style="padding:6px;text-align:center;border-bottom:1px solid #eee;white-space:nowrap;">';
+    // 详情(所有状态)
+    html += '<button onclick="openDetailModal('+r.id+')" title="详情" style="background:none;border:none;cursor:pointer;color:#2D4A3E;font-size:0.85rem;padding:2px 4px;" onmouseover="this.style.color=\'#1a2e25\'" onmouseout="this.style.color=\'#2D4A3E\'"><i class="fa-solid fa-eye"><\/i><\/button>';
+    // 开始(仅pending)
+    if(r.status==='pending'){
+      html += '<button onclick="startTask('+r.id+')" title="开始执行" style="background:none;border:none;cursor:pointer;color:#1565c0;font-size:0.85rem;padding:2px 4px;" onmouseover="this.style.color=\'#0d47a1\'" onmouseout="this.style.color=\'#1565c0\'"><i class="fa-solid fa-play"><\/i><\/button>';
+      html += '<button onclick="openEditModal('+r.id+')" title="编辑" style="background:none;border:none;cursor:pointer;color:#E6A23C;font-size:0.85rem;padding:2px 4px;" onmouseover="this.style.color=\'#c9912a\'" onmouseout="this.style.color=\'#E6A23C\'"><i class="fa-solid fa-pen"><\/i><\/button>';
+      html += '<button onclick="deleteTask('+r.id+')" title="删除" style="background:none;border:none;cursor:pointer;color:#A0522D;font-size:0.85rem;padding:2px 4px;" onmouseover="this.style.color=\'#7a3a1a\'" onmouseout="this.style.color=\'#A0522D\'"><i class="fa-solid fa-trash-can"><\/i><\/button>';
+    }
+    html += '<\/td><\/tr>';
+  });
+  document.getElementById('taskBody').innerHTML = html;
+  document.getElementById('pageInfo').textContent = '共 '+list.length+' 条';
+}
+
+function escHtml(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function fmtDur(ms){
+  var mins=Math.round(ms/60000);
+  if(mins>=60){ var h=Math.floor(mins/60); var m=mins%60; return h+'小时'+(m>0?m+'分钟':''); }
+  else if(mins>0){ return mins+'分钟'; }
+  else { return '不足1分钟'; }
+}
+function renderTimeline(r){
+  var steps=[
+    {label:'创建',time:r.created_at,icon:'fa-plus',color:'#8C8C8C'},
+    {label:'开始',time:r.started_at,icon:'fa-play',color:'#A0522D'},
+    {label:'提交验收',time:r.submitted_at,icon:'fa-paper-plane',color:'#E6A23C'},
+    {label:'验收完成',time:r.completed_at,icon:'fa-check',color:'#2D4A3E'}
+  ];
+  // 若有退回，在提交验收后插入退回节点（最后一次提交前的退回）
+  // 流程线不重复插入退回节点，用下方审批记录展示完整历史
+  var h='<div class="tl-wrap">';
+  for(var i=0;i<steps.length;i++){
+    var s=steps[i];
+    var active=!!s.time;
+    var dotBg=active?s.color:'#ccc';
+    var timeStr=active?fmtDateTime(s.time):'—';
+    h+='<div class="tl-node">';
+    h+='<div class="tl-label">'+s.label+'</div>';
+    h+='<div class="tl-dot" style="background:'+dotBg+';"><i class="fa-solid '+s.icon+'" style="color:#fff;font-size:0.6rem;"></i></div>';
+    h+='<div class="tl-time">'+timeStr+'</div>';
+    h+='</div>';
+    if(i<steps.length-1){
+      var nextActive=!!steps[i+1].time;
+      var lineColor=(active&&nextActive)?s.color:'#e0e0e0';
+      var dur='';
+      if(active&&nextActive){
+        var ms=new Date(steps[i+1].time.replace(/-/g,'/'))-new Date(s.time.replace(/-/g,'/'));
+        dur=fmtDur(ms);
+      }
+      h+='<div class="tl-conn">';
+      h+='<div class="tl-conn-line" style="background:'+lineColor+';"></div>';
+      h+='<div class="tl-conn-dur" style="color:#E6A23C;">'+dur+'</div>';
+      h+='</div>';
+    }
+  }
+  h+='</div>';
+  document.getElementById('detailTimeline').innerHTML=h;
+}
+var _pendingRejectId=null;
+function showRejectReason(taskId){
+  _pendingRejectId=taskId;
+  document.getElementById('rejectReasonText').value='';
+  document.getElementById('rejectReasonOverlay').style.display='flex';
+}
+function closeRejectReason(){
+  document.getElementById('rejectReasonOverlay').style.display='none';
+  _pendingRejectId=null;
+}
+function confirmReject(){
+  var reason=document.getElementById('rejectReasonText').value.trim();
+  if(!reason){ alert('请填写修改意见'); return; }
+  var btn=document.querySelector('#rejectReasonOverlay button[onclick]');
+  if(btn&&!btn.disabled){btn.disabled=true;btn.textContent='提交中...';}else if(btn&&btn.disabled){return;}
+  fetch(API+'/tasks/'+_pendingRejectId,{
+    method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'reject',reason:reason})
+  }).then(function(r){return r.json();}).then(function(d){
+    if(d.success){ closeRejectReason(); closeDetailModal(); loadList(); } else { alert(d.message||'操作失败'); if(btn){btn.disabled=false;btn.textContent='确认退回';} }
+  }).catch(function(){ if(btn){btn.disabled=false;btn.textContent='确认退回';} });
+}
+
+async function openDetailModal(id){
+  currentDetailId = id;
+  var res = await fetch(API+'/tasks');
+  var d = await res.json();
+  if(!d.success) return;
+  var r = (d.data||[]).find(function(t){ return t.id===id; });
+  if(!r) return;
+  document.getElementById('detailTitle').textContent = r.title;
+  document.getElementById('detailTaskNo').textContent = r.task_no || '';
+  document.getElementById('detailStatus').innerHTML = statusLabel(r.status);
+  document.getElementById('detailCreator').textContent = r.creator_name || '-';
+  document.getElementById('detailExecutor').textContent = r.executor_name || '-';
+  document.getElementById('detailDue').textContent = fmtExpectedEnd(r.expected_end);
+  document.getElementById('detailMinutes').textContent = r.estimated_minutes ? r.estimated_minutes+'分钟' : '-';
+  // 退回次数
+  if(r.reject_count && r.reject_count > 0){
+    document.getElementById('detailRejectCountWrap').style.display = '';
+    document.getElementById('detailRejectCount').textContent = r.reject_count + '次';
+  } else {
+    document.getElementById('detailRejectCountWrap').style.display = 'none';
+  }
+  // 退回原因
+  if(r.last_reject_reason){
+    document.getElementById('detailRejectReason').style.display = '';
+    document.getElementById('detailRejectReason').innerHTML = '<i class="fa-solid fa-rotate-left" style="margin-right:4px;"></i>最近退回原因：' + escHtml(r.last_reject_reason);
+  } else {
+    document.getElementById('detailRejectReason').style.display = 'none';
+  }
+  // 时间流程线
+  renderTimeline(r);
+  // 审批历史
+  loadRejectionLogs(r);
+
+  if(r.description){
+    document.getElementById('detailDesc').textContent = r.description;
+    document.getElementById('detailDescSection').style.display = '';
+  } else {
+    document.getElementById('detailDescSection').style.display = 'none';
+  }
+
+  // 执行结果
+  if(r.result_text){
+    document.getElementById('detailResultText').textContent = r.result_text;
+    document.getElementById('detailResultSection').style.display = '';
+  } else {
+    document.getElementById('detailResultSection').style.display = 'none';
+  }
+
+  // 反馈区(仅in_progress)
+  if(r.status === 'in_progress'){
+    document.getElementById('detailFeedbackArea').style.display = '';
+    document.getElementById('feedbackText').value = r.result_text || '';
+  } else {
+    document.getElementById('detailFeedbackArea').style.display = 'none';
+  }
+
+  // 验收区(仅pending_review + 当前用户是负责人)
+  if(r.status === 'pending_review' && r.created_by == CURRENT_USER_ID){
+    document.getElementById('detailReviewArea').style.display = '';
+  } else {
+    document.getElementById('detailReviewArea').style.display = 'none';
+  }
+
+  resultPendingFiles = [];
+  document.getElementById('resultPastePreview').style.display = 'none';
+  document.getElementById('resultPastePreviewImgs').innerHTML = '';
+
+  await loadDetailAttachments(id, r.result_text);
+
+  document.getElementById('detailOverlay').style.display = 'flex';
+}
+
+async function loadDetailAttachments(taskId, hasResultText){
+  var res = await fetch(API+'/tasks/'+taskId+'/attachments');
+  var d = await res.json();
+  var mats = [], results = [];
+  if(d.success && d.data){
+    d.data.forEach(function(a){
+      var isImg = ['png','jpg','jpeg','gif','bmp','webp'].indexOf(a.file_type)>=0;
+      var link = isImg
+        ? '<a href="javascript:void(0)" data-img="/uploads/'+a.filepath+'" class="img-preview-link" style="color:#2D4A3E;text-decoration:none;cursor:zoom-in;"><i class="fa-solid fa-image" style="margin-right:2px;"></i>'+esc(a.filename)+'</a> <span style="color:#8C8C8C;">('+fmtSize(a.file_size)+')</span>'
+        : '<a href="/uploads/'+a.filepath+'" download="'+a.filename+'" style="color:#2D4A3E;text-decoration:none;"><i class="fa-solid fa-file" style="margin-right:2px;"><\/i>'+esc(a.filename)+'<\/a> <span style="color:#8C8C8C;">('+fmtSize(a.file_size)+')<\/span>';
+      if((a.attach_type||'material')==='material') mats.push(link);
+      else results.push(link);
+    });
+  }
+  document.getElementById('detailMaterials').innerHTML = mats.length ? '<div style="display:flex;flex-wrap:wrap;gap:4px;">'+mats.join('')+'<\/div>' : '<span style="color:#8C8C8C;font-size:0.75rem;">无<\/span>';
+  if(results.length){
+    document.getElementById('detailResultAttach').innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:4px;">'+results.join('')+'<\/div>';
+    document.getElementById('detailResultAttachSection').style.display = '';
+  } else {
+    document.getElementById('detailResultAttach').innerHTML = '<span style="color:#8C8C8C;font-size:0.75rem;">无<\/span>';
+    document.getElementById('detailResultAttachSection').style.display = hasResultText ? '' : 'none';
+  }
+}
+
+function closeDetailModal(){ document.getElementById('detailOverlay').style.display='none'; }
+
+function previewImg(src){
+  document.getElementById('imgPreviewSrc').src = src;
+  document.getElementById('imgPreviewOverlay').style.display = 'flex';
+}
+
+// Image preview delegation
+document.addEventListener('click', function(e){
+  var link = e.target.closest('.img-preview-link') || e.target.closest('.snap-attach-img');
+  if(link){
+    e.preventDefault();
+    var src=link.getAttribute('data-img')||link.getAttribute('src');
+    previewImg(src);
+  }
+});
+function closeImgPreview(){
+  document.getElementById('imgPreviewOverlay').style.display = 'none';
+  document.getElementById('imgPreviewSrc').src = '';
+}
+
+async function startTask(id){
+  if(!confirm('确认开始执行此任务？')) return;
+  var res = await fetch(API+'/tasks/'+id, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'start'})});
+  var d = await res.json();
+  if(d.success) loadList(); else alert(d.message||'操作失败');
+}
+
+async function submitFeedback(){
+  var text = document.getElementById('feedbackText').value.trim();
+  if(!text){ alert('请填写执行结果'); return; }
+  var res = await fetch(API+'/tasks/'+currentDetailId, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'feedback', result_text:text})});
+  var d = await res.json();
+  if(d.success){
+    await uploadResultFiles(currentDetailId);
+    openDetailModal(currentDetailId);
+    loadList();
+  } else alert(d.message||'保存失败');
+}
+
+async function submitForReview(){
+  var text = document.getElementById('feedbackText').value.trim();
+  if(!text){ alert('请填写执行结果后再提交验收'); return; }
+  await uploadResultFiles(currentDetailId);
+  var res = await fetch(API+'/tasks/'+currentDetailId, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'submit_review', result_text:text})});
+  var d = await res.json();
+  if(d.success){
+    openDetailModal(currentDetailId);
+    loadList();
+  } else alert(d.message||'操作失败');
+}
+
+async function approveTask(){
+  if(!confirm('确认验收通过？')) return;
+  var res = await fetch(API+'/tasks/'+currentDetailId, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'approve'})});
+  var d = await res.json();
+  if(d.success){
+    openDetailModal(currentDetailId);
+    loadList();
+  } else alert(d.message||'操作失败');
+}
+
+function loadRejectionLogs(r){
+  var section = document.getElementById('detailHistorySection');
+  if(!r.reject_count || r.reject_count < 1){ section.style.display='none'; return; }
+  fetch(API+'/tasks/'+r.id+'/rejection-logs').then(function(res){return res.json();}).then(function(d){
+    if(!d.success || !d.data || d.data.length===0){ section.style.display='none'; return; }
+    section.style.display='';
+    var h='';
+    d.data.forEach(function(log, idx){
+      var num=d.data.length - idx;
+      h+='<div style="padding:8px 10px;margin-bottom:6px;background:#fff;border-radius:4px;border-left:3px solid #A0522D;">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
+      h+='<span style="font-size:0.75rem;font-weight:600;color:#A0522D;"><i class="fa-solid fa-rotate-left" style="margin-right:3px;"></i>第'+num+'次退回</span>';
+      h+='<span style="font-size:0.68rem;color:#8C8C8C;">'+fmtDateTime(log.rejected_at)+'</span>';
+      h+='</div>';
+      h+='<div style="font-size:0.75rem;color:#555;margin-bottom:4px;"><b>退回原因：</b>'+escHtml(log.reason)+'</div>';
+      if(log.rejected_by_name){
+        h+='<div style="font-size:0.68rem;color:#8C8C8C;">退回人：'+escHtml(log.rejected_by_name)+'</div>';
+      }
+      if(log.result_snapshot){
+        h+='<details style="margin-top:4px;"><summary style="font-size:0.68rem;color:#8C8C8C;cursor:pointer;">查看当时提交的结果</summary>';
+        h+='<div style="font-size:0.72rem;color:#555;white-space:pre-wrap;padding:4px 0;">'+escHtml(log.result_snapshot)+'</div>';
+        try{
+          var snapAtts=JSON.parse(log.attach_snapshot||'[]');
+          if(snapAtts.length>0){
+            h+='<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">';
+            snapAtts.forEach(function(a){
+              if((a.file_type&&a.file_type.indexOf('image')>=0)||(a.filename&&/\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(a.filename))){
+                h+='<img data-img="/uploads/'+a.filepath+'" src="/uploads/'+a.filepath+'" style="max-width:80px;max-height:60px;border-radius:3px;cursor:pointer;object-fit:cover;" alt="'+escHtml(a.filename)+'" class="snap-attach-img">';
+              }else{
+                h+='<a href="/uploads/'+a.filepath+'" download="'+escHtml(a.filename)+'" style="font-size:0.68rem;color:#2D4A3E;text-decoration:none;"><i class="fa-solid fa-file" style="margin-right:2px;"></i>'+escHtml(a.filename)+'</a>';
+              }
+            });
+            h+='</div>';
+          }
+        }catch(e){}
+        h+='</details>';
+      }
+      h+='</div>';
+    });
+    document.getElementById('detailHistory').innerHTML=h;
+  });
+}
+
+function rejectTask(){
+  showRejectReason(currentDetailId);
+}
+
+// ==== 新增/编辑弹窗 ====
+function openAddModal(){
+  document.getElementById('editId').value = '';
+  document.getElementById('editTitle').value = '';
+  document.getElementById('editExecutor').value = '';
+  document.getElementById('editDue').value = '';
+  document.getElementById('editStartTime').value = '';
+  document.getElementById('editMinutes').value = '';
+  document.getElementById('editDesc').value = '';
+  document.getElementById('attachList').innerHTML = '';
+  document.getElementById('pastePreview').style.display = 'none';
+  document.getElementById('pastePreviewImgs').innerHTML = '';
+  pendingFiles = [];
+  document.getElementById('modalTitle').textContent = '新增任务';
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+
+async function openEditModal(id){
+  var res = await fetch(API+'/tasks');
+  var d = await res.json();
+  if(!d.success) return;
+  var r = (d.data||[]).find(function(t){ return t.id===id; });
+  if(!r) return;
+  document.getElementById('editId').value = r.id;
+  document.getElementById('editTitle').value = r.title || '';
+  document.getElementById('editExecutor').value = r.executor_id || '';
+  document.getElementById('editDue').value = r.expected_end || '';
+  document.getElementById('editStartTime').value = r.start_time || '';
+  document.getElementById('editMinutes').value = r.estimated_minutes || '';
+  document.getElementById('editDesc').value = r.description || '';
+  document.getElementById('modalTitle').textContent = '编辑任务';
+  pendingFiles = [];
+  document.getElementById('pastePreview').style.display = 'none';
+  document.getElementById('pastePreviewImgs').innerHTML = '';
+  await loadEditAttachments(id);
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+
+async function loadEditAttachments(taskId){
+  var res = await fetch(API+'/tasks/'+taskId+'/attachments');
+  var d = await res.json();
+  var container = document.getElementById('attachList');
+  if(!d.success || !d.data || !d.data.length){ container.innerHTML=''; return; }
+  var html = '';
+  d.data.forEach(function(a){
+    var isImg = ['png','jpg','jpeg','gif','bmp','webp'].indexOf(a.file_type)>=0;
+    var icon = isImg ? 'fa-image' : 'fa-file';
+    html += '<div class="attach-item">';
+    html += '<a href="/uploads/'+a.filepath+'" download="'+a.filename+'" target="_blank" style="color:#2D4A3E;text-decoration:none;"><i class="fa-solid '+icon+'" style="margin-right:2px;"><\/i>'+esc(a.filename)+'<\/a>';
+    html += '<span style="color:#8C8C8C;">('+fmtSize(a.file_size)+')<\/span>';
+    html += '<button onclick="deleteAttachment('+a.id+','+taskId+')" title="删除" style="background:none;border:none;cursor:pointer;color:#A0522D;font-size:0.72rem;padding:0 2px;"><i class="fa-solid fa-xmark"><\/i><\/button>';
+    html += '<\/div>';
+  });
+  container.innerHTML = html;
+}
+
+async function deleteAttachment(attId, taskId){
+  if(!confirm('确认删除此附件？')) return;
+  var res = await fetch(API+'/attachments/'+attId, {method:'DELETE'});
+  var d = await res.json();
+  if(d.success) loadEditAttachments(taskId);
+  else alert(d.message||'删除失败');
+}
+
+function handleFileSelect(files){ for(var i=0;i<files.length;i++) pendingFiles.push(files[i]); renderPendingFiles(); }
+function handleResultFileSelect(files){ for(var i=0;i<files.length;i++) resultPendingFiles.push(files[i]); renderResultPendingFiles(); }
+
+function renderPendingFiles(){
+  var c = document.getElementById('pastePreviewImgs');
+  var w = document.getElementById('pastePreview');
+  if(!pendingFiles.length){ w.style.display='none'; c.innerHTML=''; return; }
+  w.style.display='block';
+  var html = '';
+  pendingFiles.forEach(function(f,idx){
+    var isImg = f.type && f.type.indexOf('image')===0;
+    if(isImg){
+      var url = URL.createObjectURL(f);
+      html += '<div style="position:relative;display:inline-block;"><img src="'+url+'" style="max-width:80px;max-height:60px;border-radius:3px;border:1px solid #ddd;"><button onclick="removePending('+idx+')" style="position:absolute;top:-4px;right:-4px;background:#A0522D;color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:0.6rem;cursor:pointer;line-height:16px;text-align:center;">\u00d7<\/button><\/div>';
+    } else {
+      html += '<div style="position:relative;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#f5f5f5;border-radius:3px;font-size:0.72rem;"><i class="fa-solid fa-file"><\/i> '+esc(f.name)+'<button onclick="removePending('+idx+')" style="background:none;border:none;cursor:pointer;color:#A0522D;font-size:0.72rem;padding:0 2px;"><i class="fa-solid fa-xmark"><\/i><\/button><\/div>';
+    }
+  });
+  c.innerHTML = html;
+}
+
+function renderResultPendingFiles(){
+  var c = document.getElementById('resultPastePreviewImgs');
+  var w = document.getElementById('resultPastePreview');
+  if(!resultPendingFiles.length){ w.style.display='none'; c.innerHTML=''; return; }
+  w.style.display='block';
+  var html = '';
+  resultPendingFiles.forEach(function(f,idx){
+    var isImg = f.type && f.type.indexOf('image')===0;
+    if(isImg){
+      var url = URL.createObjectURL(f);
+      html += '<div style="position:relative;display:inline-block;"><img src="'+url+'" style="max-width:80px;max-height:60px;border-radius:3px;border:1px solid #ddd;"><button onclick="removeResultPending('+idx+')" style="position:absolute;top:-4px;right:-4px;background:#A0522D;color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:0.6rem;cursor:pointer;line-height:16px;text-align:center;">\u00d7<\/button><\/div>';
+    } else {
+      html += '<div style="position:relative;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#f5f5f5;border-radius:3px;font-size:0.72rem;"><i class="fa-solid fa-file"><\/i> '+esc(f.name)+'<button onclick="removeResultPending('+idx+')" style="background:none;border:none;cursor:pointer;color:#A0522D;font-size:0.72rem;padding:0 2px;"><i class="fa-solid fa-xmark"><\/i><\/button><\/div>';
+    }
+  });
+  c.innerHTML = html;
+}
+
+function removePending(idx){ pendingFiles.splice(idx,1); renderPendingFiles(); }
+function removeResultPending(idx){ resultPendingFiles.splice(idx,1); renderResultPendingFiles(); }
+
+// 粘贴监听
+document.addEventListener('paste', function(e){
+  if(document.getElementById('modalOverlay').style.display==='flex'){
+    var items = (e.clipboardData||e.originalEvent.clipboardData).items;
+    var found = false;
+    for(var i=0;i<items.length;i++){
+      if(items[i].type.indexOf('image')===0){
+        var blob = items[i].getAsFile();
+        var ext = items[i].type.split('/')[1]||'png';
+        if(ext==='jpeg') ext='jpg';
+        pendingFiles.push(new File([blob],'paste_'+Date.now()+'.'+ext,{type:items[i].type}));
+        found = true;
+      }
+    }
+    if(found) renderPendingFiles();
+  } else if(document.getElementById('detailOverlay').style.display==='flex'){
+    var items = (e.clipboardData||e.originalEvent.clipboardData).items;
+    var found = false;
+    for(var i=0;i<items.length;i++){
+      if(items[i].type.indexOf('image')===0){
+        var blob = items[i].getAsFile();
+        var ext = items[i].type.split('/')[1]||'png';
+        if(ext==='jpeg') ext='jpg';
+        resultPendingFiles.push(new File([blob],'paste_'+Date.now()+'.'+ext,{type:items[i].type}));
+        found = true;
+      }
+    }
+    if(found) renderResultPendingFiles();
+  }
+});
+
+async function uploadPendingFiles(taskId){
+  for(var i=0;i<pendingFiles.length;i++){
+    var fd = new FormData(); fd.append('file',pendingFiles[i]); fd.append('attach_type','material');
+    try{ await fetch(API+'/tasks/'+taskId+'/attachments',{method:'POST',body:fd}); }catch(err){ console.error(err); }
+  }
+  pendingFiles = [];
+  document.getElementById('pastePreview').style.display='none';
+  document.getElementById('pastePreviewImgs').innerHTML='';
+}
+
+async function uploadResultFiles(taskId){
+  for(var i=0;i<resultPendingFiles.length;i++){
+    var fd = new FormData(); fd.append('file',resultPendingFiles[i]); fd.append('attach_type','result');
+    try{ await fetch(API+'/tasks/'+taskId+'/attachments',{method:'POST',body:fd}); }catch(err){ console.error(err); }
+  }
+  resultPendingFiles = [];
+  document.getElementById('resultPastePreview').style.display='none';
+  document.getElementById('resultPastePreviewImgs').innerHTML='';
+}
+
+function closeTaskModal(){ document.getElementById('modalOverlay').style.display='none'; }
+
+async function saveTask(){
+  var id = document.getElementById('editId').value;
+  var title = document.getElementById('editTitle').value.trim();
+  var executor_id = document.getElementById('editExecutor').value;
+  var expected_end = document.getElementById('editDue').value;
+  var estimated_minutes = parseInt(document.getElementById('editMinutes').value)||0;
+  var description = document.getElementById('editDesc').value.trim();
+  if(!title){ alert('请填写任务名称'); return; }
+  if(!executor_id){ alert('请选择执行人'); return; }
+  if(!expected_end){ alert('请填写截止时间'); return; }
+  var start_time = document.getElementById('editStartTime').value;
+  var body = {title:title, executor_id:parseInt(executor_id), expected_end:expected_end, estimated_minutes:estimated_minutes, description:description, start_time:start_time||null};
+  // Validate schedule
+  try {
+    var vr = await fetch(API+'/tasks/validate-schedule',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({executor_id:parseInt(executor_id), expected_end:expected_end, estimated_minutes:estimated_minutes||30})
+    });
+    var vd = await vr.json();
+    if(vd.success && vd.validation && vd.validation.has_conflict){
+      var v = vd.validation;
+      var msg = '理想时段 '+v.ideal_start+'-'+v.ideal_end+' 有冲突：\n';
+      v.conflicts.forEach(function(c){ msg += '  · '+c.start+'-'+c.end+' '+c.name+'\n'; });
+      if(v.suggested && v.suggested.length){
+        var s = v.suggested[0];
+        msg += '\n建议调整到：'+s.desc+(s.is_overtime?' (加班)':'');
+        if(confirm(msg+'\n\n确认使用建议时段？')){
+          body.confirmed_slot = s;
+        } else { return; }
+      } else {
+        alert(msg+'\n当日无可用时段，请调整截止时间或执行人');
+        return;
+      }
+    }
+  } catch(e) {}
+  var res;
+  if(id){
+    body.status = 'pending';
+    res = await fetch(API+'/tasks/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  } else {
+    res = await fetch(API+'/tasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  }
+  var d = await res.json();
+  if(d.success){
+    var taskId = id || d.id;
+    if(pendingFiles.length>0) await uploadPendingFiles(taskId);
+    closeTaskModal();
+    loadList();
+  } else alert(d.message||'保存失败');
+}
+async function deleteTask(id){
+  if(!confirm('确认删除此任务？')) return;
+  var res = await fetch(API+'/tasks/'+id,{method:'DELETE'});
+  var d = await res.json();
+  if(d.success) loadList(); else alert(d.message||'删除失败');
+}
+
+document.getElementById('filterExecutor').addEventListener('change',loadList);
+document.getElementById('filterStatus').addEventListener('change',loadList);
+loadOptions().then(loadList);
+{% raw %}</script>{% endraw %}
+<script>
+var _aiMessages=[];
+// 恢复AI对话历史
+(function(){
+  fetch(API.replace('/tasks','')+'/ai/chat/history?module=tasks').then(function(r){return r.json();}).then(function(d){
+    if(d.success&&d.messages&&d.messages.length){
+      d.messages.forEach(function(m){
+        if(m.role==='user') appendAiMsg('user',m.content);
+        else if(m.role==='assistant') appendAiMsg('bot',m.content);
+        _aiMessages.push({role:m.role,content:m.content});
+      });
+      var box=document.getElementById('aiChatMessages');if(box)box.scrollTop=box.scrollHeight;
+    }
+  }).catch(function(){});
+})();
+function toggleAiChat(){
+  var p=document.getElementById('aiChatPanel');
+  var fab=document.getElementById('aiFab');
+  if(p.style.display==='none'||!p.style.display){
+    p.style.display='flex';
+    fab.style.display='none';
+    if(!_aiMessages.length){
+      appendAiMsg('bot','你好！我是任务管理AI助手，你可以用自然语言描述工作需求，我会帮你整理成任务。\n例如：下周三前让杨洁整理一下7月的退货数据');
+      _aiMessages.push({role:'assistant',content:'你好！我是任务管理AI助手，你可以用自然语言描述工作需求，我会帮你整理成任务。'});
+    }
+    document.getElementById('aiChatInput').focus();
+  }else{
+    p.style.display='none';
+    fab.style.display='flex';
+  }
+}
+function appendAiMsg(type,text){
+  var box=document.getElementById('aiChatMessages');
+  var div=document.createElement('div');
+  div.className='ai-msg ai-msg-'+type;
+  var html=text.replace(/```json\n?([\s\S]*?)```/g,function(m,json){
+    try{
+      var obj=JSON.parse(json);
+            var isUpdate=obj.action==='update';var summary=isUpdate?'修改任务'+(obj.task_no||'?')+(obj.title?'：'+obj.title:''):'\u003cb\u003e'+obj.title+'\u003c/b\u003e \u0026rarr; '+(obj.executor||'未指定')+(obj.start_time?'，排定'+obj.start_time:'')+'，截止'+(obj.expected_end||'未定')+'，预估'+(obj.estimated_minutes||0)+'min';if(isUpdate&&obj.expected_end)summary+='，截止→'+obj.expected_end;if(isUpdate&&obj.estimated_minutes)summary+='，工时→'+obj.estimated_minutes+'min';
+      return '<div style="background:#e8efe9;padding:8px 10px;border-radius:6px;margin:4px 0;border-left:3px solid '+(isUpdate?'#E6A23C':'#2D4A3E')+'">'+summary
+        +'<div style="margin-top:6px"><button onclick="confirmCreateTask(this)" data-json="'+encodeURIComponent(json)+'" style="background:#2D4A3E;color:#fff;border:none;border-radius:4px;padding:4px 12px;font-size:0.75rem;cursor:pointer;" onmouseover="this.style.background=&#39;#1a2e25&#39;" onmouseout="this.style.background=&#39;#2D4A3E&#39;">'+(isUpdate?'确认修改':'确认创建')+'</button></div></div>';
+    }catch(e){return '<pre>'+json+'</pre>';}
+  }).replace(/`([^`]+)`/g,'$1');
+  div.innerHTML=html;
+  box.appendChild(div);
+  box.scrollTop=box.scrollHeight;
+}
+function confirmCreateTask(btn){
+  var jsonStr=decodeURIComponent(btn.getAttribute('data-json'));
+  var task=JSON.parse(jsonStr);
+  var isUpdate=task.action==='update';
+  if(!isUpdate && task.executor && !task.executor_id){
+    var found=usersList.find(function(u){return (u.display_name||u.name||u.username)===task.executor;});
+    if(found) task.executor_id=found.id;
+    else{appendAiMsg('bot','找不到执行人「'+task.executor+'」，请手动创建任务');return;}
+    delete task.executor;
+  }
+  // Validate schedule for AI-created tasks too
+  var execId = task.executor_id;
+  var expEnd = task.expected_end;
+  var dur = task.estimated_minutes || 30;
+  if(execId && expEnd && !isUpdate){
+    fetch(API+'/tasks/validate-schedule',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({executor_id:execId, expected_end:expEnd, estimated_minutes:dur})
+    }).then(function(r){return r.json();}).then(function(vd){
+      if(vd.success && vd.validation && vd.validation.has_conflict){
+        var v = vd.validation;
+        var msg = '理想时段 '+v.ideal_start+'-'+v.ideal_end+' 有冲突：\n';
+        v.conflicts.forEach(function(c){ msg += '  · '+c.start+'-'+c.end+' '+c.name+'\n'; });
+        if(v.suggested && v.suggested.length){
+          var s = v.suggested[0];
+          msg += '\n建议调整到：'+s.desc+(s.is_overtime?' (加班)':'');
+          if(confirm(msg+'\n\n确认使用建议时段？')){
+            task.confirmed_slot = s;
+          } else { return; }
+        } else {
+          alert(msg+'\n当日无可用时段，请调整截止时间');
+          return;
+        }
+      }
+      doCreateTask(btn, task, isUpdate);
+    }).catch(function(){ doCreateTask(btn, task, isUpdate); });
+  } else {
+    doCreateTask(btn, task, isUpdate);
+  }
+}
+function doCreateTask(btn, task, isUpdate){
+  btn.disabled=true;
+  btn.textContent=isUpdate?'修改中...':'创建中...';
+  var url=isUpdate?API+'/tasks/no/'+task.task_no:API+'/tasks';
+  var method=isUpdate?'PUT':'POST';
+  var body=Object.assign({},task);
+  if(isUpdate){delete body.action;delete body.task_no;delete body.executor;if(!body.title)delete body.title;}
+  else{delete body.action;}
+  fetch(url,{
+    method:method,
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  }).then(function(r){return r.json();}).then(function(d){
+    if(d.success||d.id){
+      btn.textContent=isUpdate?'已修改':'已创建';
+      btn.style.background='#8C8C8C';
+      btn.style.cursor='default';
+      appendAiMsg('bot',isUpdate?'任务已修改成功！':'任务已创建成功！');loadList();
+    }else{
+      btn.textContent=isUpdate?'修改失败':'创建失败';
+      btn.style.background='#A0522D';
+      appendAiMsg('bot',(isUpdate?'修改':'创建')+'失败：'+(d.message||d.error||'未知错误'));
+    }
+  }).catch(function(e){
+    btn.textContent=isUpdate?'修改失败':'创建失败';
+    btn.style.background='#A0522D';
+    appendAiMsg('bot','网络错误，请重试');
+  });
+}
+
+function clearAiHistory(){
+  if(!confirm('清空所有AI对话记录？'))return;
+  fetch(API.replace('/tasks','')+'/ai/chat/clear?module=tasks',{method:'DELETE'}).then(function(r){return r.json();}).then(function(d){
+    if(d.success){document.getElementById('aiChatMessages').innerHTML='';_aiMessages=[];appendAiMsg('bot','对话已清空');}
+  }).catch(function(){});
+}
+function sendAiMessage(){
+  var input=document.getElementById('aiChatInput');
+  var text=input.value.trim();
+  if(!text)return;
+  input.value='';input.style.height='auto';
+  appendAiMsg('user',text);
+  _aiMessages.push({role:'user',content:text});
+  var typing=document.createElement('div');
+  typing.className='ai-msg ai-msg-bot ai-typing';
+  typing.id='aiTyping';
+  typing.textContent='思考中...';
+  document.getElementById('aiChatMessages').appendChild(typing);
+  document.getElementById('aiChatMessages').scrollTop=99999;
+  fetch(API.replace('/tasks','')+'/ai/chat',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({messages:_aiMessages,current_user_id:CURRENT_USER_ID,module:'tasks'})
+  }).then(function(r){return r.json();}).then(function(d){
+    var t=document.getElementById('aiTyping');
+    if(t)t.remove();
+    if(d.success){
+      appendAiMsg('bot',d.reply);
+      _aiMessages.push({role:'assistant',content:d.reply});
+    }else{
+      appendAiMsg('bot','出错了：'+d.message);
+    }
+  }).catch(function(){
+    var t=document.getElementById('aiTyping');
+    if(t)t.remove();
+    appendAiMsg('bot','网络错误，请重试');
+  });
+}
+{% raw %}</script>{% endraw %}
+<script>
+/*FAB拖拽*/
+(function(){
+  var fab=document.getElementById('aiFab');
+  if(!fab)return;
+  var isDrag=false,startX,startY,startL,startT,moved;
+  function getPos(){var s=window.getComputedStyle(fab);return{l:parseInt(s.left)||0,t:parseInt(s.top)||0};}
+  function onDown(e){
+    e.preventDefault();e.stopPropagation();isDrag=true;moved=false;
+    var ev=e.touches?e.touches[0]:e;
+    startX=ev.clientX;startY=ev.clientY;
+    var p=getPos();startL=p.l;startT=p.t;
+    fab.style.cursor='grabbing';fab.style.transition='none';
+  }
+  function onMove(e){
+    if(!isDrag)return;e.preventDefault();
+    var ev=e.touches?e.touches[0]:e;
+    var dx=ev.clientX-startX,dy=ev.clientY-startY;
+    if(Math.abs(dx)>5||Math.abs(dy)>5)moved=true;
+    if(!moved)return;
+    var nl=startL+dx,nt=startT+dy;
+    nl=Math.max(0,Math.min(nl,window.innerWidth-52));
+    nt=Math.max(0,Math.min(nt,window.innerHeight-52));
+    fab.style.left=nl+'px';fab.style.top=nt+'px';fab.style.right='auto';fab.style.bottom='auto';
+  }
+  function onUp(){
+    if(!isDrag)return;isDrag=false;
+    fab.style.cursor='grab';fab.style.transition='transform .2s';
+    if(!moved)toggleAiChat();
+    try{localStorage.setItem('aiFabPos',fab.style.left+','+fab.style.top);}catch(e){}
+  }
+  fab.addEventListener('mousedown',onDown);document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
+  fab.addEventListener('touchstart',onDown,{passive:false});document.addEventListener('touchmove',onMove,{passive:false});document.addEventListener('touchend',onUp);
+  try{var sp=localStorage.getItem('aiFabPos');if(sp){var a=sp.split(',');fab.style.left=a[0];fab.style.top=a[1];fab.style.right='auto';fab.style.bottom='auto';}}catch(e){}
+})();
+{% raw %}</script>{% endraw %}
+{% endblock %}

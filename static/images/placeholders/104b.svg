@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="120" height="160">
+  <!-- 雨伞 -->
+  <rect width="120" height="160" fill="#F5F0E8" rx="4"/>
+  <!-- 伞面 -->
+  <path d="M15 90 Q60 30 105 90 Z" fill="#9EB3AA" opacity="0.85"/>
+  <!-- 伞面波浪 -->
+  <path d="M15 90 Q27 80 38 90 Q50 80 60 90 Q72 80 83 90 Q95 80 105 90" fill="none" stroke="#7A9E8F" stroke-width="1.5"/>
+  <!-- 伞柄 -->
+  <line x1="60" y1="55" x2="60" y2="135" stroke="#7A9E8F" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- 伞柄弯钩 -->
+  <path d="M60 135 Q60 145 50 145" fill="none" stroke="#7A9E8F" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

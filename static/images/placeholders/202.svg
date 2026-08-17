@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="120" height="160">
+  <!-- 点心 - 零食袋形状 -->
+  <rect width="120" height="160" fill="#F5F0E8" rx="4"/>
+  <!-- 袋体 -->
+  <path d="M28 40 L92 40 L88 130 Q60 140 32 130 Z" fill="#C9A07A" opacity="0.85"/>
+  <!-- 袋口锯齿 -->
+  <path d="M28 40 L35 32 L42 40 L49 32 L56 40 L63 32 L70 40 L77 32 L84 40 L91 32 L92 40" fill="#B8956A"/>
+  <!-- 标签 -->
+  <rect x="38" y="65" width="44" height="30" rx="3" fill="#FBF9F4" opacity="0.7"/>
+  <line x1="44" y1="76" x2="76" y2="76" stroke="#B8956A" stroke-width="1.5"/>
+  <line x1="48" y1="84" x2="72" y2="84" stroke="#B8956A" stroke-width="1"/>
+  <!-- 袋底 -->
+  <path d="M32 130 Q60 140 88 130" fill="none" stroke="#A07D55" stroke-width="1"/>
+</svg>

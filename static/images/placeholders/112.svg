@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="120" height="160">
+  <!-- 居家用品 - 杯碗形状 -->
+  <rect width="120" height="160" fill="#F5F0E8" rx="4"/>
+  <!-- 碗体 -->
+  <path d="M25 60 Q25 110 60 115 Q95 110 95 60 Z" fill="#9EB3AA" opacity="0.85"/>
+  <!-- 碗口 -->
+  <ellipse cx="60" cy="60" rx="35" ry="10" fill="#A8B5A0"/>
+  <!-- 碗底 -->
+  <path d="M45 115 Q60 120 75 115" fill="none" stroke="#7A9E8F" stroke-width="2" stroke-linecap="round"/>
+  <!-- 筷子 -->
+  <line x1="80" y1="45" x2="100" y2="25" stroke="#C4A882" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="85" y1="48" x2="105" y2="28" stroke="#C4A882" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

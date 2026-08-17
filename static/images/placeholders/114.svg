@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="120" height="160">
+  <!-- 卫生&美容用品 - 泵瓶形状 -->
+  <rect width="120" height="160" fill="#F5F0E8" rx="4"/>
+  <!-- 瓶身 -->
+  <rect x="32" y="60" width="56" height="75" rx="6" fill="#9EB3AA" opacity="0.85"/>
+  <!-- 瓶颈 -->
+  <rect x="48" y="48" width="24" height="14" rx="2" fill="#8FA8A0"/>
+  <!-- 泵头 -->
+  <rect x="50" y="35" width="20" height="15" rx="3" fill="#7A9E8F"/>
+  <!-- 泵嘴 -->
+  <path d="M70 40 L85 38 L85 42 Z" fill="#7A9E8F"/>
+  <!-- 标签 -->
+  <rect x="38" y="80" width="44" height="28" rx="2" fill="#FBF9F4" opacity="0.7"/>
+  <line x1="44" y1="90" x2="76" y2="90" stroke="#8FA8A0" stroke-width="1.5"/>
+  <line x1="48" y1="97" x2="72" y2="97" stroke="#8FA8A0" stroke-width="1"/>
+</svg>

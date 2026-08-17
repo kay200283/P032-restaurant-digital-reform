@@ -1,0 +1,1349 @@
+{% extends "base.html" %}
+{% block title %}周期性工作管理 - P029{% endblock %}
+{% block content %}
+<!-- AI 周期性工作助手 -->
+<div id="aiFab" style="position:fixed;bottom:28px;right:28px;width:52px;height:52px;border-radius:50%;background:#2D4A3E url(/static/img/ai-avatar.png) center/cover no-repeat;cursor:grab;box-shadow:0 4px 16px rgba(45,74,62,0.35);z-index:900;transition:transform .2s;touch-action:none;" title="AI助手"></div>
+
+<div id="aiChatPanel" style="display:none;position:fixed;bottom:90px;right:28px;width:380px;max-height:520px;background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.18);z-index:901;flex-direction:column;overflow:hidden;">
+  <div style="background:#2D4A3E;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
+    <span style="font-weight:600;font-size:0.9rem;"><img src="/static/img/ai-avatar.png" style="width:22px;height:22px;border-radius:50%;margin-right:6px;vertical-align:middle;border:1.5px solid rgba(255,255,255,0.3);background:#2D4A3E;">AI 周期性工作助手</span>
+    <span style="display:flex;gap:10px;align-items:center;"><i onclick="clearAiHistory()" title="清空对话" style="cursor:pointer;font-size:0.8rem;opacity:0.7;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7" class="fa-solid fa-trash-can"></i><span style="cursor:pointer;font-size:1.1rem;opacity:0.8;" onclick="toggleAiChat()" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.8">&times;</span></span>
+  </div>
+  <div id="aiChatMessages" style="flex:1;overflow-y:auto;padding:12px 14px;min-height:280px;max-height:380px;font-size:0.82rem;line-height:1.6;"></div>
+  <div style="padding:10px 12px;border-top:1px solid #eee;display:flex;gap:6px;">
+    <textarea id="aiChatInput" placeholder="描述需求，如: 把展示会筹备改成360min... (Enter发送)" rows="1" style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:0.8rem;outline:none;resize:none;max-height:80px;min-height:32px;line-height:1.4;font-family:inherit;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAiMessage();}" onfocus="this.style.borderColor='#2D4A3E'" onblur="this.style.borderColor='#ddd'" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px';"></textarea>
+    <button onclick="sendAiMessage()" style="background:#2D4A3E;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:0.8rem;cursor:pointer;" onmouseover="this.style.background='#1a2e25'" onmouseout="this.style.background='#2D4A3E'"><i class="fa-solid fa-paper-plane"></i></button>
+  </div>
+</div>
+
+<style>
+.ai-msg{margin-bottom:10px;padding:8px 12px;border-radius:8px;max-width:90%;word-break:break-word;white-space:pre-wrap;}
+.ai-msg-user{background:#e8efe9;color:#2D4A3E;margin-left:auto;text-align:right;}
+.ai-msg-bot{background:#f5f5f5;color:#333;}
+.ai-msg-bot code{background:#e8efe9;padding:1px 4px;border-radius:3px;font-size:0.75rem;color:#A0522D;}
+.ai-msg-bot pre{background:#1a2e25;color:#e0e0e0;padding:10px;border-radius:6px;overflow-x:auto;font-size:0.75rem;margin:6px 0;}
+.ai-typing{color:#8C8C8C;font-style:italic;}
+</style>
+
+<script>
+var _aiMessages=[];
+var _recurringList=[];
+var API='/work-mgmt/api';
+// 恢复AI对话历史
+(function(){
+  fetch(API+'/ai/chat/history?module=recurring').then(function(r){return r.json();}).then(function(d){
+    if(d.success&&d.messages&&d.messages.length){
+      d.messages.forEach(function(m){
+        if(m.role==='user') appendAiMsg('user',m.content);
+        else if(m.role==='assistant') appendAiMsg('bot',m.content);
+        _aiMessages.push({role:m.role,content:m.content});
+      });
+      var box=document.getElementById('aiChatMessages');if(box)box.scrollTop=box.scrollHeight;
+    }
+  }).catch(function(){});
+})();
+function toggleAiChat(){
+  var p=document.getElementById('aiChatPanel');
+  var fab=document.getElementById('aiFab');
+  if(p.style.display==='none'||!p.style.display){
+    p.style.display='flex';fab.style.display='none';
+    if(!_aiMessages.length){
+      appendAiMsg('bot','你好！我是周期性工作AI助手，可以帮你：\n1. 分析工时分布和负荷均衡\n2. 创建/修改/停用周期性工作(含批量)\n3. 识别异常高工时项目并给出优化建议\n例如：展示会筹备的时长从720min改成360min');
+      _aiMessages.push({role:'assistant',content:'你好！我是周期性工作AI助手，可以帮你分析工时分布、创建/修改/停用工作、识别异常。'});
+    }
+    document.getElementById('aiChatInput').focus();
+  }else{p.style.display='none';fab.style.display='flex';}
+}
+// FAB拖拽逻辑
+(function(){
+  var fab=document.getElementById('aiFab');
+  var isDrag=false,startX,startY,startL,startT,moved;
+  function getPos(){var s=window.getComputedStyle(fab);return{l:parseInt(s.left)||0,t:parseInt(s.top)||0};}
+  function onDown(e){
+    e.preventDefault();isDrag=true;moved=false;
+    var ev=e.touches?e.touches[0]:e;
+    startX=ev.clientX;startY=ev.clientY;
+    var p=getPos();startL=p.l;startT=p.t;
+    fab.style.cursor='grabbing';fab.style.transition='none';
+  }
+  function onMove(e){
+    if(!isDrag)return;e.preventDefault();
+    var ev=e.touches?e.touches[0]:e;
+    var dx=ev.clientX-startX,dy=ev.clientY-startY;
+    if(Math.abs(dx)>5||Math.abs(dy)>5)moved=true;
+    if(!moved)return;
+    var nl=startL+dx,nt=startT+dy;
+    nl=Math.max(0,Math.min(nl,window.innerWidth-52));
+    nt=Math.max(0,Math.min(nt,window.innerHeight-52));
+    fab.style.left=nl+'px';fab.style.top=nt+'px';fab.style.right='auto';fab.style.bottom='auto';
+  }
+  function onUp(){
+    if(!isDrag)return;isDrag=false;
+    fab.style.cursor='grab';fab.style.transition='transform .2s';
+    if(!moved)toggleAiChat();
+    try{localStorage.setItem('aiFabPos',fab.style.left+','+fab.style.top);}catch(e){}
+  }
+  fab.addEventListener('mousedown',onDown);document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
+  fab.addEventListener('touchstart',onDown,{passive:false});document.addEventListener('touchmove',onMove,{passive:false});document.addEventListener('touchend',onUp);
+  // 恢复位置
+  try{var sp=localStorage.getItem('aiFabPos');if(sp){var a=sp.split(',');fab.style.left=a[0];fab.style.top=a[1];fab.style.right='auto';fab.style.bottom='auto';}}catch(e){}
+})();
+function appendAiMsg(type,text){
+  var box=document.getElementById('aiChatMessages');
+  var div=document.createElement('div');
+  div.className='ai-msg ai-msg-'+type;
+  var html=text.replace(/```json\n?([\s\S]*?)```/g,function(m,json){
+    try{
+      var obj=JSON.parse(json);
+      var action=obj.action||'create';
+      if(action==='create'){
+        var summary='<b>'+obj.name+'</b> | '+obj.type+' | '+(obj.executor||'未指定')+' | '+obj.duration_minutes+'min/次 | '+obj.freq_per_month+'次/月';
+        return '<div style="background:#e8efe9;padding:8px 10px;border-radius:6px;margin:4px 0;border-left:3px solid #2D4A3E">'+summary
+          +'<div style="margin-top:6px"><button onclick="confirmAiAction(this)" data-json="'+encodeURIComponent(json)+'" style="background:#2D4A3E;color:#fff;border:none;border-radius:4px;padding:4px 12px;font-size:0.75rem;cursor:pointer;" onmouseover="this.style.background=&#39;#1a2e25&#39;" onmouseout="this.style.background=&#39;#2D4A3E&#39;">确认创建</button></div></div>';
+      }else if(action==='update'){
+        var ids=obj.ids||[];
+        var changes=obj.changes||{};
+        var desc=Object.keys(changes).map(function(k){return k+':'+changes[k];}).join(', ');
+        var summary='<b>修改'+ids.length+'条</b> #'+ids.join('#, #')+' → '+desc;
+        return '<div style="background:#fdf6ec;padding:8px 10px;border-radius:6px;margin:4px 0;border-left:3px solid #E6A23C">'+summary
+          +'<div style="margin-top:6px"><button onclick="confirmAiAction(this)" data-json="'+encodeURIComponent(json)+'" style="background:#E6A23C;color:#fff;border:none;border-radius:4px;padding:4px 12px;font-size:0.75rem;cursor:pointer;" onmouseover="this.style.background=&#39;#c78c1a&#39;" onmouseout="this.style.background=&#39;#E6A23C&#39;">确认修改</button></div></div>';
+      }else if(action==='deactivate'){
+        var ids=obj.ids||[];
+        var summary='<b>停用'+ids.length+'条</b> #'+ids.join('#, #')+'（可恢复）';
+        return '<div style="background:#fdf2f0;padding:8px 10px;border-radius:6px;margin:4px 0;border-left:3px solid #A0522D">'+summary
+          +'<div style="margin-top:6px"><button onclick="confirmAiAction(this)" data-json="'+encodeURIComponent(json)+'" style="background:#A0522D;color:#fff;border:none;border-radius:4px;padding:4px 12px;font-size:0.75rem;cursor:pointer;" onmouseover="this.style.background=&#39;#7a3d21&#39;" onmouseout="this.style.background=&#39;#A0522D&#39;">确认停用</button></div></div>';
+      }else if(action==='split'){
+        var ids=obj.ids||[];var pcs=obj.pieces||2;
+        var summary='<b>拆分'+ids.length+'条</b> #'+ids.join('#, #')+' → '+pcs+'片';
+        return '<div style="background:#e8efe9;padding:8px 10px;border-radius:6px;margin:4px 0;border-left:3px solid #2D4A3E">'+summary
+          +'<div style="margin-top:6px"><button onclick="confirmAiAction(this)" data-json="'+encodeURIComponent(json)+'" style="background:#2D4A3E;color:#fff;border:none;border-radius:4px;padding:4px 12px;font-size:0.75rem;cursor:pointer;" onmouseover="this.style.background=&#39;#1a2e25&#39;" onmouseout="this.style.background=&#39;#2D4A3E&#39;">确认拆分</button></div></div>';
+      }else if(action==='clear_split'){
+        var ids=obj.ids||[];
+        var summary='<b>清除拆分</b> #'+ids.join('#, #')+' → 合并回单条';
+        return '<div style="background:#fdf6ec;padding:8px 10px;border-radius:6px;margin:4px 0;border-left:3px solid #E6A23C">'+summary
+          +'<div style="margin-top:6px"><button onclick="confirmAiAction(this)" data-json="'+encodeURIComponent(json)+'" style="background:#E6A23C;color:#fff;border:none;border-radius:4px;padding:4px 12px;font-size:0.75rem;cursor:pointer;" onmouseover="this.style.background=&#39;#c78c1a&#39;" onmouseout="this.style.background=&#39;#E6A23C&#39;">确认清除</button></div></div>';
+      }
+      return '<pre>'+json+'</pre>';
+    }catch(e){return '<pre>'+json+'</pre>';}
+  }).replace(/`([^`]+)`/g,'<code>$1</code>');
+  div.innerHTML=html;
+  box.appendChild(div);box.scrollTop=box.scrollHeight;
+}
+function buildCycleRuleFromFields(ct,wd,md,tm,wp){
+  var _dn={1:'一',2:'二',3:'三',4:'四',5:'五',6:'六',7:'日'};
+  var _mn={1:'1月',2:'2月',3:'3月',4:'4月',5:'5月',6:'6月',7:'7月',8:'8月',9:'9月',10:'10月',11:'11月',12:'12月'};
+  ct=ct||'weekly'; wd=wd||''; md=md||''; tm=tm||''; wp=wp||'';
+  if(ct==='daily') return '每日';
+  if(ct==='weekly'){
+    if(wd){var ds=wd.split(',').filter(Boolean).map(function(d){return _dn[parseInt(d)]||'?'}).join('、'); return ds?'每周'+ds:'';}
+    return '每周';
+  }
+  if(ct==='biweekly'){
+    var p=wp==='odd'?'单':'双';
+    if(wd){var ds=wd.split(',').filter(Boolean).map(function(d){return _dn[parseInt(d)]||'?'}).join('、'); return p+'周'+ds;}
+    return p+'周';
+  }
+  if(ct==='monthly'){return md?'每月'+md+'号':'每月';}
+  if(ct==='bimonthly'){
+    var parts=[];
+    if(tm){parts.push(tm.split(',').filter(Boolean).map(function(m){return _mn[parseInt(m)]||'?'}).join('、'));}
+    if(md){parts.push(md+'号');}
+    return '双月'+(parts.length?' '+parts.join(' '):'');
+  }
+  if(ct==='quarterly'){
+    var parts=[];
+    if(tm){parts.push(tm.split(',').filter(Boolean).map(function(m){return _mn[parseInt(m)]||'?'}).join('、'));}
+    if(md){parts.push(md+'号');}
+    return '每季'+(parts.length?' '+parts.join(' '):'');
+  }
+  if(ct==='yearly'){
+    var parts=[];
+    if(tm){parts.push(tm.split(',').filter(Boolean).map(function(m){return _mn[parseInt(m)]||'?'}).join('、'));}
+    if(md){parts.push(md+'号');}
+    return '每年'+(parts.length?' '+parts.join(' '):'');
+  }
+  if(ct==='on_demand') return '不定期';
+  return '';
+}
+function confirmAiAction(btn){
+  var jsonStr=decodeURIComponent(btn.getAttribute('data-json'));
+  var obj=JSON.parse(jsonStr);
+  var action=obj.action||'create';
+  btn.disabled=true;btn.textContent='执行中...';
+  if(action==='create'){
+    // Map executor name to id
+    if(obj.executor&&!obj.executor_id){
+      var found=usersList.find(function(u){return (u.display_name||u.name||u.username)===obj.executor;});
+      if(found) obj.executor_id=found.id;
+      else{btn.textContent='执行人未找到';btn.style.background='#A0522D';appendAiMsg('bot','找不到执行人「'+obj.executor+'」');return;}
+      delete obj.executor;
+    }
+    delete obj.action;
+    // Map owner name to owner_id
+    if(obj.owner && !obj.owner_id){
+      var foundOwner=usersList.find(function(u){return (u.display_name||u.name||u.username)===obj.owner;});
+      if(foundOwner) obj.owner_id=foundOwner.id;
+      delete obj.owner;
+    }
+    // Auto-compute cycle_rule if not provided
+    if(!obj.cycle_rule){obj.cycle_rule=buildCycleRuleFromFields(obj.cycle_type||'weekly',obj.cycle_weekdays||'',obj.cycle_month_days||'',obj.cycle_target_months||'',obj.cycle_week_parity||'');}
+    fetch(API+'/recurring',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(obj)}).then(function(r){return r.json();}).then(function(d){
+      if(d.success){btn.textContent='已创建';btn.style.background='#8C8C8C';btn.style.cursor='default';appendAiMsg('bot','创建成功！');loadList();}
+      else{btn.textContent='失败';btn.style.background='#A0522D';appendAiMsg('bot','创建失败：'+d.message);}
+    }).catch(function(){btn.textContent='失败';btn.style.background='#A0522D';appendAiMsg('bot','网络错误');});
+  }else if(action==='update'){
+    var ids=obj.ids||[];var changes=obj.changes||{};
+    var done=0,fail=0;
+    ids.forEach(function(id){
+      // GET current, merge changes, PUT
+      var row=_recurringList.find(function(r){return r.id===id;});
+      if(!row){fail++;checkDone();return;}
+      var merged=Object.assign({},row);
+      Object.keys(changes).forEach(function(k){merged[k]=changes[k];});
+      fetch(API+'/recurring/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(merged)}).then(function(r2){return r2.json();}).then(function(d2){
+        if(d2.success)done++;else fail++;checkDone();
+      }).catch(function(){fail++;checkDone();});
+    });
+    function checkDone(){
+      if(done+fail<ids.length)return;
+      if(fail===0){btn.textContent='已修改'+done+'条';btn.style.background='#8C8C8C';btn.style.cursor='default';appendAiMsg('bot','修改成功'+done+'条！');loadList();}
+      else{btn.textContent='部分失败';btn.style.background='#A0522D';appendAiMsg('bot','成功'+done+'条，失败'+fail+'条');loadList();}
+    }
+  }else if(action==='split'){
+    var ids=obj.ids||[];var pcs=obj.pieces||2;var done=0,fail=0;
+    ids.forEach(function(id){
+      fetch(API+'/recurring/split-pattern/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'set',pieces:pcs})}).then(function(r2){return r2.json();}).then(function(d2){
+        if(d2.success)done++;else fail++;checkDone3();
+      }).catch(function(){fail++;checkDone3();});
+    });
+    function checkDone3(){
+      if(done+fail<ids.length)return;
+      if(fail===0){btn.textContent='已拆分'+done+'条';btn.style.background='#8C8C8C';btn.style.cursor='default';appendAiMsg('bot','拆分成功'+done+'条！');loadList();}
+      else{btn.textContent='部分失败';btn.style.background='#A0522D';appendAiMsg('bot','拆分成功'+done+'条，失败'+fail+'条');loadList();}
+    }
+  }else if(action==='clear_split'){
+    var ids=obj.ids||[];var done=0,fail=0;
+    ids.forEach(function(id){
+      fetch(API+'/recurring/split-pattern/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'clear'})}).then(function(r2){return r2.json();}).then(function(d2){
+        if(d2.success)done++;else fail++;checkDone4();
+      }).catch(function(){fail++;checkDone4();});
+    });
+    function checkDone4(){
+      if(done+fail<ids.length)return;
+      if(fail===0){btn.textContent='已清除'+done+'条';btn.style.background='#8C8C8C';btn.style.cursor='default';appendAiMsg('bot','清除拆分成功'+done+'条！');loadList();}
+      else{btn.textContent='部分失败';btn.style.background='#A0522D';appendAiMsg('bot','清除成功'+done+'条，失败'+fail+'条');loadList();}
+    }
+  }else if(action==='deactivate'){
+    var ids=obj.ids||[];var done=0,fail=0;
+    ids.forEach(function(id){
+      var row=_recurringList.find(function(r){return r.id===id;});
+      if(!row){fail++;checkDone2();return;}
+      var merged=Object.assign({},row);merged.is_active=0;
+      fetch(API+'/recurring/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(merged)}).then(function(r2){return r2.json();}).then(function(d2){
+        if(d2.success)done++;else fail++;checkDone2();
+      }).catch(function(){fail++;checkDone2();});
+    });
+    function checkDone2(){
+      if(done+fail<ids.length)return;
+      if(fail===0){btn.textContent='已停用'+done+'条';btn.style.background='#8C8C8C';btn.style.cursor='default';appendAiMsg('bot','停用成功'+done+'条！');loadList();}
+      else{btn.textContent='部分失败';btn.style.background='#A0522D';appendAiMsg('bot','成功'+done+'条，失败'+fail+'条');loadList();}
+    }
+  }
+}
+function clearAiHistory(){
+  if(!confirm('清空所有AI对话记录？'))return;
+  fetch(API+'/ai/chat/clear?module=recurring',{method:'DELETE'}).then(function(r){return r.json();}).then(function(d){
+    if(d.success){document.getElementById('aiChatMessages').innerHTML='';_aiMessages=[];appendAiMsg('bot','对话已清空');}
+  }).catch(function(){});
+}
+function sendAiMessage(){
+  var input=document.getElementById('aiChatInput');
+  var text=input.value.trim();if(!text)return;
+  input.value='';input.style.height='auto';
+  appendAiMsg('user',text);
+  _aiMessages.push({role:'user',content:text});
+  var typing=document.createElement('div');typing.className='ai-msg ai-msg-bot ai-typing';typing.id='aiTyping';typing.textContent='思考中...';
+  document.getElementById('aiChatMessages').appendChild(typing);document.getElementById('aiChatMessages').scrollTop=99999;
+  fetch(API+'/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:_aiMessages,current_user_id:CURRENT_USER_ID,module:'recurring'})}).then(function(r){return r.json();}).then(function(d){
+    var t=document.getElementById('aiTyping');if(t)t.remove();
+    if(d.success){appendAiMsg('bot',d.reply);_aiMessages.push({role:'assistant',content:d.reply});}
+    else appendAiMsg('bot','出错了：'+d.message);
+  }).catch(function(){var t=document.getElementById('aiTyping');if(t)t.remove();appendAiMsg('bot','网络错误，请重试');});
+}
+
+{% raw %}</script>{% endraw %}
+
+<div style="max-width:1400px;padding:0 30px;">
+  <!-- 介绍区 -->
+  <div class="intro-card" style="background:#f8f9fa;border-radius:6px;padding:16px 20px;margin-bottom:16px;">
+    <h3 style="margin:0 0 4px;font-size:1rem;color:#2D4A3E;"><i class="fa-solid fa-arrows-rotate" style="margin-right:6px;"></i>周期性工作管理</h3>
+    <p style="margin:0;font-size:0.8rem;color:#8C8C8C;">定义每周/每月重复执行的固定工作事项，系统自动计算月均工时并生成日程管理</p>
+  </div>
+
+  <!-- 工具栏 -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+    <select id="filterType" style="padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.8rem;">
+      <option value="">全部类型</option>
+    </select>
+    <select id="filterOwner" style="padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.8rem;">
+      <option value="">全部Owner</option>
+    </select>
+    <select id="filterExecutor" style="padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.8rem;">
+      <option value="">全部执行人</option>
+    </select>
+    <label style="font-size:0.78rem;color:#666;display:flex;align-items:center;gap:4px;">
+      <input type="checkbox" id="filterActive" checked> 仅启用
+    </label>
+    <label style="font-size:0.78rem;color:#A0522D;display:flex;align-items:center;gap:4px;font-weight:600;">
+      <input type="checkbox" id="filterIncomplete"> 待补全
+    </label>
+    <div style="position:relative;display:flex;align-items:center;">
+      <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:8px;color:#8C8C8C;font-size:0.72rem;"></i>
+      <input type="text" id="filterSearch" placeholder="搜索事项..." oninput="loadList()" style="padding:4px 8px 4px 26px;border:1px solid #ddd;border-radius:4px;font-size:0.78rem;width:200px;outline:none;" onfocus="this.style.borderColor='#2D4A3E'" onblur="this.style.borderColor='#ddd'">
+    </div>
+    <div style="flex:1;"></div>
+    <button onclick="openAddModal()" style="background:#2D4A3E;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:0.78rem;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#1a2e25'" onmouseout="this.style.background='#2D4A3E'">
+      <i class="fa-solid fa-plus"></i> 新增
+    </button>
+    <button onclick="doImport()" style="background:#fff;color:#2D4A3E;border:1px solid #2D4A3E;border-radius:4px;padding:5px 12px;font-size:0.78rem;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#2D4A3E';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#2D4A3E'">
+      <i class="fa-solid fa-file-import"></i> 导入
+    </button>
+    <button onclick="doExport()" style="background:#fff;color:#2D4A3E;border:1px solid #2D4A3E;border-radius:4px;padding:5px 12px;font-size:0.78rem;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#2D4A3E';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#2D4A3E'">
+      <i class="fa-solid fa-file-export"></i> 导出
+    </button>
+    <button onclick="toggleStats()" style="background:#fff;color:#A0522D;border:1px solid #A0522D;border-radius:4px;padding:5px 12px;font-size:0.78rem;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#A0522D';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#A0522D'">
+      <i class="fa-solid fa-chart-bar"></i> 工时统计
+    </button>
+  </div>
+
+  <!-- 工时统计区（默认隐藏） -->
+  <div id="statsPanel" style="display:none;margin-bottom:16px;">
+    <div style="background:#fff;border:1px solid #e0e0e0;border-radius:6px;padding:16px;">
+      <h4 style="margin:0 0 12px;font-size:0.88rem;color:#2D4A3E;">月均工时统计</h4>
+      <div id="statsTable"></div>
+    </div>
+  </div>
+
+  <!-- 数据表格 -->
+  <div style="background:#fff;border:1px solid #e0e0e0;border-radius:6px;overflow-x:auto;">
+    <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:0.82rem;">
+      <thead>
+        <tr>
+          <th style="padding:8px 6px;text-align:center;border-bottom:2px solid #2D4A3E;width:40px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;white-space:nowrap;">ID</th>
+          <th style="padding:8px 6px;text-align:left;border-bottom:2px solid #2D4A3E;min-width:200px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;white-space:nowrap;">事项</th>
+          <th style="padding:8px 6px;text-align:left;border-bottom:2px solid #2D4A3E;width:80px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;white-space:nowrap;">类型</th>
+          <th style="padding:8px 6px;text-align:left;border-bottom:2px solid #2D4A3E;width:110px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;white-space:nowrap;">周期</th>
+          <th style="padding:8px 6px;text-align:center;border-bottom:2px solid #2D4A3E;width:60px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;white-space:nowrap;">频次/月</th>
+          <th style="padding:8px 6px;text-align:left;border-bottom:2px solid #2D4A3E;width:70px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;white-space:nowrap;">Owner</th>
+          <th style="padding:8px 6px;text-align:left;border-bottom:2px solid #2D4A3E;width:70px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;white-space:nowrap;">执行人</th>
+          <th style="padding:8px 6px;text-align:center;border-bottom:2px solid #2D4A3E;width:60px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;white-space:nowrap;">工时/min</th>
+          <th style="padding:8px 6px;text-align:center;border-bottom:2px solid #2D4A3E;width:70px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;white-space:nowrap;">固定时间</th>
+          <th style="padding:8px 6px;text-align:center;border-bottom:2px solid #2D4A3E;width:60px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;white-space:nowrap;">拆分</th>
+          <th style="padding:8px 6px;text-align:center;border-bottom:2px solid #2D4A3E;width:50px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;white-space:nowrap;">SOP</th>
+          <th style="padding:8px 6px;text-align:center;border-bottom:2px solid #2D4A3E;width:70px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;white-space:nowrap;">月均工时/h</th>
+          <th style="padding:8px 6px;text-align:center;border-bottom:2px solid #2D4A3E;width:60px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;white-space:nowrap;">月均人天</th>
+          <th style="padding:8px 6px;text-align:center;border-bottom:2px solid #2D4A3E;width:50px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;white-space:nowrap;">状态</th>
+          <th style="padding:8px 6px;text-align:center;border-bottom:2px solid #2D4A3E;width:90px;position:sticky;top:0;z-index:1;background:#2D4A3E;color:#fff;white-space:nowrap;">操作</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="15" style="text-align:center;padding:40px;color:#999;">加载中...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 编辑弹窗 - 使用modal-overlay体系 -->
+<div class="modal-overlay" id="editOverlay" >
+<div class="modal" style="max-width:560px;">
+  <div class="modal-header">
+    <h3 class="modal-title" id="dialogTitle">新增周期性工作</h3>
+    <button class="modal-close" onclick="closeEdit()"><i class="fa-solid fa-times"></i></button>
+  </div>
+  <div class="modal-body" style="max-height:65vh;overflow-y:auto;">
+    <input type="hidden" id="editId">
+    <div style="margin-bottom:10px;">
+      <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">事项名称 <span style="color:#cc0000;">*</span></label>
+      <input type="text" id="editName" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div>
+        <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">类型</label>
+        <input type="text" id="editType" list="typeList" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
+        <datalist id="typeList"></datalist>
+      </div>
+      <div>
+        <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">周期类型</label>
+        <select id="editCycleType" onchange="onCycleTypeChange()" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
+          <option value="daily">每日</option>
+          <option value="weekly" selected>每周</option>
+          <option value="biweekly">每2周</option>
+          <option value="monthly">每月</option>
+          <option value="bimonthly">每2月</option>
+          <option value="quarterly">每季</option>
+          <option value="yearly">每年</option>
+          <option value="on_demand">不定期/发生时</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 周期规则 - 结构化选择器 -->
+    <div id="cycleRulePanel" style="margin-top:10px;padding:10px 12px;background:#fafafa;border:1px solid #eee;border-radius:4px;">
+      <!-- weekly: 星期勾选 -->
+      <div id="weekDayPicker" style="display:none;">
+        <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:6px;">执行日</label>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <span style="font-size:0.78rem;color:#666;">每周</span>
+          <input type="text" id="editWeekDays" placeholder="如：1,3,5 或 1~5" style="width:140px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
+          <span style="font-size:0.78rem;color:#666;">(1=一,2=二,...,6=六,7=日)</span>
+        </div>
+        <div style="font-size:0.72rem;color:#999;margin-top:3px;">逗号分隔=每天各执行一次，~范围=窗口模式(期内完成1次)</div>
+      </div>
+
+      <!-- monthly: 几号 -->
+      <div id="monthDayPicker" style="display:none;">
+        <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:6px;">执行日</label>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <span style="font-size:0.78rem;color:#666;">每月</span>
+          <input type="text" id="editMonthDays" placeholder="如：7-12 或 1,15,25" style="width:140px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
+          <span style="font-size:0.78rem;color:#666;">号</span>
+        </div>
+        <div style="font-size:0.72rem;color:#999;margin-top:3px;">支持范围(7-12)、逗号分隔(1,15,25)、或"末"</div>
+      </div>
+
+      <!-- biweekly -->
+      <div id="biweekPicker" style="display:none;">
+        <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:6px;">执行规则</label>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <select id="editBiweekParity" style="padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
+            <option value="odd">单周</option>
+            <option value="even">双周</option>
+          </select>
+          <span style="font-size:0.78rem;color:#666;">的</span>
+          <input type="text" id="editBiweekDays" placeholder="如：1,3,5 或 1~5" style="width:120px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
+          <span style="font-size:0.78rem;color:#666;">(1=一,2=二,...,7=日)</span>
+        </div>
+        <div style="font-size:0.72rem;color:#999;margin-top:3px;">逗号分隔=每天各执行一次，~范围=窗口模式</div>
+      </div>
+
+      <!-- quarterly: 季度内第几月+号数 -->
+      <div id="quarterPicker" style="display:none;">
+        <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:6px;">执行规则</label>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <span style="font-size:0.78rem;color:#666;">每季度第</span>
+          <label style="font-size:0.75rem;display:flex;align-items:center;gap:2px;"><input type="checkbox" class="qtr-month-check" value="1"> 1月</label>
+          <label style="font-size:0.75rem;display:flex;align-items:center;gap:2px;"><input type="checkbox" class="qtr-month-check" value="2"> 2月</label>
+          <label style="font-size:0.75rem;display:flex;align-items:center;gap:2px;"><input type="checkbox" class="qtr-month-check" value="3"> 3月</label>
+          <span style="font-size:0.78rem;color:#666;">的</span>
+          <input type="text" id="editQuarterDays" placeholder="如：25 或 1,15" style="width:100px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
+          <span style="font-size:0.78rem;color:#666;">号</span>
+        </div>
+        <div style="font-size:0.72rem;color:#999;margin-top:3px;">勾选季度内第几月执行，号数支持逗号分隔</div>
+      </div>
+
+      <!-- bimonthly: 奇偶月+号数 -->
+      <div id="bimonthPicker" style="display:none;">
+        <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:6px;">执行规则</label>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <select id="editBimonthParity" style="padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
+            <option value="odd">奇数月(1,3,5…)</option>
+            <option value="even">偶数月(2,4,6…)</option>
+          </select>
+          <span style="font-size:0.78rem;color:#666;">的</span>
+          <input type="text" id="editBimonthDays" placeholder="如：25 或 2,3 或 2~10" style="width:120px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
+          <span style="font-size:0.78rem;color:#666;">号</span>
+        </div>
+        <div style="font-size:0.72rem;color:#999;margin-top:3px;">逗号分隔=每天各一次，~范围=窗口内1次</div>
+      </div>
+
+      <!-- yearly: 哪几个月+号数 -->
+      <div id="yearPicker" style="display:none;">
+        <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:6px;">执行规则</label>
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
+          <span style="font-size:0.78rem;color:#666;">每年</span>
+          <label style="font-size:0.72rem;display:flex;align-items:center;gap:1px;"><input type="checkbox" class="yr-month-check" value="1">1月</label>
+          <label style="font-size:0.72rem;display:flex;align-items:center;gap:1px;"><input type="checkbox" class="yr-month-check" value="2">2月</label>
+          <label style="font-size:0.72rem;display:flex;align-items:center;gap:1px;"><input type="checkbox" class="yr-month-check" value="3">3月</label>
+          <label style="font-size:0.72rem;display:flex;align-items:center;gap:1px;"><input type="checkbox" class="yr-month-check" value="4">4月</label>
+          <label style="font-size:0.72rem;display:flex;align-items:center;gap:1px;"><input type="checkbox" class="yr-month-check" value="5">5月</label>
+          <label style="font-size:0.72rem;display:flex;align-items:center;gap:1px;"><input type="checkbox" class="yr-month-check" value="6">6月</label>
+          <label style="font-size:0.72rem;display:flex;align-items:center;gap:1px;"><input type="checkbox" class="yr-month-check" value="7">7月</label>
+          <label style="font-size:0.72rem;display:flex;align-items:center;gap:1px;"><input type="checkbox" class="yr-month-check" value="8">8月</label>
+          <label style="font-size:0.72rem;display:flex;align-items:center;gap:1px;"><input type="checkbox" class="yr-month-check" value="9">9月</label>
+          <label style="font-size:0.72rem;display:flex;align-items:center;gap:1px;"><input type="checkbox" class="yr-month-check" value="10">10月</label>
+          <label style="font-size:0.72rem;display:flex;align-items:center;gap:1px;"><input type="checkbox" class="yr-month-check" value="11">11月</label>
+          <label style="font-size:0.72rem;display:flex;align-items:center;gap:1px;"><input type="checkbox" class="yr-month-check" value="12">12月</label>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:0.78rem;color:#666;">的</span>
+          <input type="text" id="editYearDays" placeholder="如：15 或 1,15" style="width:100px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
+          <span style="font-size:0.78rem;color:#666;">号</span>
+        </div>
+        <div style="font-size:0.72rem;color:#999;margin-top:3px;">勾选哪几个月执行，号数支持逗号分隔</div>
+      </div>
+
+      <!-- daily/on_demand: 无需额外选择 -->
+      <div id="simpleRuleHint" style="display:none;">
+        <span style="font-size:0.78rem;color:#8C8C8C;" id="simpleRuleText"></span>
+      </div>
+    </div>
+
+    <!-- 周期备注(自动生成，只读) -->
+    <div style="margin-top:8px;">
+      <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">周期备注 <span style="font-size:0.7rem;color:#999;">(自动生成)</span></label>
+      <input type="text" id="editCycleRule" readonly style="width:100%;padding:6px 8px;border:1px solid #e0e0e0;border-radius:4px;font-size:0.82rem;background:#f5f5f5;color:#2D4A3E;font-weight:500;">
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+      <div>
+        <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">频次/月 <span style="font-size:0.7rem;color:#999;">(自动计算)</span></label>
+        <input type="text" id="editFreqDisplay" readonly style="width:100%;padding:6px 8px;border:1px solid #e0e0e0;border-radius:4px;font-size:0.82rem;background:#f5f5f5;color:#2D4A3E;font-weight:500;">
+        <input type="hidden" id="editFreq">
+      </div>
+      <div>
+        <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">单次工时(分钟)</label>
+        <input type="number" id="editDuration" min="0" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;" oninput="updateCalcDisplay()">
+      </div>      <div>
+        <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">固定开始时间 <span style="font-size:0.7rem;color:#999;">(HH:MM, 可选)</span></label>
+        <input type="time" id="editFixedStart" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
+      </div>
+
+      <div>
+        <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">月均工时(h) <span style="font-size:0.7rem;color:#999;">(自动计算)</span></label>
+        <input type="text" id="editMonthlyHoursDisplay" readonly style="width:100%;padding:6px 8px;border:1px solid #e0e0e0;border-radius:4px;font-size:0.82rem;background:#f5f5f5;color:#2D4A3E;font-weight:500;">
+      </div>
+      <div>
+        <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">Owner</label>
+        <select id="editOwner" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;"></select>
+      </div>
+      <div>
+        <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">执行人</label>
+        <select id="editExecutor" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;"></select>
+      </div>
+      <div>
+        <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">是否有SOP</label>
+        <select id="editSop" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
+          <option value="">无</option>
+          <option value="是">是</option>
+          <option value="否">否</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">状态</label>
+        <select id="editActive" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
+          <option value="1">启用</option>
+          <option value="0">停用</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-secondary" onclick="closeEdit()">取消</button>
+    <button class="btn btn-primary" onclick="saveTask()">保存</button>
+  </div>
+</div>
+</div>
+
+<!-- 拆分详情弹窗 -->
+<div class="modal-overlay" id="splitDetailOverlay">
+<div class="modal" style="max-width:420px;">
+  <div class="modal-header">
+    <h3 class="modal-title"><i class="fa-solid fa-scissors" style="margin-right:6px;"></i>拆分详情</h3>
+    <button class="modal-close" onclick="closeSplitDetail()"><i class="fa-solid fa-times"></i></button>
+  </div>
+  <div class="modal-body">
+    <div id="splitDetailInfo" style="font-size:.85rem;color:#555;margin-bottom:10px;"></div>
+    <div id="splitCurrentPattern" style="margin-bottom:12px;"></div>
+    <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">拆成几片</label>
+    <input type="number" id="splitDetailPieces" min="2" max="10" value="2" onchange="updateSplitDetailPreview()" style="width:100%;border:1px solid #d0d0d0;border-radius:4px;padding:6px 8px;font-size:.8rem;margin-bottom:8px;box-sizing:border-box;">
+    <div id="splitDetailPreview" style="font-size:.78rem;color:#2D4A3E;"></div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-secondary" onclick="closeSplitDetail()">取消</button>
+    <button id="clearSplitBtn" class="btn btn-danger" onclick="saveSplitDetail('clear')" style="display:none;">清除拆分</button>
+    <button class="btn btn-primary" onclick="saveSplitDetail('set')">保存</button>
+  </div>
+</div>
+</div>
+
+<script>
+API = '/work-mgmt/api';
+var CURRENT_USER_ID = {{ current_user_id | default(0) }};
+let options = {types:[], owners:[], executors:[]};
+
+const DAY_NAMES = {1:'周一',2:'周二',3:'周三',4:'周四',5:'周五',6:'周六',0:'周日'};
+const WEEKDAY_NUMS = [1,2,3,4,5]; // for freq calc
+
+// 周期类型切换
+function onCycleTypeChange(){
+  const ct = document.getElementById('editCycleType').value;
+  document.getElementById('weekDayPicker').style.display = ct==='weekly'?'block':'none';
+  // weekParityRow removed - biweekly now uses text input like bimonthly
+  document.getElementById('monthDayPicker').style.display = ct==='monthly'?'block':'none';
+  document.getElementById('biweekPicker').style.display = ct==='biweekly'?'block':'none';
+  document.getElementById('quarterPicker').style.display = ct==='quarterly'?'block':'none';
+  document.getElementById('bimonthPicker').style.display = ct==='bimonthly'?'block':'none';
+  document.getElementById('yearPicker').style.display = ct==='yearly'?'block':'none';
+  const simple = document.getElementById('simpleRuleHint');
+  const simpleTxt = document.getElementById('simpleRuleText');
+  if(ct==='daily'){ simple.style.display='block'; simpleTxt.textContent='每日执行，频次自动=22次/月'; }
+  else if(ct==='on_demand'){ simple.style.display='block'; simpleTxt.textContent='不定期/发生时执行，频次=0'; }
+  else { simple.style.display='none'; }
+  // 自动生成cycle_rule并更新频次
+  autoFillRule();
+}
+
+// 自动生成周期规则文字和频次
+// 自动计算频次/月（用于列表展示和保存）
+function calcFreq(ct, wd, md){
+  if(ct==='daily') return 22;
+  if(ct==='weekly'){
+    // wd = cycle_weekdays string like "1,3,5" or "1~5"
+    if(!wd) return 4;
+    if(wd.includes(',')) return wd.split(',').filter(Boolean).length * 4;
+    if(wd.includes('~') || wd.includes('-')) return 4; // 窗口模式
+    return 4; // 单天
+  }
+  if(ct==='biweekly'){
+    // wd = cycle_weekdays string like "1,3" or "1~5"
+    if(!wd) return 2;
+    if(wd.includes(',')) return wd.split(',').filter(Boolean).length * 2;
+    if(wd.includes('~') || wd.includes('-')) return 2; // 窗口模式
+    return 2; // 单天
+  }
+  if(ct==='bimonthly'){
+    // cycle_month_days格式同monthly: "25" / "2,3" / "2~10"
+    if(!md) return 0.5;
+    if(md.includes(',')){
+      // 逗号=每个日期各一次，6个月各执行
+      return parseFloat((md.split(',').filter(Boolean).length / 2).toFixed(2));
+    }
+    if(md.includes('~') || md.includes('-')){
+      return 0.5; // 窗口模式，每2月1次
+    }
+    return 0.5; // 单个日期，每2月1次
+  }
+  if(ct==='monthly'){
+    if(!md) return 1;
+    // 逗号分隔=每个日期各执行一次，~范围=窗口模式1次
+    if(md.includes(',')){
+      return md.split(',').filter(Boolean).length;
+    }
+    if(md.includes('~') || md.includes('-')){
+      return 1; // 窗口模式
+    }
+    return 1; // 单个日期
+  }
+  if(ct==='quarterly'){
+    // cycle_month_days格式: "1:25" 或 "1,3:25" (季度内第几月:号数)
+    if(!md) return 0.33;
+    const qParts = md.split(':');
+    if(qParts.length===2){
+      const months = qParts[0].split(',').filter(Boolean).length;
+      const days = qParts[1].includes(',') ? qParts[1].split(',').filter(Boolean).length : 1;
+      return parseFloat((months * days / 3).toFixed(2));
+    }
+    return 0.33;
+  }
+  if(ct==='yearly'){
+    // cycle_month_days格式: "3:15" 或 "3,6,9,12:15" (月份:号数)
+    if(!md) return 0.08;
+    const yParts = md.split(':');
+    if(yParts.length===2){
+      const months = yParts[0].split(',').filter(Boolean).length;
+      const days = yParts[1].includes(',') ? yParts[1].split(',').filter(Boolean).length : 1;
+      return parseFloat((months * days / 12).toFixed(2));
+    }
+    return 0.08;
+  }
+  if(ct==='on_demand') return 0;
+  return 0;
+}
+
+function autoFillRule(){
+  const ct = document.getElementById('editCycleType').value;
+  const ruleInput = document.getElementById('editCycleRule');
+  const freqInput = document.getElementById('editFreq');
+  let rule = '';
+  let freq = 0;
+
+  if(ct==='weekly'){
+    const wd = document.getElementById('editWeekDays').value.trim();
+    if(wd){
+      const dayNames = parseWeekDays(wd);
+      rule = '每周' + dayNames;
+      // 频次: 逗号=每天各一次×4, ~范围=窗口模式×4, 单日=1×4
+      if(wd.includes(',')){
+        freq = wd.split(',').filter(Boolean).length * 4;
+      } else if(wd.includes('~') || wd.includes('-')){
+        freq = 4; // 窗口模式，每周1次
+      } else {
+        freq = 4; // 单天每周1次
+      }
+    }
+  } else if(ct==='biweekly'){
+    const parity = document.getElementById('editBiweekParity').value;
+    const bd = document.getElementById('editBiweekDays').value.trim();
+    const parityText = parity==='odd'?'单':'双';
+    if(bd){
+      const dayNames = parseWeekDays(bd);
+      rule = parityText + '周' + dayNames;
+      // 频次: 逗号=每天各一次×2, ~范围=窗口×2, 单日=1×2
+      if(bd.includes(',')){
+        freq = bd.split(',').filter(Boolean).length * 2;
+      } else if(bd.includes('~') || bd.includes('-')){
+        freq = 2; // 窗口模式
+      } else {
+        freq = 2; // 单天
+      }
+    } else {
+      rule = parityText + '周';
+      freq = 2;
+    }
+  } else if(ct==='monthly'){
+    const md = document.getElementById('editMonthDays').value.trim();
+    if(md){
+      rule = '每月' + md + '号';
+      // 计算频次
+      freq = calcFreq('monthly', '', md);
+    }
+  } else if(ct==='daily'){
+    rule = '每日';
+    freq = 22;
+  } else if(ct==='quarterly'){
+    const qMonths = [];
+    document.querySelectorAll('.qtr-month-check').forEach(c => { if(c.checked) qMonths.push(parseInt(c.value)); });
+    const qDays = document.getElementById('editQuarterDays').value.trim();
+    if(qMonths.length > 0 && qDays){
+      const monthNames = qMonths.map(m => '第'+m+'月').join('、');
+      rule = '每季度' + monthNames + ' ' + qDays + '号';
+      const daysCount = qDays.includes(',') ? qDays.split(',').filter(Boolean).length : 1;
+      freq = parseFloat((qMonths.length * daysCount / 3).toFixed(2));
+    } else {
+      rule = '每季';
+      freq = 0.33;
+    }
+  } else if(ct==='yearly'){
+    const yMonths = [];
+    document.querySelectorAll('.yr-month-check').forEach(c => { if(c.checked) yMonths.push(parseInt(c.value)); });
+    const yDays = document.getElementById('editYearDays').value.trim();
+    if(yMonths.length > 0 && yDays){
+      const monthNames = yMonths.map(m => m+'月').join('、');
+      rule = '每年' + monthNames + ' ' + yDays + '号';
+      const daysCount = yDays.includes(',') ? yDays.split(',').filter(Boolean).length : 1;
+      freq = parseFloat((yMonths.length * daysCount / 12).toFixed(2));
+    } else {
+      rule = '每年';
+      freq = 0.08;
+    }
+  } else if(ct==='on_demand'){
+    rule = '不定期';
+    freq = 0;
+  }
+
+  if(rule) ruleInput.value = rule;
+  // 始终自动计算频次
+  freqInput.value = freq || 0;
+  updateCalcDisplay();
+}
+
+// 更新频次和月均工时的只读显示
+function updateCalcDisplay(){
+  const freqInput = document.getElementById('editFreq');
+  const freqDisplay = document.getElementById('editFreqDisplay');
+  const hoursDisplay = document.getElementById('editMonthlyHoursDisplay');
+  const duration = parseInt(document.getElementById('editDuration').value) || 0;
+  const freq = parseFloat(freqInput.value) || 0;
+  freqDisplay.value = freq;
+  const monthlyHours = parseFloat((freq * duration / 60).toFixed(2));
+  hoursDisplay.value = monthlyHours || '';
+}
+
+function parseMonthDays(s){
+  if(s==='末') return 1;
+  // 统一替换~为-，两种符号都支持
+  s = s.replace(/~/g, '-');
+  let days = new Set();
+  s.split(',').forEach(part => {
+    part = part.trim();
+    if(part.includes('-')){
+      const [a,b] = part.split('-').map(Number);
+      for(let i=a;i<=b&&i<=31;i++) days.add(i);
+    } else {
+      const n = parseInt(part);
+      if(n>=1&&n<=31) days.add(n);
+    }
+  });
+  return days.size || 1;
+}
+
+// 解析星期输入(1=一,2=二,...,6=六,7=日)为中文日名
+function parseWeekDays(s){
+  const map = {1:'一',2:'二',3:'三',4:'四',5:'五',6:'六',7:'日'};
+  // 统一替换~为-
+  s = s.replace(/~/g, '-');
+  if(s.includes(',')){
+    return s.split(',').filter(Boolean).map(n => map[parseInt(n.trim())]||n.trim()).join('、');
+  }
+  if(s.includes('-')){
+    const [a,b] = s.split('-').map(n => parseInt(n.trim()));
+    const names = [];
+    for(let i=a;i<=b&&i<=7;i++) names.push(map[i]||i);
+    return names.join('～') + '(窗口)';
+  }
+  return map[parseInt(s)] || s;
+}
+
+// 监听输入变化
+document.getElementById('editWeekDays').addEventListener('input', autoFillRule);
+document.getElementById('editBiweekParity').addEventListener('change', autoFillRule);
+document.getElementById('editBiweekDays').addEventListener('input', autoFillRule);
+document.getElementById('editMonthDays').addEventListener('input', autoFillRule);
+document.getElementById('editDuration').addEventListener('input', updateCalcDisplay);
+document.getElementById('editFixedStart').addEventListener('change', updateCalcDisplay);
+document.getElementById('editBimonthParity').addEventListener('change', autoFillRule);
+document.getElementById('editBimonthDays').addEventListener('input', autoFillRule);
+document.querySelectorAll('.qtr-month-check').forEach(c => c.addEventListener('change', autoFillRule));
+document.getElementById('editQuarterDays').addEventListener('input', autoFillRule);
+document.querySelectorAll('.yr-month-check').forEach(c => c.addEventListener('change', autoFillRule));
+document.getElementById('editYearDays').addEventListener('input', autoFillRule);
+
+function openEdit(){ document.getElementById('editOverlay').classList.add('active'); }
+function closeEdit(){ document.getElementById('editOverlay').classList.remove('active'); }
+
+var usersList=[];
+async function loadOptions(){
+  const res = await fetch(`${API}/options`);
+  const d = await res.json();
+  if(d.success){
+    options = d;
+    usersList = d.executors || [];
+    const typeEl = document.getElementById('filterType');
+    d.types.forEach(t => { const o = document.createElement('option'); o.value=t; o.textContent=t; typeEl.appendChild(o); });
+    const ownerEl = document.getElementById('filterOwner');
+    d.owners.forEach(o2 => { const o = document.createElement('option'); o.value=o2.id; o.textContent=o2.name; ownerEl.appendChild(o); });
+    const execEl = document.getElementById('filterExecutor');
+    d.executors.forEach(e => { const o = document.createElement('option'); o.value=e.id; o.textContent=e.name; execEl.appendChild(o); });
+    // edit dialog selects
+    const eOwner = document.getElementById('editOwner');
+    eOwner.innerHTML = '<option value="">请选择</option>';
+    d.owners.forEach(o2 => { const o = document.createElement('option'); o.value=o2.id; o.textContent=o2.name; eOwner.appendChild(o); });
+    const eExec = document.getElementById('editExecutor');
+    eExec.innerHTML = '<option value="">请选择</option>';
+    d.executors.forEach(e => { const o = document.createElement('option'); o.value=e.id; o.textContent=e.name; eExec.appendChild(o); });
+    // type datalist
+    const tl = document.getElementById('typeList');
+    d.types.forEach(t => { const o = document.createElement('option'); o.value=t; tl.appendChild(o); });
+  }
+}
+
+async function loadList(){
+  const p = new URLSearchParams();
+  const ft = document.getElementById('filterType').value;
+  const fo = document.getElementById('filterOwner').value;
+  const fe = document.getElementById('filterExecutor').value;
+  const fa = document.getElementById('filterActive').checked ? '1' : '0';
+  if(ft) p.set('type', ft);
+  if(fo) p.set('owner', fo);
+  if(fe) p.set('executor', fe);
+  p.set('active_only', fa);
+  
+  const res = await fetch(`${API}/recurring?${p}`);
+  const d = await res.json();
+  const tbody = document.getElementById('tableBody');
+  if(!d.success || !d.data.length){
+    tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:40px;color:#999;">暂无数据</td></tr>';
+    return;
+  }
+  let items = d.data; _recurringList = d.data;
+  // 待补全筛选：缺结构化字段 或 频次与公式不一致
+  const fInc = document.getElementById('filterIncomplete').checked;
+  if(fInc){
+    items = items.filter(r => {
+      const ct = r.cycle_type || '';
+      const wd = r.cycle_weekdays || '';
+      const md = r.cycle_month_days || '';
+      // 缺结构化字段
+      if(['weekly','biweekly'].includes(ct) && !wd.trim()) return true;
+      if(['biweekly'].includes(ct) && !(r.cycle_week_parity||'').trim()) return true;
+      if(['bimonthly','monthly'].includes(ct) && !md.trim()) return true;
+      if(['bimonthly','quarterly','yearly'].includes(ct) && !(r.cycle_target_months||'').trim()) return true;
+      // 频次与公式不一致
+      if(hasFreqMismatch(r)) return true;
+      return false;
+    });
+  }
+  // 模糊搜索
+  var _fsEl = document.getElementById('filterSearch'); const fSearch = (_fsEl ? _fsEl.value : '').trim().toLowerCase();
+  if(fSearch){
+    items = items.filter(r => (r.name||'').toLowerCase().includes(fSearch));
+  }
+  tbody.innerHTML = items.map((r,i) => `
+    <tr style="border-bottom:1px solid #f0f0f0;${r.is_active?'':'opacity:0.5;'}">
+      <td style="padding:6px;text-align:center;font-size:0.72rem;color:#8C8C8C;">${r.id}</td>
+      <td style="padding:6px;font-weight:500;">${esc(r.name)}</td>
+      <td style="padding:6px;"><span style="background:#f0f0f0;padding:1px 6px;border-radius:3px;font-size:0.75rem;">${esc(r.type)}</span></td>
+      <td style="padding:6px;color:#666;font-size:0.78rem;">${esc(r.cycle_rule)}</td>
+      <td style="padding:6px;text-align:center;${hasFreqMismatch(r)?'color:#A0522D;font-weight:600;':''}">${hasFreqMismatch(r)?'<i class="fa-solid fa-triangle-exclamation" style="color:#A0522D;margin-right:2px;font-size:0.7rem;" title="频次与公式不一致，请编辑复核"></i>':''}${r.freq_per_month ? r.freq_per_month : calcFreq(r.cycle_type, r.cycle_weekdays, r.cycle_month_days) || '-'}</td>
+      <td style="padding:6px;">${esc(r.owner_name)}</td>
+      <td style="padding:6px;">${esc(r.executor_name)}</td>
+      <td style="padding:6px;text-align:center;">${r.duration_minutes}</td>
+      <td style="padding:6px;text-align:center;font-size:0.78rem;${r.fixed_start_time?'color:#2D4A3E;font-weight:600;':'color:#ccc;'}">${r.split_pattern?'<span style="color:#A0522D;font-size:.72rem">见拆分</span>':(r.fixed_start_time||'-')}</td>
+      <td style="padding:6px;text-align:center;font-size:0.78rem;cursor:${r.split_pattern?'pointer':'default'}" ${r.split_pattern?`onclick="openSplitDetail(${r.id})"`:''}>${r.split_pattern?'<span style="color:#A0522D;font-weight:600"><i class="fa-solid fa-scissors" style="font-size:.65rem;margin-right:2px"></i>'+JSON.parse(r.split_pattern).length+'片</span>':'—'}</td>
+      <td style="padding:6px;text-align:center;">${r.has_sop==='是'?'<i class="fa-solid fa-check" style="color:#2D6A3E;"></i>':r.has_sop==='否'?'<i class="fa-solid fa-xmark" style="color:#ccc;"></i>':'-'}</td>
+      <td style="padding:6px;text-align:center;font-weight:600;color:#2D4A3E;">${r.avg_monthly_hours}</td>
+      <td style="padding:6px;text-align:center;font-weight:600;color:#E6A23C;">${(r.avg_monthly_hours/8).toFixed(1)}</td>
+      <td style="padding:6px;text-align:center;">${r.is_active?'<span style="color:#2D6A3E;">启用</span>':'<span style="color:#999;">停用</span>'}</td>
+      <td style="padding:6px;text-align:center;">
+        <button onclick="openEditModal(${r.id})" style="border:none;background:none;color:#2D4A3E;cursor:pointer;padding:2px 4px;" title="编辑"><i class="fa-solid fa-pen"></i></button>
+        <button onclick="copyTask(${r.id})" style="border:none;background:none;color:#8C8C8C;cursor:pointer;padding:2px 4px;" title="复制"><i class="fa-solid fa-copy"></i></button>
+        <button onclick="deleteTask(${r.id},'${esc(r.name)}')" style="border:none;background:none;color:#A0522D;cursor:pointer;padding:2px 4px;" title="删除"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function esc(s){ return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+
+// 解析已有cycle_rule到结构化字段
+function parseCycleRuleToFields(ct, rule, r_cycle_month_days, r_cycle_weekdays){
+  if(ct==='weekly'){
+    const cw = r_cycle_weekdays || '';
+    if(cw && cw.trim()){
+      // 新格式: "1,3,5"; 旧格式: "[1,3,5]" (JSON array)
+      if(cw.trim().startsWith('[')){
+        try {
+          const arr = JSON.parse(cw);
+          document.getElementById('editWeekDays').value = arr.map(d => d===0?7:d).join(',');
+        } catch(e){ document.getElementById('editWeekDays').value = ''; }
+      } else {
+        document.getElementById('editWeekDays').value = cw.trim();
+      }
+    } else {
+      // 从rule文字反推
+      const map = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'日':7};
+      const nums = [];
+      Object.entries(map).forEach(([k,v]) => { if(rule.includes(k)) nums.push(v); });
+      if(nums.length > 0) document.getElementById('editWeekDays').value = nums.join(',');
+      else document.getElementById('editWeekDays').value = '';
+    }
+  } else if(ct==='biweekly'){
+    const parity = rule.includes('单')?'odd':'even';
+    document.getElementById('editBiweekParity').value = parity;
+    const cw = r_cycle_weekdays || '';
+    if(cw && cw.trim()){
+      if(cw.trim().startsWith('[')){
+        try {
+          const arr = JSON.parse(cw);
+          document.getElementById('editBiweekDays').value = arr.map(d => d===0?7:d).join(',');
+        } catch(e){ document.getElementById('editBiweekDays').value = ''; }
+      } else {
+        document.getElementById('editBiweekDays').value = cw.trim();
+      }
+    } else {
+      const map = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'日':7};
+      const nums = [];
+      Object.entries(map).forEach(([k,v]) => { if(rule.includes(k)) nums.push(v); });
+      if(nums.length > 0) document.getElementById('editBiweekDays').value = nums.join(',');
+      else document.getElementById('editBiweekDays').value = '';
+    }
+  } else if(ct==='monthly'){
+    const m = rule.match(/(\d[\d,~末]+)/);
+    document.getElementById('editMonthDays').value = m ? m[1] : '';
+  } else if(ct==='bimonthly'){
+    // 从rule文字解析奇偶月+号数
+    const parity = rule.includes('奇')?'odd':'even';
+    document.getElementById('editBimonthParity').value = parity;
+    const dayMatch = rule.match(/(\d[\d,~\-末]*)号/);
+    document.getElementById('editBimonthDays').value = dayMatch ? dayMatch[1] : '';
+  } else if(ct==='quarterly'){
+    // 从cycle_month_days解析，格式"1,3:25"
+    const md = r_cycle_month_days || '';
+    if(md && md.includes(':')){
+      const parts = md.split(':');
+      const months = parts[0].split(',').map(Number);
+      document.querySelectorAll('.qtr-month-check').forEach(c => {
+        c.checked = months.includes(parseInt(c.value));
+      });
+      document.getElementById('editQuarterDays').value = parts[1] || '';
+    } else {
+      // 从rule文字解析：每季度第1月 25号
+      const monthMatch = rule.match(/第(\d)月/g);
+      if(monthMatch){
+        const months = monthMatch.map(m => parseInt(m.replace(/[^\d]/g,'')));
+        document.querySelectorAll('.qtr-month-check').forEach(c => {
+          c.checked = months.includes(parseInt(c.value));
+        });
+      }
+      const dayMatch = rule.match(/(\d[\d,]*)号/);
+      if(dayMatch) document.getElementById('editQuarterDays').value = dayMatch[1];
+    }
+  } else if(ct==='yearly'){
+    const md = r_cycle_month_days || '';
+    if(md && md.includes(':')){
+      const parts = md.split(':');
+      const months = parts[0].split(',').map(Number);
+      document.querySelectorAll('.yr-month-check').forEach(c => {
+        c.checked = months.includes(parseInt(c.value));
+      });
+      document.getElementById('editYearDays').value = parts[1] || '';
+    } else {
+      // 从rule文字解析：每年3月、6月 15号
+      const monthMatch = rule.match(/(\d+)月/g);
+      if(monthMatch){
+        const months = monthMatch.map(m => parseInt(m.replace(/[^\d]/g,'')));
+        document.querySelectorAll('.yr-month-check').forEach(c => {
+          c.checked = months.includes(parseInt(c.value));
+        });
+      }
+      const dayMatch = rule.match(/(\d[\d,]*)号/);
+      if(dayMatch) document.getElementById('editYearDays').value = dayMatch[1];
+    }
+  }
+}
+
+function openAddModal(){
+  document.getElementById('editId').value = '';
+  document.getElementById('dialogTitle').textContent = '新增周期性工作';
+  ['editName','editType','editDuration'].forEach(id => document.getElementById(id).value='');document.getElementById('editFixedStart').value='';
+  document.getElementById('editCycleType').value = 'weekly';
+  document.getElementById('editFreq').value = 0;
+  document.getElementById('editCycleRule').value = '';
+  document.getElementById('editSop').value = '';
+  document.getElementById('editActive').value = '1';
+  document.getElementById('editOwner').value = '';
+  document.getElementById('editExecutor').value = '';
+  // reset week checks
+  document.getElementById('editWeekDays').value = '';
+  document.getElementById('editMonthDays').value = '';
+  document.getElementById('editBimonthParity').value = 'odd';
+  document.getElementById('editBimonthDays').value = '';
+  document.querySelectorAll('.qtr-month-check').forEach(c => c.checked = false);
+  document.getElementById('editQuarterDays').value = '';
+  document.querySelectorAll('.yr-month-check').forEach(c => c.checked = false);
+  document.getElementById('editYearDays').value = '';
+  onCycleTypeChange();
+  updateCalcDisplay();
+  openEdit();
+}
+
+async function copyTask(id){
+  // 先重置所有表单字段
+  ['editName','editType','editDuration'].forEach(id => document.getElementById(id).value='');document.getElementById('editFixedStart').value='';
+  document.getElementById('editCycleRule').value = '';
+  document.getElementById('editFreq').value = 0;
+  document.getElementById('editSop').value = '';
+  document.getElementById('editActive').value = '1';
+  document.getElementById('editOwner').value = '';
+  document.getElementById('editExecutor').value = '';
+  document.getElementById('editWeekDays').value = '';
+  document.getElementById('editMonthDays').value = '';
+  document.getElementById('editBiweekParity').value = 'odd';
+  document.getElementById('editBiweekDays').value = '';
+  document.getElementById('editBimonthParity').value = 'odd';
+  document.getElementById('editBimonthDays').value = '';
+  document.querySelectorAll('.qtr-month-check').forEach(c => c.checked = false);
+  document.getElementById('editQuarterDays').value = '';
+  document.querySelectorAll('.yr-month-check').forEach(c => c.checked = false);
+  document.getElementById('editYearDays').value = '';
+  // 再加载源记录数据
+  const res = await fetch(`${API}/recurring`);
+  const d = await res.json();
+  const r = d.data.find(x => x.id === id);
+  if(!r) return;
+  document.getElementById('editId').value = '';  // 清空ID=新增模式
+  document.getElementById('dialogTitle').textContent = '复制新建周期性工作';
+  document.getElementById('editName').value = r.name + ' (副本)';
+  document.getElementById('editType').value = r.type;
+  document.getElementById('editCycleType').value = r.cycle_type || 'weekly';
+  document.getElementById('editFreq').value = r.freq_per_month || 0;
+  document.getElementById('editCycleRule').value = r.cycle_rule || '';
+  document.getElementById('editOwner').value = r.owner_id || '';
+  document.getElementById('editExecutor').value = r.executor_id || '';
+  document.getElementById('editDuration').value = r.duration_minutes;
+  document.getElementById('editFixedStart').value = r.fixed_start_time || '';
+  document.getElementById('editSop').value = r.has_sop || '';
+  document.getElementById('editActive').value = r.is_active ? '1' : '0';
+  onCycleTypeChange();
+  parseCycleRuleToFields(r.cycle_type || 'weekly', r.cycle_rule || '', r.cycle_month_days || '', r.cycle_weekdays || '');
+  // Also set cycle_target_months-driven checkboxes if available
+  if(r.cycle_target_months) {
+    const tm = r.cycle_target_months.split(',').map(Number);
+    const ct2 = r.cycle_type || 'weekly';
+    if(ct2 === 'yearly') {
+      document.querySelectorAll('.yr-month-check').forEach(c => {
+        c.checked = tm.includes(parseInt(c.value));
+      });
+    } else if(ct2 === 'quarterly') {
+      document.querySelectorAll('.qtr-month-check').forEach(c => {
+        c.checked = tm.includes(parseInt(c.value));
+      });
+    }
+  }
+  if(r.cycle_week_parity) {
+    const ct2 = r.cycle_type || 'weekly';
+    if(ct2 === 'biweekly') {
+      document.getElementById('editBiweekParity').value = r.cycle_week_parity;
+    }
+  }
+  autoFillRule();
+  updateCalcDisplay();
+  openEdit();
+}
+
+async function openEditModal(id){
+  // 先重置所有表单字段，避免残留上次编辑/复制的数据
+  ['editName','editType','editDuration'].forEach(id => document.getElementById(id).value='');document.getElementById('editFixedStart').value='';
+  document.getElementById('editCycleRule').value = '';
+  document.getElementById('editFreq').value = 0;
+  document.getElementById('editSop').value = '';
+  document.getElementById('editActive').value = '1';
+  document.getElementById('editOwner').value = '';
+  document.getElementById('editExecutor').value = '';
+  document.getElementById('editWeekDays').value = '';
+  document.getElementById('editMonthDays').value = '';
+  document.getElementById('editBiweekParity').value = 'odd';
+  document.getElementById('editBiweekDays').value = '';
+  document.getElementById('editBimonthParity').value = 'odd';
+  document.getElementById('editBimonthDays').value = '';
+  document.querySelectorAll('.qtr-month-check').forEach(c => c.checked = false);
+  document.getElementById('editQuarterDays').value = '';
+  document.querySelectorAll('.yr-month-check').forEach(c => c.checked = false);
+  document.getElementById('editYearDays').value = '';
+  // 再加载目标记录数据
+  const res = await fetch(`${API}/recurring`);
+  const d = await res.json();
+  const r = d.data.find(x => x.id === id);
+  if(!r) return;
+  document.getElementById('editId').value = r.id;
+  document.getElementById('dialogTitle').textContent = '编辑周期性工作';
+  document.getElementById('editName').value = r.name;
+  document.getElementById('editType').value = r.type;
+  document.getElementById('editCycleType').value = r.cycle_type || 'weekly';
+  document.getElementById('editFreq').value = r.freq_per_month || 0;
+  document.getElementById('editCycleRule').value = r.cycle_rule || '';
+  document.getElementById('editOwner').value = r.owner_id || '';
+  document.getElementById('editExecutor').value = r.executor_id || '';
+  document.getElementById('editDuration').value = r.duration_minutes;
+  document.getElementById('editFixedStart').value = r.fixed_start_time || '';
+  document.getElementById('editSop').value = r.has_sop || '';
+  document.getElementById('editActive').value = r.is_active ? '1' : '0';
+  // 解析已有规则到结构化字段
+  onCycleTypeChange();
+  parseCycleRuleToFields(r.cycle_type || 'weekly', r.cycle_rule || '', r.cycle_month_days || '', r.cycle_weekdays || '');
+  autoFillRule();
+  updateCalcDisplay();
+  openEdit();
+}
+
+async function saveTask(){
+  const id = document.getElementById('editId').value;
+  // 先自动生成一遍规则
+  autoFillRule();
+  const body = {
+    name: document.getElementById('editName').value,
+    type: document.getElementById('editType').value,
+    cycle_rule: document.getElementById('editCycleRule').value,
+    cycle_type: document.getElementById('editCycleType').value,
+    freq_per_month: (function(){ const _ct=document.getElementById('editCycleType').value; let _wd=(document.getElementById('editWeekDays')||{}).value||''; if(_ct==='biweekly') _wd=(document.getElementById('editBiweekDays')||{}).value||''; let _md=(document.getElementById('editMonthDays')||{}).value||''; if(_ct==='bimonthly'){const _bd=(document.getElementById('editBimonthDays')||{}).value||'';if(_bd)_md=_bd;} if(_ct==='quarterly'){const qm=[];document.querySelectorAll('.qtr-month-check').forEach(c=>{if(c.checked)qm.push(c.value);});const qd=(document.getElementById('editQuarterDays')||{}).value||'';if(qm.length&&qd)_md=qm.join(',')+':'+qd;} if(_ct==='yearly'){const ym=[];document.querySelectorAll('.yr-month-check').forEach(c=>{if(c.checked)ym.push(c.value);});const yd=(document.getElementById('editYearDays')||{}).value||'';if(ym.length&&yd)_md=ym.join(',')+':'+yd;} return calcFreq(_ct,_wd,_md);})(),
+    owner_id: parseInt(document.getElementById('editOwner').value) || null,
+    executor_id: parseInt(document.getElementById('editExecutor').value) || null,
+    duration_minutes: parseInt(document.getElementById('editDuration').value) || 0,
+    has_sop: document.getElementById('editSop').value,
+    is_active: parseInt(document.getElementById('editActive').value),
+    fixed_start_time: document.getElementById('editFixedStart').value
+  };
+  const ct = body.cycle_type;
+  // Compute cycle_target_months and cycle_week_parity from form fields
+  if(ct==='bimonthly'){
+    const bmParity = document.getElementById('editBimonthParity').value;
+    body.cycle_target_months = bmParity==='odd' ? '1,3,5,7,9,11' : '2,4,6,8,10,12';
+    body.cycle_week_parity = '';
+  } else if(ct==='quarterly'){
+    const qMonths2 = [];
+    document.querySelectorAll('.qtr-month-check').forEach(c => { if(c.checked) qMonths2.push(c.value); });
+    if(qMonths2.length) body.cycle_target_months = qMonths2.join(',');
+    body.cycle_week_parity = '';
+  } else if(ct==='yearly'){
+    const yMonths2 = [];
+    document.querySelectorAll('.yr-month-check').forEach(c => { if(c.checked) yMonths2.push(c.value); });
+    if(yMonths2.length) body.cycle_target_months = yMonths2.join(',');
+    body.cycle_week_parity = '';
+  } else if(ct==='biweekly'){
+    body.cycle_week_parity = document.getElementById('editBiweekParity').value;
+    body.cycle_target_months = '';
+  } else {
+    body.cycle_target_months = '';
+    body.cycle_week_parity = '';
+  }
+  // 写入结构化weekday到cycle_weekdays
+  if(ct==='weekly'){
+    body.cycle_weekdays = document.getElementById('editWeekDays').value.trim();
+  } else if(ct==='biweekly'){
+    body.cycle_weekdays = document.getElementById('editBiweekDays').value.trim();
+  } else if(ct==='bimonthly'){
+    const bmd = document.getElementById('editBimonthDays').value.trim();
+    if(bmd) body.cycle_month_days = bmd;
+  } else if(ct==='monthly'){
+    body.cycle_month_days = document.getElementById('editMonthDays').value.trim();
+  } else if(ct==='quarterly'){
+    const qMonths = [];
+    document.querySelectorAll('.qtr-month-check').forEach(c => { if(c.checked) qMonths.push(c.value); });
+    const qDays = document.getElementById('editQuarterDays').value.trim();
+    if(qMonths.length && qDays) body.cycle_month_days = qMonths.join(',') + ':' + qDays;
+  } else if(ct==='yearly'){
+    const yMonths = [];
+    document.querySelectorAll('.yr-month-check').forEach(c => { if(c.checked) yMonths.push(c.value); });
+    const yDays = document.getElementById('editYearDays').value.trim();
+    if(yMonths.length && yDays) body.cycle_month_days = yMonths.join(',') + ':' + yDays;
+  }
+  if(!body.name){ alert('请填写事项名称'); return; }
+  const url = id ? `${API}/recurring/${id}` : `${API}/recurring`;
+  const method = id ? 'PUT' : 'POST';
+  const res = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const d = await res.json();
+  if(d.success){ closeEdit(); loadList(); }
+  else alert(d.message);
+}
+
+async function deleteTask(id, name){
+  if(!confirm(`确定删除「${name}」？`)) return;
+  const res = await fetch(`${API}/recurring/${id}`, {method:'DELETE'});
+  const d = await res.json();
+  if(d.success) loadList();
+  else alert(d.message);
+}
+
+async function doImport(){
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.xlsx,.xls';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    alert('导入功能将在前端加载SheetJS库后启用，暂时请通过数据库直接导入');
+  };
+  input.click();
+}
+
+async function doExport(){
+  const res = await fetch(`${API}/recurring/export`);
+  const d = await res.json();
+  if(!d.success) return;
+  let csv = '\uFEFF序号,事项,类型,周期类型,周期规则,频次/月,Owner,执行人,工时/min,SOP,月均工时/h,月均人天,状态\n';
+  d.data.forEach((r,i) => {
+    csv += `${i+1},"${r.name}","${r.type}","${r.cycle_type||''}","${r.cycle_rule||''}",${r.freq_per_month||''},"${r.owner_name}","${r.executor_name}",${r.duration_minutes},"${r.has_sop}",${r.avg_monthly_hours},${(r.avg_monthly_hours/8).toFixed(1)},${r.is_active?'启用':'停用'}\n`;
+  });
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '周期性工作导出.csv';
+  a.click();
+}
+
+async function toggleStats(){
+  const panel = document.getElementById('statsPanel');
+  if(panel.style.display === 'none'){
+    const res = await fetch(`${API}/recurring/stats`);
+    const d = await res.json();
+    if(!d.success) return;
+    let html = '<table style="width:100%;border-collapse:separate;border-spacing:0;font-size:0.82rem;">';
+    html += '<thead><tr><th style="padding:6px;border:1px solid #e0e0e0;">执行人</th><th style="padding:6px;border:1px solid #e0e0e0;text-align:right;">月均工时/h</th><th style="padding:6px;border:1px solid #e0e0e0;text-align:right;">月均人天</th><th style="padding:6px;border:1px solid #e0e0e0;text-align:right;">事项数</th></tr></thead><tbody>';
+    let totalH = 0, totalC = 0;
+    d.data.forEach(r => {
+      html += '<tr><td style="padding:4px 6px;border:1px solid #f0f0f0;">' + r.executor_name + '</td><td style="padding:4px 6px;border:1px solid #f0f0f0;text-align:right;font-weight:600;color:#2D4A3E;">' + r.total_hours + '</td><td style="padding:4px 6px;border:1px solid #f0f0f0;text-align:right;font-weight:600;color:#E6A23C;">' + round1(r.total_hours/8) + '</td><td style="padding:4px 6px;border:1px solid #f0f0f0;text-align:right;">' + r.active_count + '</td></tr>';
+      totalH += r.total_hours;
+      totalC += r.active_count;
+    });
+    html += '<tr style="background:#2D4A3E;color:#fff;"><td style="padding:6px;border:1px solid #2D4A3E;font-weight:700;">总计</td><td style="padding:6px;border:1px solid #2D4A3E;text-align:right;font-weight:700;">' + round1(totalH) + '</td><td style="padding:6px;border:1px solid #2D4A3E;text-align:right;font-weight:700;">' + round1(totalH/8) + '</td><td style="padding:6px;border:1px solid #2D4A3E;text-align:right;">' + totalC + '</td></tr>';
+    html += '</tbody></table>';
+    document.getElementById('statsTable').innerHTML = html;
+    panel.style.display = 'block';
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+
+// 检查DB频次与公式频次是否不一致
+function hasFreqMismatch(r){
+  const ct = r.cycle_type || '';
+  const wd = r.cycle_weekdays || '';
+  const md = r.cycle_month_days || '';
+  const dbFreq = r.freq_per_month || 0;
+  if(['daily','on_demand'].includes(ct)) return false; // daily/on_demand不检查
+  const calcF = calcFreq(ct, wd, md);
+  return Math.abs(calcF - dbFreq) > 0.1;
+}
+
+function round1(v){ return Math.round(v*10)/10; }
+
+// 筛选事件
+['filterType','filterOwner','filterExecutor'].forEach(id => {
+  document.getElementById(id).addEventListener('change', loadList);
+});
+document.getElementById('filterActive').addEventListener('change', loadList);
+document.getElementById('filterIncomplete').addEventListener('change', loadList);
+
+// 初始化
+loadOptions().then(loadList);
+
+var _splitDetailRecurringId=null;
+var _splitDetailDuration=0;
+
+function openSplitDetail(recurringId){
+  _splitDetailRecurringId=recurringId;
+  fetch('/work-mgmt/api/recurring/split-pattern/'+recurringId).then(function(r){return r.json()}).then(function(d){
+    if(!d.success){alert(d.message||'获取拆分信息失败');return}
+    _splitDetailDuration=d.duration_minutes||30;
+    var info=document.getElementById('splitDetailInfo');
+    info.textContent='总工时：'+_splitDetailDuration+'分钟';
+    var pattern=d.pattern;
+    var cp=document.getElementById('splitCurrentPattern');
+    if(pattern&&pattern.length>0){
+      document.getElementById('splitDetailPieces').value=pattern.length;
+      var rows=pattern.map(function(p,i){return '<div style="padding:3px 0;border-bottom:1px solid #f0f0f0">第'+(i+1)+'片：'+p.start+' - '+p.end+'</div>';});
+      cp.innerHTML='<div style="font-weight:600;margin-bottom:4px">当前拆分模式：</div>'+rows.join('');
+      document.getElementById('clearSplitBtn').style.display='inline-block';
+    }else{
+      document.getElementById('splitDetailPieces').value=2;
+      cp.innerHTML='<div style="color:#999">未设置拆分模式</div>';
+      document.getElementById('clearSplitBtn').style.display='none';
+    }
+    updateSplitDetailPreview();
+    document.getElementById('splitDetailOverlay').classList.add('active');
+  });
+}
+
+function closeSplitDetail(){
+  document.getElementById('splitDetailOverlay').classList.remove('active');
+  _splitDetailRecurringId=null;
+}
+
+function updateSplitDetailPreview(){
+  var pcs=parseInt(document.getElementById('splitDetailPieces').value)||2;
+  var dur=_splitDetailDuration;
+  var base=Math.floor(dur/pcs),rem=dur-base*pcs;
+  var parts=[];
+  for(var i=0;i<pcs;i++) parts.push((i<pcs-1?base:base+rem)+'分钟');
+  document.getElementById('splitDetailPreview').innerHTML='各片工时：'+parts.join(' + ');
+}
+
+function saveSplitDetail(action){
+  if(!_splitDetailRecurringId)return;
+  var body={action:action};
+  if(action==='set'){
+    body.pieces=parseInt(document.getElementById('splitDetailPieces').value)||2;
+    if(body.pieces<2||body.pieces>10){alert('拆分片数须在2~10之间');return}
+  }else{
+    if(!confirm('确定清除拆分模式？已有实例将合并回单条。'))return;
+  }
+  fetch('/work-mgmt/api/recurring/split-pattern/'+_splitDetailRecurringId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+  .then(function(r){return r.json()}).then(function(d){
+    if(d.success){closeSplitDetail();loadList();}
+    else alert(d.message||'操作失败');
+  });
+}
+
+{% raw %}</script>{% endraw %}
+
+{% endblock %}

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="120" height="160">
+  <!-- 文具 - 铅笔形状 -->
+  <rect width="120" height="160" fill="#F5F0E8" rx="4"/>
+  <!-- 铅笔主体 -->
+  <rect x="48" y="25" width="24" height="95" rx="2" fill="#C4A882" opacity="0.85"/>
+  <!-- 铅笔金属箍 -->
+  <rect x="46" y="108" width="28" height="8" rx="1" fill="#9CA89E"/>
+  <!-- 橡皮头 -->
+  <rect x="48" y="116" width="24" height="12" rx="3" fill="#C9A07A"/>
+  <!-- 笔尖 -->
+  <path d="M48 25 L60 10 L72 25 Z" fill="#7A9E8F"/>
+  <!-- 笔尖尖 -->
+  <path d="M56 18 L60 10 L64 18 Z" fill="#5A3A2A"/>
+  <!-- 铅笔纹理 -->
+  <line x1="56" y1="30" x2="56" y2="105" stroke="#B8956A" stroke-width="0.5" opacity="0.5"/>
+  <line x1="64" y1="30" x2="64" y2="105" stroke="#B8956A" stroke-width="0.5" opacity="0.5"/>
+</svg>

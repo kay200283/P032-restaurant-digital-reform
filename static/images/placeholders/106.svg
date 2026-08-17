@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="120" height="160">
+  <!-- 内衣 - 内衣形状 -->
+  <rect width="120" height="160" fill="#F5F0E8" rx="4"/>
+  <!-- 左罩杯 -->
+  <path d="M25 55 Q25 95 45 105 Q55 100 58 80 L55 55 Q40 45 25 55 Z" fill="#C9A07A" opacity="0.85"/>
+  <!-- 右罩杯 -->
+  <path d="M95 55 Q95 95 75 105 Q65 100 62 80 L65 55 Q80 45 95 55 Z" fill="#C9A07A" opacity="0.85"/>
+  <!-- 肩带 -->
+  <line x1="30" y1="55" x2="25" y2="30" stroke="#B8956A" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="90" y1="55" x2="95" y2="30" stroke="#B8956A" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- 下围 -->
+  <path d="M15 105 Q60 115 105 105" fill="none" stroke="#B8956A" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- 中间蝴蝶结 -->
+  <circle cx="60" cy="78" r="3" fill="#A07D55"/>
+</svg>

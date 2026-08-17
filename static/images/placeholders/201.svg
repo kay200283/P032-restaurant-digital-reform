@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="120" height="160">
+  <!-- 调味加工 - 调味瓶形状 -->
+  <rect width="120" height="160" fill="#F5F0E8" rx="4"/>
+  <!-- 瓶身 -->
+  <rect x="30" y="55" width="60" height="80" rx="4" fill="#C4A882" opacity="0.85"/>
+  <!-- 瓶颈 -->
+  <rect x="45" y="42" width="30" height="16" rx="2" fill="#B8956A"/>
+  <!-- 瓶盖 -->
+  <rect x="43" y="32" width="34" height="12" rx="3" fill="#9CA89E"/>
+  <!-- 标签 -->
+  <rect x="36" y="72" width="48" height="32" rx="2" fill="#FBF9F4" opacity="0.7"/>
+  <line x1="42" y1="83" x2="78" y2="83" stroke="#B8956A" stroke-width="1.5"/>
+  <line x1="46" y1="92" x2="74" y2="92" stroke="#B8956A" stroke-width="1"/>
+</svg>

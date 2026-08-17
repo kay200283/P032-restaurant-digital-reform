@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="120" height="160">
+  <!-- 鞋·包 - 手提包形状 -->
+  <rect width="120" height="160" fill="#F5F0E8" rx="4"/>
+  <!-- 包体 -->
+  <rect x="20" y="65" width="80" height="65" rx="6" fill="#B8956A" opacity="0.85"/>
+  <!-- 包盖 -->
+  <path d="M20 80 Q60 90 100 80 L100 65 Q60 72 20 65 Z" fill="#C4A882" opacity="0.7"/>
+  <!-- 提手 -->
+  <path d="M40 65 Q40 40 60 40 Q80 40 80 65" fill="none" stroke="#B8956A" stroke-width="3" stroke-linecap="round"/>
+  <!-- 扣 -->
+  <circle cx="60" cy="85" r="5" fill="#A07D55"/>
+</svg>

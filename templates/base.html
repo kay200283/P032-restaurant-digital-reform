@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{% block title %}餐厅数字化改革{% endblock %}</title>
+    <!-- 字体预加载：消除FOUT（刷新后icon消失再出现） -->
+    <link rel="preload" href="/static/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/static/fonts/Inter-Regular.woff2" as="font" type="font/woff2" crossorigin>
+    <style>
+    /* Inter - SIL开源协议可商用 */
+    @font-face { font-family: 'Inter'; font-weight: 300; font-style: normal; font-display: swap; src: url('/static/fonts/Inter-Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'Inter'; font-weight: 400; font-style: normal; font-display: swap; src: url('/static/fonts/Inter-Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'Inter'; font-weight: 500; font-style: normal; font-display: swap; src: url('/static/fonts/Inter-Medium.woff2') format('woff2'); }
+    @font-face { font-family: 'Inter'; font-weight: 600; font-style: normal; font-display: swap; src: url('/static/fonts/Inter-SemiBold.woff2') format('woff2'); }
+    @font-face { font-family: 'Inter'; font-weight: 700; font-style: normal; font-display: swap; src: url('/static/fonts/Inter-Bold.woff2') format('woff2'); }
+    /* Noto Sans SC (思源黑体) - SIL开源协议可商用 */
+    @font-face { font-family: 'Noto Sans SC'; font-weight: 300; font-style: normal; font-display: swap; src: url('/static/fonts/NotoSansSC-Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'Noto Sans SC'; font-weight: 400; font-style: normal; font-display: swap; src: url('/static/fonts/NotoSansSC-Regular.woff2') format('woff2'); }
+    @font-face { font-family: 'Noto Sans SC'; font-weight: 500; font-style: normal; font-display: swap; src: url('/static/fonts/NotoSansSC-Bold.woff2') format('woff2'); }
+    @font-face { font-family: 'Noto Sans SC'; font-weight: 700; font-style: normal; font-display: swap; src: url('/static/fonts/NotoSansSC-Bold.woff2') format('woff2'); }
+    /* Space Grotesk - SIL开源协议可商用 */
+    @font-face { font-family: 'Space Grotesk'; font-weight: 500; font-style: normal; font-display: swap; src: url('/static/fonts/SpaceGrotesk-variable.ttf') format('truetype'); }
+    @font-face { font-family: 'Space Grotesk'; font-weight: 700; font-style: normal; font-display: swap; src: url('/static/fonts/SpaceGrotesk-variable.ttf') format('truetype'); }
+    </style>
+    <link rel="stylesheet" href="/static/css/style.css?v=1785858524">
+    <link rel="stylesheet" href="/static/css/fontawesome.min.css">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="main-layout">
+        <button class="mobile-menu-toggle" id="mobileMenuToggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">餐厅数字化改革<small>Restaurant Digital Reform</small></div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">工作管理</div>
+                    <a href="/work-calendar" class="nav-item {% if request.path == '/work-calendar' %}active{% endif %}">
+                        <i class="fa-solid fa-calendar-days"></i><span>日历排班</span>
+                    </a>
+                    <a href="/work-recurring" class="nav-item {% if request.path == '/work-recurring' %}active{% endif %}">
+                        <i class="fa-solid fa-repeat"></i><span>周期性工作</span>
+                    </a>
+                    <a href="/work-tasks" class="nav-item {% if request.path == '/work-tasks' %}active{% endif %}">
+                        <i class="fa-solid fa-list-check"></i><span>任务管理</span>
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title">系统</div>
+                    <a href="/system" class="nav-item {% if request.path == '/system' %}active{% endif %}">
+                        <i class="fa-solid fa-gear"></i><span>账号管理</span>
+                    </a>
+                </div>
+            </nav>
+            
+            <!-- 品牌胎记 -->
+            <div class="sidebar-footer">
+                <div class="brand-logo-combo">
+                    <svg class="brand-open-door" viewBox="0 0 64 64" width="32" height="32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M 0,0 L 64,0 L 64,64 M 45,64 L 0,64 L 0,0"
+                              stroke="#FBF9F4" stroke-width="2.5"
+                              stroke-linecap="square" stroke-linejoin="miter" fill="none"/>
+                        <path d="M 64,0 L 45,13 L 45,64"
+                              stroke="#FBF9F4" stroke-width="2.5"
+                              stroke-linecap="square" stroke-linejoin="miter" fill="none"/>
+                    </svg>
+                    <div class="brand-slogan">把复杂交给工具，把人还给价值</div>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 顶栏 -->
+            <header class="header">
+                <h1 class="header-title">{% block page_title %}{% endblock %}</h1>
+                <div class="header-user">
+                    <span class="role-badge">{{ current_role | upper }}</span>
+                    <span>{{ current_user }}</span>
+                    <button class="logout-btn" onclick="logout()">
+                        <i class="fa-solid fa-sign-out-alt"></i>
+                        退出
+                    </button>
+                </div>
+            </header>
+            <div class="content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+    
+    <!-- Toast提示 -->
+    <div class="toast" id="toast"></div>
+    
+    <!-- 通用模态框 -->
+    <div class="modal-overlay" id="commonModal">
+        <div class="modal" id="commonModalContent">
+            <div class="modal-header">
+                <h3 class="modal-title" id="commonModalTitle"></h3>
+                <button class="modal-close" onclick="closeModal('commonModal')">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="commonModalBody"></div>
+            <div class="modal-footer" id="commonModalFooter"></div>
+        </div>
+    </div>
+    
+    <script>
+        function debounce(fn, delay = 300) {
+            let timer = null;
+            return function(...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), delay);
+            };
+        }
+        
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast ' + type;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+        
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+        
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) e.stopPropagation();
+            });
+        });
+        
+        async function logout() {
+            try {
+                await fetch('/api/logout', {method: 'POST'});
+                window.location.href = '/login';
+            } catch (err) {
+                window.location.href = '/login';
+            }
+        }
+        
+        function confirmAction(message, callback) {
+            const modalBody = document.getElementById('commonModalBody');
+            const modalFooter = document.getElementById('commonModalFooter');
+            const modalTitle = document.getElementById('commonModalTitle');
+            
+            modalTitle.textContent = '确认';
+            modalBody.innerHTML = '<p style="text-align:center;padding:20px;font-size:0.9em;">' + message + '</p>';
+            modalFooter.innerHTML = '<button class="btn btn-secondary" onclick="closeModal(\'commonModal\')">取消</button><button class="btn btn-primary" id="confirmBtn">确定</button>';
+            
+            document.getElementById('confirmBtn').onclick = () => {
+                closeModal('commonModal');
+                callback();
+            };
+            showModal('commonModal');
+        }
+        
+        async function api(url, options = {}) {
+            try {
+                const resp = await fetch(url, {
+                    ...options,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    }
+                });
+                if (!resp.ok) {
+                    const text = await resp.text();
+                    try {
+                        const data = JSON.parse(text);
+                        return {success: false, message: data.message || '请求失败(' + resp.status + ')'};
+                    } catch(e) {
+                        console.error('API ' + resp.status + ': ' + url, text.substring(0, 200));
+                        return {success: false, message: '请求失败(' + resp.status + ')'};
+                    }
+                }
+                return await resp.json();
+            } catch (err) {
+                console.error('API error:', url, err);
+                return {success: false, message: '网络错误: ' + err.message};
+            }
+        }
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+
+<script>
+// 侧边栏滚动位置记忆
+(function() {
+    const sidebar = document.querySelector('.sidebar');
+    if (!sidebar) return;
+    const saved = localStorage.getItem('sidebar_scroll');
+    if (saved) sidebar.scrollTop = parseInt(saved);
+    sidebar.addEventListener('scroll', function() {
+        localStorage.setItem('sidebar_scroll', sidebar.scrollTop);
+    });
+})();
+</script>
+<style>
+.mobile-menu-toggle{display:none;position:fixed;top:10px;left:10px;z-index:1001;background:#2D4A3E;color:white;border:none;border-radius:6px;width:36px;height:36px;font-size:16px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);padding:0;line-height:36px;text-align:center}
+.sidebar-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999}
+.sidebar-overlay.show{display:block}
+@media(max-width:768px){.mobile-menu-toggle{display:block}.sidebar{width:200px}.sidebar.show{transform:translateX(0);z-index:1000}.sidebar-header{padding-top:50px}.header-title{font-size:15px;padding-left:44px}}
+</style><script>
+function toggleSidebar(){var s=document.querySelector('.sidebar'),o=document.getElementById('sidebarOverlay'),b=document.getElementById('mobileMenuToggle');if(!o){o=document.createElement('div');o.id='sidebarOverlay';o.className='sidebar-overlay';o.onclick=toggleSidebar;document.body.appendChild(o)}s.classList.toggle('show');o.classList.toggle('show');if(b&&window.innerWidth<=768){b.style.display=s.classList.contains('show')?'none':'block'}}
+document.querySelectorAll('.sidebar .nav-item').forEach(function(l){l.addEventListener('click',function(){var s=document.querySelector('.sidebar'),o=document.getElementById('sidebarOverlay'),b=document.getElementById('mobileMenuToggle');if(s)s.classList.remove('show');if(o)o.classList.remove('show');if(b&&window.innerWidth<=768)b.style.display='block'})});
+</script>
+</body>
+</html>

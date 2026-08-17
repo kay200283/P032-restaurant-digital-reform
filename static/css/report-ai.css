@@ -1,0 +1,7 @@
+.ai-msg{margin-bottom:10px;padding:8px 12px;border-radius:8px;max-width:90%;word-break:break-word;white-space:pre-wrap;}
+.ai-msg-user{background:#e8efe9;color:#2D4A3E;margin-left:auto;text-align:right;}
+.ai-msg-bot{background:#f5f5f5;color:#333;}
+.ai-msg-bot code{background:#e8efe9;padding:1px 4px;border-radius:3px;font-size:0.75rem;color:#A0522D;}
+.ai-msg-bot pre{background:#1a2e25;color:#e0e0e0;padding:10px;border-radius:6px;overflow-x:auto;font-size:0.75rem;margin:6px 0;}
+.ai-typing{color:#8C8C8C;font-style:italic;}
+@media print{#aiFab,#aiChatPanel{display:none!important}}
