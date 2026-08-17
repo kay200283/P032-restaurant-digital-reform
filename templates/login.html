@@ -202,7 +202,7 @@
                         document.getElementById('old-password').value = password;
                         document.getElementById('new-password').focus();
                     } else {
-                        window.location.href = '{{ next_url }}' || '/';
+                        window.location.href = '{{ next_url }}' || '/work-mgmt/calendar';
                     }
                 } else {
                     errorEl.textContent = data.message || '登录失败';
@@ -247,7 +247,7 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    window.location.href = '{{ next_url }}' || '/';
+                    window.location.href = '{{ next_url }}' || '/work-mgmt/calendar';
                 } else {
                     errorEl.textContent = data.message || '修改失败';
                     errorEl.style.display = 'block';

@@ -85,5 +85,10 @@ def inject_user():
         except: pass
     return {'current_user': user, 'current_role': role, 'display_name': session.get('display_name', user or '')}
 
+
+@app.route('/')
+def index():
+    return redirect(url_for('work_mgmt.calendar'))
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
