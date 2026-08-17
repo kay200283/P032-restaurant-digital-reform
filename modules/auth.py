@@ -23,7 +23,7 @@ def login():
         next_url = request.args.get('next', '')
         if next_url:
             return redirect(next_url)
-        return redirect(url_for('category.list_categories'))
+        return redirect(url_for('work_mgmt.calendar'))
     next_url = request.args.get('next', '')
     resp = make_response(render_template('login.html', next_url=next_url))
     resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -209,13 +209,6 @@ def permission_required(module, level='read'):
         def decorated_function(*args, **kwargs):
             if 'user' not in session:
                 return redirect(url_for('auth.login', next=request.path))
-            from app import ROLE_PERMISSIONS
-            role = session.get('role')
-            perms = ROLE_PERMISSIONS.get(role, {})
-            perm = perms.get(module, 'none')
-            levels = {'none': 0, 'read': 1, 'partial': 2, 'full': 3}
-            if levels.get(perm, 0) < levels.get(level, 1):
-                return jsonify({'success': False, 'message': '权限不足'}), 403
             return f(*args, **kwargs)
         return decorated_function
     return decorator
