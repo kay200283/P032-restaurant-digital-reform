@@ -1,0 +1,426 @@
+{% extends "base.html" %}
+{% block title %}日期表管理 - 餐厅数字化改革{% endblock %}
+{% block page_title %}日期表管理{% endblock %}
+
+{% block extra_css %}
+<style>
+/* 筛选栏 */
+.filter-bar{display:flex;align-items:center;gap:8px;padding:6px 0;flex-wrap:wrap}
+.filter-bar select{font-size:.85em;border:1px solid var(--brand-border);border-radius:4px;padding:3px 6px;outline:none}
+.info-text{font-size:.8em;color:var(--text-hint);margin-left:4px}
+
+/* 按钮样式 */
+.btn-action{background:var(--brand-primary);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:.85em;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.btn-action:hover{opacity:.85}
+.btn-outline{background:#fff;color:var(--brand-primary);border:1px solid var(--brand-primary);border-radius:4px;padding:4px 10px;font-size:.85em;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.btn-outline:hover{background:rgba(45,74,62,.04)}
+.btn-secondary{background:#fff;color:var(--text-secondary);border:1px solid var(--brand-border);border-radius:4px;padding:4px 10px;font-size:.85em;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.btn-secondary:hover{background:#f5f5f5}
+
+/* 统计卡片 - 品牌风格 两层布局 */
+.stat-section{margin:8px 0}
+.stat-cards{display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap}
+.stat-card{background:#fff;border:1px solid var(--brand-border);border-radius:6px;padding:12px 16px;min-width:100px}
+
+
+.stat-card .label{font-size:.8em;color:#888}.stat-card .value{font-size:1.3em;font-weight:700;color:var(--brand-primary)}
+
+
+/* 节假日明细横条 */
+.holiday-strip{background:#fff;border:1px solid rgba(0,0,0,.06);border-radius:6px;padding:6px 12px;display:flex;align-items:center;gap:4px;box-shadow:0 1px 4px rgba(0,0,0,.04);margin-top:6px;flex-wrap:wrap}
+.holiday-strip .strip-title{font-size:.75em;color:var(--text-hint);font-weight:500;margin-right:6px;white-space:nowrap}
+.holiday-strip .h-item{display:inline-flex;align-items:center;gap:3px;font-size:.8em;white-space:nowrap}
+.holiday-strip .h-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.holiday-strip .h-dot.red{background:#C62828}
+.holiday-strip .h-dot.amber{background:#E65100}
+.holiday-strip .h-dot.purple{background:#6A1B9A}
+.holiday-strip .h-dot.olive{background:#558B2F}
+.holiday-strip .h-dot.cyan{background:#00838F}
+.holiday-strip .h-dot.brown{background:#5D4037}
+.holiday-strip .h-val{font-weight:700;font-size:.85em}
+.holiday-strip .h-name{color:var(--text-secondary)}
+.holiday-strip .h-sep{color:rgba(0,0,0,.15);font-size:.7em;margin:0 2px}
+
+/* 表格 */
+.date-wrap{overflow-y:auto;overflow-x:hidden;max-height:calc(100vh - 26em)}
+table.dt{width:100%;border-collapse:collapse;table-layout:fixed}
+table.dt thead{position:sticky;top:0;z-index:2}
+table.dt th{background:var(--brand-primary);color:#fff;font-size:.85em;font-weight:500;padding:3px 6px;text-align:left;white-space:nowrap;cursor:pointer;user-select:none}
+table.dt th:hover{opacity:.9}
+table.dt td{padding:3px 6px;border-bottom:1px solid var(--brand-border);font-size:.85em;white-space:normal !important;line-height:1.3;vertical-align:middle}
+table.dt tr:hover td{background:rgba(45,74,62,0.03)}
+
+/* 列宽 */
+table.dt .col-date{width:8em}
+table.dt .col-year{width:4em}
+table.dt .col-month{width:3em}
+table.dt .col-week{width:4em}
+table.dt .col-weekday{width:4em}
+table.dt .col-fy{width:6em}
+table.dt .col-period{width:4em}
+table.dt .col-holiday{width:7em}
+table.dt .col-ym{width:7em}
+table.dt .col-spec-week{width:7em}
+table.dt .col-wage{width:4em}
+table.dt .col-term{width:5em}
+table.dt .col-wom{width:4em}
+table.dt .col-jp{width:6em}
+
+.sort-icon{font-size:.7em;margin-left:2px;opacity:.5}
+th.sorted .sort-icon{opacity:1}
+
+/* 节假日标签 */
+.h-tag{font-size:inherit;font-weight:600;line-height:1.4}
+.h-tag.workday{color:var(--text-secondary)}
+.h-tag.weekend{color:#8C8C8C}
+.h-tag.spring{color:#C62828}
+.h-tag.national{color:#C62828}
+.h-tag.makeup{color:#2D6EB4}
+.h-tag.labor{color:#C62828}
+.h-tag.holiday{color:var(--brand-primary)}
+
+/* 三薪标注 */
+.wage-3{color:#A0522D;font-weight:600}
+.wage-2{color:var(--brand-primary);font-weight:600}
+
+/* 分页 */
+.pagination-bar{display:flex;align-items:center;justify-content:space-between;padding:6px 16px;background:#fff;border-top:1px solid rgba(0,0,0,0.05)}
+.page-info{font-size:.8em;color:var(--text-hint)}
+.page-controls{display:flex;gap:4px}
+.page-controls button{padding:4px 10px;border:1px solid #ddd;background:#fff;border-radius:4px;font-size:12px;color:var(--brand-primary);cursor:pointer}
+.page-controls button:hover{background:#f5f5f5}
+.page-controls button.active{background:var(--brand-primary);color:#fff;border-color:var(--brand-primary)}
+.page-controls button:disabled{opacity:.4;cursor:not-allowed}
+
+/* 扩展财年组合按钮 */
+.extend-group{display:inline-flex;align-items:center;gap:0}
+.extend-group select{font-size:.85em;border:1px solid var(--brand-border);border-radius:4px 0 0 4px;padding:3px 6px;outline:none;border-right:none}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+    <select id="sel-fy"><option value="">全部财年</option></select>
+    <select id="sel-year"><option value="">全部年</option></select>
+    <select id="sel-month">
+        <option value="">全部月份</option>
+        <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+        <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+        <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+        <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+    </select>
+    <button class="btn-action" onclick="loadData()"><i class="fa-solid fa-search"></i> 查询</button>
+    <button class="btn-secondary" onclick="syncHolidays()"><i class="fa-solid fa-sync"></i> 同步节假日</button>
+    <button class="btn-outline" onclick="exportCSV()"><i class="fa-solid fa-download"></i> 导出</button>
+    <div class="extend-group">
+        <select id="sel-extend-fy"></select>
+        <button class="btn-action" style="border-radius:0 4px 4px 0" onclick="doExtend()"><i class="fa-solid fa-plus"></i> 扩展</button>
+    </div>
+    <span class="info-text" id="data-info"></span>
+</div>
+
+<div class="stat-section">
+    <div class="stat-cards" id="stat-cards"></div>
+    <div class="holiday-strip" id="holiday-strip"></div>
+</div>
+
+<div class="date-wrap" id="date-wrap">
+    <table class="dt">
+        <thead>
+            <tr>
+                <th class="col-date" data-col="date" onclick="toggleSort('date')">日期 <span class="sort-icon"><i class="fa-solid fa-sort"></i></span></th>
+                <th class="col-year" data-col="year" onclick="toggleSort('year')">年 <span class="sort-icon"><i class="fa-solid fa-sort"></i></span></th>
+                <th class="col-month" data-col="month" onclick="toggleSort('month')">月 <span class="sort-icon"><i class="fa-solid fa-sort"></i></span></th>
+                <th class="col-week" data-col="week_num" onclick="toggleSort('week_num')">周别 <span class="sort-icon"><i class="fa-solid fa-sort"></i></span></th>
+                <th class="col-weekday" data-col="weekday" onclick="toggleSort('weekday')">星期 <span class="sort-icon"><i class="fa-solid fa-sort"></i></span></th>
+                <th class="col-fy" data-col="fiscal_year" onclick="toggleSort('fiscal_year')">财年 <span class="sort-icon"><i class="fa-solid fa-sort"></i></span></th>
+                <th class="col-period" data-col="period" onclick="toggleSort('period')">期 <span class="sort-icon"><i class="fa-solid fa-sort"></i></span></th>
+                <th class="col-holiday" data-col="holiday_type" onclick="toggleSort('holiday_type')">节假日 <span class="sort-icon"><i class="fa-solid fa-sort"></i></span></th>
+                <th class="col-ym" data-col="year_month" onclick="toggleSort('year_month')">年月 <span class="sort-icon"><i class="fa-solid fa-sort"></i></span></th>
+                <th class="col-spec-week" data-col="specific_week" onclick="toggleSort('specific_week')">具体周 <span class="sort-icon"><i class="fa-solid fa-sort"></i></span></th>
+                <th class="col-wage" data-col="wage_type" onclick="toggleSort('wage_type')">三薪 <span class="sort-icon"><i class="fa-solid fa-sort"></i></span></th>
+                <th class="col-term" data-col="solar_term" onclick="toggleSort('solar_term')">节气 <span class="sort-icon"><i class="fa-solid fa-sort"></i></span></th>
+                <th class="col-wom" data-col="week_of_month" onclick="toggleSort('week_of_month')">月内周 <span class="sort-icon"><i class="fa-solid fa-sort"></i></span></th>
+                <th class="col-jp" data-col="jp_holiday" onclick="toggleSort('jp_holiday')">日本祝日 <span class="sort-icon"><i class="fa-solid fa-sort"></i></span></th>
+            </tr>
+        </thead>
+        <tbody id="date-tbody"></tbody>
+    </table>
+</div>
+
+<div class="pagination-bar" id="pager">
+    <span class="page-info" id="pageInfo"></span>
+    <div class="page-controls" id="pageControls"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const PER_PAGE = 50;
+let currentPage = 1;
+let sortCol = 'date';
+let sortDir = 'asc';
+
+async function init() {
+    await loadFilters();
+    const now = new Date();
+    const cy = now.getFullYear();
+    const opt = document.querySelector('#sel-year option[value="'+cy+'"]');
+    if (opt) opt.selected = true;
+    await loadData();
+}
+
+async function loadFilters() {
+    const resp = await fetch('/api/dim_date/years');
+    const data = await resp.json();
+    const selY = document.getElementById('sel-year');
+    data.years.forEach(y => {
+        const opt = document.createElement('option');
+        opt.value = y; opt.textContent = y + '年';
+        selY.appendChild(opt);
+    });
+    const selFY = document.getElementById('sel-fy');
+    data.fiscal_years.forEach(fy => {
+        const opt = document.createElement('option');
+        opt.value = fy; opt.textContent = fy;
+        selFY.appendChild(opt);
+    });
+    const selExt = document.getElementById('sel-extend-fy');
+    data.extend_options.forEach(fy => {
+        const opt = document.createElement('option');
+        opt.value = fy; opt.textContent = fy;
+        selExt.appendChild(opt);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('sel-year').addEventListener('change', function() {
+        if (this.value) document.getElementById('sel-fy').value = '';
+    });
+    document.getElementById('sel-fy').addEventListener('change', function() {
+        if (this.value) document.getElementById('sel-year').value = '';
+    });
+});
+
+async function loadData() {
+    currentPage = 1;
+    await fetchData();
+}
+
+async function fetchData() {
+    const year = document.getElementById('sel-year').value;
+    const month = document.getElementById('sel-month').value;
+    const fiscalYear = document.getElementById('sel-fy').value;
+    let url = '/api/dim_date/list?page=1&per_page='+PER_PAGE+'&sort='+sortCol+'&dir='+sortDir;
+    if (year) url += '&year='+year;
+    if (month) url += '&month='+month;
+    if (fiscalYear) url += '&fiscal_year='+encodeURIComponent(fiscalYear);
+    const resp = await fetch(url);
+    const data = await resp.json();
+    renderTable(data.rows);
+    renderPager(data.total, 1);
+    document.getElementById('data-info').textContent = '共 '+data.total+' 条';
+    renderStats(data.stats, data.total);
+}
+
+async function fetchDataPage(page) {
+    const year = document.getElementById('sel-year').value;
+    const month = document.getElementById('sel-month').value;
+    const fiscalYear = document.getElementById('sel-fy').value;
+    let url = '/api/dim_date/list?page='+page+'&per_page='+PER_PAGE+'&sort='+sortCol+'&dir='+sortDir;
+    if (year) url += '&year='+year;
+    if (month) url += '&month='+month;
+    if (fiscalYear) url += '&fiscal_year='+encodeURIComponent(fiscalYear);
+    const resp = await fetch(url);
+    const data = await resp.json();
+    renderTable(data.rows);
+    renderPager(data.total, page);
+    document.getElementById('data-info').textContent = '共 '+data.total+' 条';
+    renderStats(data.stats, data.total);
+}
+
+function toggleSort(col) {
+    if (sortCol === col) {
+        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortCol = col;
+        sortDir = 'asc';
+    }
+    document.querySelectorAll('table.dt th').forEach(th => {
+        th.classList.remove('sorted');
+        const icon = th.querySelector('.sort-icon i');
+        if (icon) icon.className = 'fa-solid fa-sort';
+    });
+    const th = document.querySelector('th[data-col="'+col+'"]');
+    if (th) {
+        th.classList.add('sorted');
+        const icon = th.querySelector('.sort-icon i');
+        if (icon) icon.className = sortDir === 'asc' ? 'fa-solid fa-sort-up' : 'fa-solid fa-sort-down';
+    }
+    fetchDataPage(1);
+}
+
+function esc(s) { if(s==null) return ''; s=String(s); return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function holidayTag(type) {
+    if (!type) return '';
+    let cls = 'other';
+    if (type === '工作日') cls = 'workday';
+    else if (type === '假日') cls = 'weekend';
+    else if (type === '春节') cls = 'spring';
+    else if (type === '国庆') cls = 'national';
+    else if (type.indexOf('补班') >= 0) cls = 'makeup';
+    else if (type === '五一') cls = 'labor';
+    else cls = 'holiday';
+    return '<span class="h-tag '+cls+'">'+type+'</span>';
+}
+
+function wageLabel(w) {
+    if (w === 3) return '<span class="wage-3">3(三薪)</span>';
+    if (w === 2) return '<span class="wage-2">2(二薪)</span>';
+    return '';
+}
+
+function renderTable(rows) {
+    const tbody = document.getElementById('date-tbody');
+    if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;color:var(--text-hint)">暂无数据</td></tr>';
+        return;
+    }
+    tbody.innerHTML = rows.map(r => '<tr>' +
+        '<td>'+esc(r.date)+'</td>' +
+        '<td>'+esc(r.year)+'</td>' +
+        '<td>'+esc(r.month)+'</td>' +
+        '<td>'+esc(r.week_num||'')+'</td>' +
+        '<td>'+esc(r.weekday||'')+'</td>' +
+        '<td>'+esc(r.fiscal_year||'')+'</td>' +
+        '<td>'+esc(r.period||'')+'</td>' +
+        '<td>'+holidayTag(r.holiday_type)+'</td>' +
+        '<td>'+esc(r.year_month||'')+'</td>' +
+        '<td>'+esc(r.specific_week||'')+'</td>' +
+        '<td>'+wageLabel(r.wage_type)+'</td>' +
+        '<td>'+esc(r.solar_term)+'</td>' +
+        '<td>'+esc(r.week_of_month||'')+'</td>' +
+        '<td>'+esc(r.jp_holiday)+'</td>' +
+        '</tr>').join('');
+}
+
+function renderPager(total, page) {
+    const maxPage = Math.ceil(total / PER_PAGE);
+    if (maxPage <= 1) {
+        document.getElementById('pageInfo').textContent = '共 '+total+' 条';
+        document.getElementById('pageControls').innerHTML = '';
+        return;
+    }
+    document.getElementById('pageInfo').textContent = '共 '+total+' 条，'+page+'/'+maxPage+'页';
+    let h = '<button '+escapeattr(page<=1?'disabled':'')+' onclick="goPage('+escapeattr(page-1)+')">上一页</button>';
+    const start = Math.max(1, page-3);
+    const end = Math.min(maxPage, page+3);
+    for (let i = start; i <= end; i++) {
+        h += '<button class="'+(i===page?'active':'')+'" onclick="goPage('+i+')">'+i+'</button>';
+    }
+    h += '<button '+escapeattr(page>=maxPage?'disabled':'')+' onclick="goPage('+escapeattr(page+1)+')">下一页</button>';
+    document.getElementById('pageControls').innerHTML = h;
+}
+
+function escapeattr(s) { return String(s); }
+
+async function goPage(p) {
+    currentPage = p;
+    await fetchDataPage(p);
+}
+
+function renderStats(stats, total) {
+    if (!stats) {
+        document.getElementById('stat-cards').innerHTML = '';
+        document.getElementById('holiday-strip').innerHTML = '';
+        return;
+    }
+    // 上层：5个核心指标卡片
+    const mainItems = [
+        {key:'workdays', label:'工作日', icon:'fa-solid fa-briefcase', color:'green'},
+        {key:'holiday_days', label:'假日', icon:'fa-solid fa-umbrella-beach', color:'teal'},
+        {key:'makeup_days', label:'补班日', icon:'fa-solid fa-clock', color:'blue'},
+        {key:'double_pay', label:'双薪', icon:'fa-solid fa-coins', color:'green'},
+        {key:'triple_pay', label:'三薪', icon:'fa-solid fa-fire', color:'terracotta'}
+    ];
+    document.getElementById('stat-cards').innerHTML = mainItems.map(it =>
+        '<div class="stat-card"><div class="label">'+it.label+'</div><div class="value">'+(stats[it.key]||0)+'天</div></div>'
+    ).join('');
+
+    // 下层：节假日明细横条
+    const holidays = [
+        {key:'spring', name:'春节', dot:'red'},
+        {key:'national', name:'国庆', dot:'red'},
+        {key:'labor', name:'五一', dot:'amber'},
+        {key:'newyear', name:'元旦', dot:'purple'},
+        {key:'qingming', name:'清明', dot:'olive'},
+        {key:'dragon', name:'端午', dot:'cyan'},
+        {key:'midautumn', name:'中秋', dot:'brown'}
+    ];
+    let stripHtml = '<span class="strip-title">节假日明细</span>';
+    holidays.forEach((h, i) => {
+        stripHtml += '<span class="h-item"><span class="h-dot '+h.dot+'"></span><span class="h-name">'+h.name+'</span><span class="h-val">'+(stats[h.key]||0)+'天</span></span>';
+        if (i < holidays.length - 1) stripHtml += '<span class="h-sep">|</span>';
+    });
+    document.getElementById('holiday-strip').innerHTML = stripHtml;
+}
+
+function exportCSV() {
+    const year = document.getElementById('sel-year').value;
+    const month = document.getElementById('sel-month').value;
+    const fiscalYear = document.getElementById('sel-fy').value;
+    let url = '/api/dim_date/export?';
+    if (year) url += 'year='+year+'&';
+    if (month) url += 'month='+month+'&';
+    if (fiscalYear) url += 'fiscal_year='+encodeURIComponent(fiscalYear)+'&';
+    if (!year && !month && !fiscalYear) url += 'all=1&';
+    window.location.href = url;
+}
+
+async function syncHolidays() {
+    const year = document.getElementById('sel-year').value;
+    if (!year) { alert('请先选择年份再同步节假日'); return; }
+    if (!confirm('确认同步 '+year+' 年的节假日数据？\n将自动覆盖该年的节假日、三薪、节气、日本祝日。')) return;
+    try {
+        const resp = await fetch('/api/dim_date/sync_holidays', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({year: parseInt(year)})
+        });
+        const data = await resp.json();
+        if (data.success) {
+            alert(year+'年节假日同步完成，更新了 '+data.updated+' 天');
+            await loadData();
+        } else { alert('同步失败: '+data.error||'未知错误'); }
+    } catch(e) { alert('同步失败: '+e.message); }
+}
+
+async function doExtend() {
+    const fy = document.getElementById('sel-extend-fy').value;
+    if (!fy) { alert('请选择要扩展的财年'); return; }
+    if (!confirm('确认扩展 '+fy+'？\n将自动生成该财年全部日期（已有日期跳过），并尝试同步节假日。')) return;
+    try {
+        const resp = await fetch('/api/dim_date/extend', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({fiscal_year: fy})
+        });
+        const data = await resp.json();
+        if (data.success) {
+            let msg = fy+'扩展完成！新增 '+data.inserted+' 天';
+            if (data.sync_results) {
+                msg += '\n节假日同步：';
+                for (const [yr, info] of Object.entries(data.sync_results)) {
+                    msg += '\n  '+yr+'年: '+info;
+                }
+            }
+            alert(msg);
+            await loadFilters();
+            await loadData();
+        } else { alert('扩展失败: '+data.error||'未知错误'); }
+    } catch(e) { alert('扩展失败: '+e.message); }
+}
+
+init();
+</script>
+{% endblock %}
+
