@@ -1413,11 +1413,11 @@ def api_options():
         types = [r[0] for r in conn.execute(
             "SELECT DISTINCT type FROM recurring_tasks WHERE type != '' ORDER BY type").fetchall()]
         owners = conn.execute(
-            "SELECT id, display_name FROM users WHERE display_name IN ('Kay','杨洁','白金立','杨婉怡','江玲','新业态实习生') AND is_active=1 ORDER BY display_name"
+            "SELECT id, display_name FROM users WHERE is_active=1 ORDER BY display_name"
         ).fetchall()
         owner_list = [{'id': r['id'], 'name': r['display_name']} for r in owners]
         executors = conn.execute(
-            "SELECT id, display_name FROM users WHERE display_name IN ('Kay','杨洁','白金立','杨婉怡','江玲','新业态实习生') AND is_active=1 ORDER BY display_name").fetchall()
+            "SELECT id, display_name FROM users WHERE is_active=1 ORDER BY display_name").fetchall()
         executor_list = [{'id': r['id'], 'name': r['display_name']} for r in executors]
         cycle_types = [r[0] for r in conn.execute('SELECT DISTINCT cycle_type FROM recurring_tasks WHERE cycle_type IS NOT NULL AND cycle_type != "" ORDER BY cycle_type').fetchall()]
         return jsonify({'success': True, 'types': types, 'cycle_types': cycle_types, 'owners': owner_list, 'executors': executor_list})
@@ -2147,7 +2147,7 @@ TASK_MGMT_SYSTEM_PROMPT = """你是「早点下班」工作管理AI助手，理�
 
 ## 任务字段(严格按以下格式)
 - title: 任务标题，≤30字
-- executor: 执行人，每条任务仅允许一人，必须为以下之一：Kay/杨洁/杨婉怡/白金立/江玲/新业态实习生。多人执行时为每人分别生成一条任务。未指定时推荐并说明理由，不替用户决定
+- executor: 执行人，每条任务仅允许一人，从系统账号中选取。多人执行时为每人分别生成一条任务。未指定时推荐并说明理由，不替用户决定
 - description: 任务描述，简洁说明内容和要求
 - start_time: 排定开始时间，可选，格式 YYYY-MM-DD HH:MM（如 2026-08-17 15:00）。当用户明确提到具体执行时间（如下午3点17:00明天上午10点）时必须填写，表示任务计划何时开始；未提具体时间则留空不填
 - expected_end: 截止时间，必须为 YYYY-MM-DD HH:MM 格式（如 2026-08-17 12:00），根据今日日期计算出具体日期时间，禁止使用"明天""下周"等相对词，禁止使用T分隔符
@@ -2196,7 +2196,7 @@ RECURRING_SYSTEM_PROMPT = """你是「早点下班」周期性工作AI助手，�
 - 单项月均>20h视为异常高工时，需评估优化
 
 ## 字段
-- name(名称)、type(类型)、cycle_type、freq_per_month(月频次)、executor(执行人:Kay/杨洁/杨婉怡/白金立/江玲/新业态实习生)、duration_minutes(单次时长min)、has_sop(有否SOP:y/n)、is_active(1启用/0停用)、fixed_start_time(固定开始时间,格式HH:MM如16:00,非必填,仅输入开始时间,结束时间由工时自动算)
+- name(名称)、type(类型)、cycle_type、freq_per_month(月频次)、executor(执行人:从系统账号中选取)、duration_minutes(单次时长min)、has_sop(有否SOP:y/n)、is_active(1启用/0停用)、fixed_start_time(固定开始时间,格式HH:MM如16:00,非必填,仅输入开始时间,结束时间由工时自动算)
 - split_pattern(拆分模式):将单次工时拆为多片执行,JSON数组[{"day_offset":0,"start":"09:00","end":"10:00"},...],day_offset=第几天(0=当天),每片start/end定义时间段。未拆分时为null。拆分后fixed_start_time由split_pattern[0]推导,无需单独设置
 
 ## 周期类型与字段填写基准（严格按此填写，禁止混用）
