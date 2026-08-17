@@ -1626,7 +1626,8 @@ def _expand_dates(task, start_date, end_date):
 
 
 def _calc_freq_per_month(cycle_type, cycle_weekdays, cycle_month_days, cycle_interval, manual_freq):
-    """Calculate frequency per month for a recurring task."""
+    """Calculate frequency per month for a recurring task. cycle_type优先计算，manual_freq仅on_demand时生效"""
+    try:
         if cycle_type == 'daily': return 22
         elif cycle_type == 'weekly':
             if cycle_weekdays:
@@ -1663,6 +1664,7 @@ def _calc_freq_per_month(cycle_type, cycle_weekdays, cycle_month_days, cycle_int
         elif cycle_type == 'on_demand': return 0
         else: return 0
     except: return 0
+
 
 def _next_available_slot(executor_id, date, duration_minutes, conn, after_time=None):
     """Find next non-overlapping time slot for executor on given date.
