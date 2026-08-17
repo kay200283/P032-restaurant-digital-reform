@@ -1627,9 +1627,6 @@ def _expand_dates(task, start_date, end_date):
 
 def _calc_freq_per_month(cycle_type, cycle_weekdays, cycle_month_days, cycle_interval, manual_freq):
     """Calculate frequency per month for a recurring task."""
-    if manual_freq and float(manual_freq) > 0:
-        return float(manual_freq)
-    try:
         if cycle_type == 'daily': return 22
         elif cycle_type == 'weekly':
             if cycle_weekdays:
@@ -2257,7 +2254,7 @@ daily / weekly / biweekly / monthly / bimonthly / quarterly / yearly / on_demand
 - 不编造数据，推断须标注
 - 创建: 信息足时输出JSON代码块:
 ```json
-{"action":"create","name":"","type":"","cycle_type":"weekly","cycle_weekdays":"","cycle_week_parity":"","cycle_target_months":"","cycle_month_days":"","freq_per_month":0,"executor":"","owner":"","duration_minutes":0,"has_sop":"n","fixed_start_time":""}
+{"action":"create","name":"","type":"","cycle_type":"weekly","cycle_weekdays":"","cycle_week_parity":"","cycle_target_months":"","cycle_month_days":"","executor":"","owner":"","duration_minutes":0,"has_sop":"n","fixed_start_time":""}
 ```
 ⚠️ 创建前必须检查以下字段，缺失任一则先追问不可直接创建：
 - name(名称): 必填
