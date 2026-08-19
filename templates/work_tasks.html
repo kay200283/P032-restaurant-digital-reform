@@ -833,7 +833,7 @@ async function deleteTask(id){
 
 document.getElementById('filterExecutor').addEventListener('change',loadList);
 document.getElementById('filterStatus').addEventListener('change',loadList);
-loadOptions().then(loadList);
+window.onerror=function(m,u,l){alert('JS Error: '+m+' line:'+l);return false;};console.log('[INIT] API='+API);loadOptions().then(function(){console.log('[INIT] done users='+usersList.length);loadList();}).catch(function(e){alert('loadOptions err: '+e);});
 {% raw %}</script>{% endraw %}
 <script>
 var _aiMessages=[];
