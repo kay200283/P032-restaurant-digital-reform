@@ -1407,6 +1407,7 @@ def api_calendar_holidays():
 # ============ 选项 ============
 
 @work_mgmt_bp.route('/api/options', methods=['GET'])
+@login_required
 def api_options():
     conn = get_db()
     try:
