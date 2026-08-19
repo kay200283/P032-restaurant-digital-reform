@@ -7,6 +7,7 @@ from datetime import datetime as _g_dt_now, timedelta as _g_td
 from init_db import get_db
 import json, os, uuid
 from werkzeug.utils import secure_filename
+from modules.auth import login_required
 
 work_mgmt_bp = Blueprint('work_mgmt', __name__, url_prefix='/work-mgmt')
 
