@@ -277,19 +277,16 @@ function statusLabel(status){ return '<span class="task-status-'+status+'">'+({p
 async function loadOptions(){
   try{
   var res = await fetch(API+'/options');
-  console.log("[loadOptions] status:",res.status);
   var d = await res.json();
-  console.log("[loadOptions] data:",JSON.stringify(d).substring(0,200));
-  if(!d.success){console.error("=loadOptions] fail");return;}
+  if(!d.success) return;
   usersList = d.executors || [];
-  console.log("[loadOptions] users:",usersList.length);
   var sel1 = document.getElementById('filterExecutor');
   var sel2 = document.getElementById('editExecutor');
   usersList.forEach(function(u){
     var o1 = document.createElement('option'); o1.value=u.id; o1.textContent=u.display_name||u.name||u.username; sel1.appendChild(o1);
     var o2 = document.createElement('option'); o2.value=u.id; o2.textContent=u.display_name||u.name||u.username; sel2.appendChild(o2);
   });
-  }catch(e){console.error("[loadOptions] error:",e);}
+  }catch(e){}
 }
 
 async function loadList(){
@@ -833,7 +830,7 @@ async function deleteTask(id){
 
 document.getElementById('filterExecutor').addEventListener('change',loadList);
 document.getElementById('filterStatus').addEventListener('change',loadList);
-window.onerror=function(m,u,l){alert('JS Error: '+m+' line:'+l);return false;};console.log('[INIT] API='+API);loadOptions().then(function(){console.log('[INIT] done users='+usersList.length);loadList();}).catch(function(e){alert('loadOptions err: '+e);});
+loadOptions().then(loadList);
 {% raw %}</script>{% endraw %}
 <script>
 var _aiMessages=[];
