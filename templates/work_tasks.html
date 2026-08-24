@@ -380,6 +380,13 @@ function renderTimeline(r){
       if(active&&nextActive){
         var ms=new Date(steps[i+1].time.replace(/-/g,'/'))-new Date(s.time.replace(/-/g,'/'));
         dur=fmtDur(ms);
+        // 有排定开始时间时，开始→提交验收显示排定工时+历时
+        if(i===1 && r.start_time && r.expected_end){
+          var sMs=new Date(r.start_time.replace(/-/g,'/'));
+          var eMs=new Date(r.expected_end.replace(/-/g,'/'));
+          var schedMs=eMs-sMs;
+          if(schedMs>0) dur='排定'+fmtDur(schedMs)+'(历时'+fmtDur(ms)+')';
+        }
       }
       h+='<div class="tl-conn">';
       h+='<div class="tl-conn-line" style="background:'+lineColor+';"></div>';
