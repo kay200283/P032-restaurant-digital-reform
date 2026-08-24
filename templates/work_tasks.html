@@ -115,6 +115,7 @@
         <div><div class="detail-label">负责人</div><div class="detail-value" id="detailCreator"></div></div>
         <div><div class="detail-label">执行人</div><div class="detail-value" id="detailExecutor"></div></div>
         <div><div class="detail-label">截止时间</div><div class="detail-value" id="detailDue"></div></div>
+        <div id="detailStartTimeWrap" style="display:none;"><div class="detail-label">开始时间</div><div class="detail-value" id="detailStartTime"></div></div>
         <div><div class="detail-label">预估工时</div><div class="detail-value" id="detailMinutes"></div></div>
         <div id="detailRejectCountWrap" style="display:none;"><div class="detail-label">退回次数</div><div class="detail-value" id="detailRejectCount" style="color:#A0522D;font-weight:600;"></div></div>
       </div>
@@ -313,9 +314,15 @@ async function loadList(){
     html += '<td style="padding:6px;text-align:center;border-bottom:1px solid #eee;font-size:0.75rem;">'+fmtDateTime(r.created_at)+'</td>';
     html += '<td style="padding:6px;text-align:center;border-bottom:1px solid #eee;">'+fmtExpectedEnd(r.expected_end)+'</td>';
     html += '<td style="padding:6px;text-align:right;border-bottom:1px solid #eee;">'+(r.estimated_minutes?r.estimated_minutes+'min':'-')+'</td>';
-    // 实际工时
+    // 实际工时：有排定开始时间时用start_time~expected_end，否则用started_at~submitted_at
     var actualMin='-';
-    if(r.started_at&&r.submitted_at){
+    if(r.start_time&&r.expected_end){
+      var s=new Date(r.start_time.replace(/-/g,'/'));
+      var e=new Date(r.expected_end.replace(/-/g,'/'));
+      var diffSec=Math.round((e-s)/1000);
+      if(diffSec>=60) actualMin=Math.floor(diffSec/60)+'min';
+      else if(diffSec>0) actualMin=diffSec+'s';
+    } else if(r.started_at&&r.submitted_at){
       var s=new Date(r.started_at.replace(/-/g,'/'));
       var e=new Date(r.submitted_at.replace(/-/g,'/'));
       var diffSec=Math.round((e-s)/1000);
@@ -420,6 +427,8 @@ async function openDetailModal(id){
   document.getElementById('detailCreator').textContent = r.creator_name || '-';
   document.getElementById('detailExecutor').textContent = r.executor_name || '-';
   document.getElementById('detailDue').textContent = fmtExpectedEnd(r.expected_end);
+  // 开始时间（有排定时显示）
+  if(r.start_time){ document.getElementById('detailStartTimeWrap').style.display=''; document.getElementById('detailStartTime').textContent=fmtExpectedEnd(r.start_time); } else { document.getElementById('detailStartTimeWrap').style.display='none'; }
   document.getElementById('detailMinutes').textContent = r.estimated_minutes ? r.estimated_minutes+'分钟' : '-';
   // 退回次数
   if(r.reject_count && r.reject_count > 0){
