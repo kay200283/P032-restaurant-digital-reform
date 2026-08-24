@@ -385,7 +385,7 @@ function renderTimeline(r){
           var sMs=new Date(r.start_time.replace(/-/g,'/'));
           var eMs=new Date(r.expected_end.replace(/-/g,'/'));
           var schedMs=eMs-sMs;
-          if(schedMs>0) dur='排定'+fmtDur(schedMs)+'(历时'+fmtDur(ms)+')';
+          if(schedMs>0) dur='排定'+fmtDur(schedMs)+'<br>(历时'+fmtDur(ms)+')';
         }
       }
       h+='<div class="tl-conn">';
