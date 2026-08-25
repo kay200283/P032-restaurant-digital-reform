@@ -1178,7 +1178,7 @@ def api_recurring_set_split_pattern(recurring_id):
                 base = total_dur // pieces_count
                 durations = [base] * pieces_count
                 durations[-1] += total_dur - base * pieces_count
-            fst = rec['fixed_start_time'] or '09:00'
+            fst = rec['fixed_start_time'] or '08:30'
             from datetime import datetime as _dt_sp, timedelta as _td_sp
             st = _dt_sp.strptime(fst, '%H:%M')
             pattern = []
@@ -1681,7 +1681,7 @@ def _next_available_slot(executor_id, date, duration_minutes, conn, after_time=N
     existing = conn.execute(
         "SELECT start_time, end_time FROM calendar_instances WHERE executor_id=? AND date=? AND status != 'leave' ORDER BY start_time",
         (executor_id, date)).fetchall()
-    work_start = _g_dt_now.strptime('09:00', '%H:%M')
+    work_start = _g_dt_now.strptime('08:30', '%H:%M')
     work_end = _g_dt_now.strptime('20:00', '%H:%M')
     sched_end = _g_dt_now.strptime('18:30', '%H:%M')
     lunch_s = _g_dt_now.strptime('12:30', '%H:%M')
@@ -1723,7 +1723,7 @@ def _find_task_slot(executor_id, expected_end_str, duration_minutes, conn):
     dt = _g_dt_now.strptime(expected_end_str.replace('T',' '), '%Y-%m-%d %H:%M')
     date_str = dt.strftime('%Y-%m-%d')
     deadline = _g_dt_now.strptime(dt.strftime('%H:%M'), '%H:%M')
-    WORK_START = _g_dt_now.strptime('09:00', '%H:%M')
+    WORK_START = _g_dt_now.strptime('08:30', '%H:%M')
     WORK_END   = _g_dt_now.strptime('20:00', '%H:%M')
     SCHED_END  = _g_dt_now.strptime('18:30', '%H:%M')
     LUNCH_S    = _g_dt_now.strptime('12:30', '%H:%M')
@@ -2107,12 +2107,13 @@ def _book_recurring_instance(recurring_id, conn):
             return
         fst = task['fixed_start_time']
         fet = task['fixed_end_time']
-        # If fixed_start_time is set, update ALL existing locked instances to new time
-        if fst:
-            conn.execute(
-                "UPDATE calendar_instances SET start_time=?, end_time=? WHERE source_type='recurring' AND source_id=? AND ifnull(time_locked,0)=1",
-                (fst, fet, recurring_id))
-        conn.execute("DELETE FROM calendar_instances WHERE source_type='recurring' AND source_id=? AND ifnull(time_locked,0)=0", (recurring_id,))
+        # 计算未来14天的日期
+        _today = _g_dt_now.now().strftime('%Y-%m-%d')
+        _end = (_g_dt_now.now() + _g_td(days=14)).strftime('%Y-%m-%d')
+        task_dates = _expand_dates(task, _today, _end)
+        # 删除该周期性工作所有未来的日程实例（含locked），重新按最新规则生成
+        today_str = _g_dt_now.now().strftime('%Y-%m-%d')
+        conn.execute("DELETE FROM calendar_instances WHERE source_type='recurring' AND source_id=? AND date>=?", (recurring_id, today_str))
         for d in task_dates:
             dur = task['duration_minutes'] or 30
             if fst and fet:
