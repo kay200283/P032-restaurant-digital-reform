@@ -725,7 +725,7 @@ function bindEvents(){
         }).catch(function(){});
     }
     function escHtml(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML}
-    window.CURRENT_USER_ID={{ session.get("user_id","null") }};
+    window.CURRENT_USER_ID={{ session.get("user_id") or "null" }};
 })();
 </script>
 {% endblock %}

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """系统管理模块"""
 
+from modules.auth import login_required
 from flask import Blueprint, render_template, request, jsonify, session, redirect
 import sqlite3
 import os
@@ -17,6 +18,7 @@ def get_db():
     return conn
 
 @system_bp.route('/system')
+@login_required
 def system_page():
     if 'user' not in session:
         return redirect('/login')

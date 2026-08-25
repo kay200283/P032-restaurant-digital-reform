@@ -14,6 +14,7 @@ work_mgmt_bp = Blueprint('work_mgmt', __name__, url_prefix='/work-mgmt')
 # ============ 周期性工作管理 ============
 
 @work_mgmt_bp.route('/recurring')
+@login_required
 def recurring_page():
     return render_template('work_recurring.html', current_user_id=session.get('user_id'))
 
@@ -200,6 +201,8 @@ def api_recurring_delete(task_id):
     """删除周期性工作"""
     conn = get_db()
     try:
+        # 级联删除：先删日程实例，再删周期性工作
+        conn.execute('DELETE FROM calendar_instances WHERE source_type=? AND source_id=?', ('recurring', task_id))
         conn.execute('DELETE FROM recurring_tasks WHERE id=?', (task_id,))
         conn.commit()
         return jsonify({'success': True, 'message': '删除成功'})
@@ -325,6 +328,7 @@ def _gen_task_no(conn):
     return prefix + str(seq).zfill(3)
 
 @work_mgmt_bp.route('/tasks')
+@login_required
 def tasks_page():
     return render_template("work_tasks.html", current_user_id=session.get("user_id"))
 
@@ -501,6 +505,7 @@ def api_tasks_update(task_id):
             sets = []
             vals = []
             for k, v in [('title', data.get('title')), ('executor_id', data.get('executor_id')),
+                         ('created_by', data.get('created_by')),
                          ('description', data.get('description')), ('estimated_minutes', data.get('estimated_minutes')),
                          ('expected_end', data.get('expected_end')), ('status', data.get('status')),
                          ('start_time', data.get('start_time'))]:
@@ -636,6 +641,7 @@ def api_task_attachments_delete(att_id):
 # ============ 日程管理 ============
 
 @work_mgmt_bp.route('/calendar')
+@login_required
 def calendar_page():
     return render_template('work_calendar.html')
 

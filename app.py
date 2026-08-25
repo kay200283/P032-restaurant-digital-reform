@@ -85,7 +85,7 @@ def inject_user():
                 if _r2['display_name'] and not session.get('display_name'):
                     session['display_name'] = _r2['display_name']
         except: pass
-    return {'current_user': user, 'current_role': role, 'display_name': session.get('display_name', user or '')}
+    return {'current_user': user or '', 'current_role': role or '', 'display_name': session.get('display_name', user or '') or ''}
 
 
 @app.route('/')
