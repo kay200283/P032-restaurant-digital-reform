@@ -181,6 +181,34 @@ def init_database():
     ''')
 
     # ============ 初始管理员 ============
+    # ============ 系统问题管理 ============
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS issues (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            detail TEXT DEFAULT '',
+            case_type TEXT DEFAULT '',
+            reporter TEXT DEFAULT '',
+            found_date TEXT DEFAULT '',
+            location TEXT DEFAULT '',
+            is_common INTEGER DEFAULT 0,
+            priority TEXT DEFAULT 'P2',
+            status TEXT DEFAULT '未解决',
+            resolve_date TEXT DEFAULT '',
+            solution TEXT DEFAULT '',
+            impact TEXT DEFAULT '',
+            assignee TEXT DEFAULT '',
+            photo TEXT DEFAULT '',
+            days_open INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now','localtime')),
+            updated_at TEXT DEFAULT (datetime('now','localtime'))
+        )
+    """)
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_issues_status ON issues(status)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_issues_priority ON issues(priority)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_issues_case_type ON issues(case_type)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_issues_assignee ON issues(assignee)')
+
     admin = cursor.execute('SELECT 1 FROM users WHERE username = ?', ('admin',)).fetchone()
     if not admin:
         pw_hash = hashlib.sha256('admin123'.encode()).hexdigest()

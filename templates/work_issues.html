@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+{% block title %}问题管理 - 餐厅数字化改革{% endblock %}
+{% block content %}
+<style>
+.issues-wrap{padding:16px 20px;}
+.stats-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
+.stat-card{flex:1;min-width:120px;background:#fff;border-radius:8px;padding:12px 16px;border-left:4px solid #8C8C8C;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.stat-card .stat-label{font-size:.75rem;color:#8C8C8C;margin-bottom:2px;}
+.stat-card .stat-value{font-size:1.4rem;font-weight:700;color:#2D4A3E;}
+.stat-card.p0{border-left-color:#F56C6C;} .stat-card.p0 .stat-value{color:#F56C6C;}
+.stat-card.p1{border-left-color:#E6A23C;} .stat-card.p1 .stat-value{color:#E6A23C;}
+.stat-card.p2{border-left-color:#409EFF;} .stat-card.p2 .stat-value{color:#409EFF;}
+.stat-card.p3{border-left-color:#8C8C8C;} .stat-card.p3 .stat-value{color:#8C8C8C;}
+.stat-card.avg{border-left-color:#2D4A3E;}
+
+.filter-row{display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;}
+.filter-row select,.filter-row input{padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:.82rem;}
+.filter-row input[type=text]{width:180px;}
+.btn-new{background:#2D4A3E;color:#fff;border:none;border-radius:4px;padding:6px 16px;font-size:.82rem;cursor:pointer;margin-left:auto;}
+.btn-new:hover{background:#1a2e25;}
+
+.issues-table{width:100%;border-collapse:collapse;font-size:.82rem;}
+.issues-table th{background:#f5f5f5;padding:8px 6px;text-align:left;border-bottom:2px solid #ddd;white-space:nowrap;font-weight:600;}
+.issues-table td{padding:6px;border-bottom:1px solid #f0f0f0;vertical-align:middle;}
+.issues-table tr:hover{background:#f9f9f9;}
+.issues-table .col-id{font-family:monospace;font-size:.78rem;color:#2D4A3E;cursor:pointer;}
+.issues-table .col-title{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:600;white-space:nowrap;}
+.badge-p0{background:#fef0f0;color:#F56C6C;} .badge-p1{background:#fdf6ec;color:#E6A23C;}
+.badge-p2{background:#ecf5ff;color:#409EFF;} .badge-p3{background:#f4f4f5;color:#8C8C8C;}
+.badge-s-未解决{background:#fef0f0;color:#F56C6C;} .badge-s-未开始{background:#f4f4f5;color:#8C8C8C;}
+.badge-s-评估中{background:#fdf6ec;color:#E6A23C;} .badge-s-解决中{background:#ecf5ff;color:#409EFF;}
+.badge-s-改善中{background:#ecf5ff;color:#409EFF;} .badge-s-控制中{background:#ecf5ff;color:#409EFF;}
+.badge-s-已解决{background:#f0f9eb;color:#67C23A;} .badge-s-已关闭{background:#f4f4f5;color:#909399;}
+
+.days-warn{color:#F56C6C;font-weight:600;} .days-mid{color:#E6A23C;} .days-ok{color:#8C8C8C;}
+
+.btn-sm{background:none;border:none;cursor:pointer;padding:2px 6px;font-size:.82rem;}
+.btn-edit{color:#2D4A3E;} .btn-del{color:#F56C6C;}
+
+/* Dialog */
+.dialog-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center;}
+.dialog-overlay.active{display:flex;}
+.dialog-box{background:#fff;border-radius:10px;width:680px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.2);}
+.dialog-title{font-size:1.1rem;font-weight:700;margin-bottom:16px;color:#2D4A3E;}
+.dialog-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;}
+.dialog-grid .full{grid-column:1/-1;}
+.dialog-grid label{font-size:.78rem;color:#8C8C8C;display:block;margin-bottom:2px;}
+.dialog-grid input,.dialog-grid select,.dialog-grid textarea{width:100%;padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:.82rem;box-sizing:border-box;}
+.dialog-grid textarea{min-height:60px;resize:vertical;}
+.dialog-grid input[type=date]{width:100%;}
+.dialog-actions{margin-top:16px;display:flex;gap:8px;justify-content:flex-end;}
+.dialog-actions button{padding:6px 20px;border-radius:4px;font-size:.82rem;cursor:pointer;border:none;}
+.dialog-actions .btn-save{background:#2D4A3E;color:#fff;} .dialog-actions .btn-save:hover{background:#1a2e25;}
+.dialog-actions .btn-cancel{background:#f5f5f5;color:#333;} .dialog-actions .btn-cancel:hover{background:#eee;}
+
+@media(max-width:768px){
+  .stats-row{gap:8px;} .stat-card{min-width:80px;padding:8px 10px;}
+  .dialog-box{width:95vw;padding:16px;}
+  .dialog-grid{grid-template-columns:1fr;}
+  .hide-mobile{display:none;}
+}
+</style>
+
+<div class="issues-wrap">
+  <!-- Stats -->
+  <div class="stats-row" id="statsRow">
+    <div class="stat-card"><div class="stat-label">待解决</div><div class="stat-value" id="statOpen">-</div></div>
+    <div class="stat-card p0"><div class="stat-label">P0 待解决</div><div class="stat-value" id="statP0">0</div></div>
+    <div class="stat-card p1"><div class="stat-label">P1 待解决</div><div class="stat-value" id="statP1">0</div></div>
+    <div class="stat-card p2"><div class="stat-label">P2 待解决</div><div class="stat-value" id="statP2">0</div></div>
+    <div class="stat-card p3"><div class="stat-label">P3 待解决</div><div class="stat-value" id="statP3">0</div></div>
+    <div class="stat-card avg"><div class="stat-label">平均解决天数</div><div class="stat-value" id="statAvg">-</div></div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filter-row">
+    <select id="fStatus"><option value="">全部状态</option><option>未解决</option><option>未开始</option><option>评估中</option><option>解决中</option><option>改善中</option><option>控制中</option><option>已解决</option><option>已关闭</option></select>
+    <select id="fPriority"><option value="">全部优先级</option><option>P0</option><option>P1</option><option>P2</option><option>P3</option></select>
+    <select id="fType"><option value="">全部类型</option><option>数据</option><option>POS-IT设备</option><option>合规</option><option>效期管理</option><option>商品管理</option><option>会员小程序</option><option>原料报损</option><option>点单管理</option><option>发票</option><option>功能需求</option><option>收银对账</option></select>
+    <select id="fAssignee"><option value="">全部跟进人</option></select>
+    <input type="text" id="fSearch" placeholder="搜索标题...">
+    <button class="btn-new" onclick="openCreate()"><i class="fa-solid fa-plus"></i> 新建问题</button>
+  </div>
+
+  <!-- Table -->
+  <table class="issues-table">
+    <thead><tr>
+      <th>ID</th><th>优先级</th><th>状态</th><th>标题</th><th class="hide-mobile">类型</th><th class="hide-mobile">提出人</th><th class="hide-mobile">跟进人</th><th class="hide-mobile">发现日期</th><th>天数</th><th>操作</th>
+    </tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<!-- Edit Dialog -->
+<div class="dialog-overlay" id="dlgOverlay">
+  <div class="dialog-box">
+    <div class="dialog-title" id="dlgTitle">新建问题</div>
+    <input type="hidden" id="eId">
+    <div class="dialog-grid">
+      <div class="full"><label>标题 *</label><input id="eTitle" required></div>
+      <div class="full"><label>详细描述</label><textarea id="eDetail"></textarea></div>
+      <div><label>Case类型</label><select id="eType"><option>数据</option><option>POS-IT设备</option><option>合规</option><option>效期管理</option><option>商品管理</option><option>会员小程序</option><option>原料报损</option><option>点单管理</option><option>发票</option><option>功能需求</option><option>收银对账</option></select></div>
+      <div><label>优先级</label><select id="ePriority"><option>P0</option><option>P1</option><option selected>P2</option><option>P3</option></select></div>
+      <div><label>提出人</label><input id="eReporter"></div>
+      <div><label>跟进人</label><input id="eAssignee"></div>
+      <div><label>发现日期</label><input type="date" id="eFoundDate"></div>
+      <div><label>解决日期</label><input type="date" id="eResolveDate"></div>
+      <div><label>事发地点</label><input id="eLocation"></div>
+      <div><label>状态</label><select id="eStatus"><option>未解决</option><option>未开始</option><option>评估中</option><option>解决中</option><option>改善中</option><option>控制中</option><option>已解决</option><option>已关闭</option></select></div>
+      <div><label>共性问题</label><select id="eCommon"><option value="0">否</option><option value="1">是</option></select></div>
+      <div><label>指标影响</label><input id="eImpact"></div>
+      <div class="full"><label>解决方案</label><textarea id="eSolution"></textarea></div>
+    </div>
+    <div class="dialog-actions">
+      <button class="btn-cancel" onclick="closeDlg()">取消</button>
+      <button class="btn-save" onclick="saveIssue()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var API='/issues/api';
+var _all=[];
+
+async function loadStats(){
+  const r=await fetch(API+'/issues/stats');const d=await r.json();
+  if(!d.success)return;
+  const s=d.data;
+  document.getElementById('statOpen').textContent=s.open;
+  document.getElementById('statP0').textContent=s.by_priority_open.P0||0;
+  document.getElementById('statP1').textContent=s.by_priority_open.P1||0;
+  document.getElementById('statP2').textContent=s.by_priority_open.P2||0;
+  document.getElementById('statP3').textContent=s.by_priority_open.P3||0;
+  document.getElementById('statAvg').textContent=s.avg_resolve_days;
+}
+
+async function loadList(){
+  const r=await fetch(API+'/issues');const d=await r.json();
+  if(!d.success)return;
+  _all=d.data;
+  // Populate assignee filter
+  const assignees=new Set();_all.forEach(i=>{if(i.assignee)assignees.add(i.assignee);});
+  const sel=document.getElementById('fAssignee');
+  const cur=sel.value;sel.innerHTML='<option value="">全部跟进人</option>';
+  [...assignees].sort().forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;sel.appendChild(o);});
+  sel.value=cur;
+  renderTable();
+}
+
+function renderTable(){
+  const fs=document.getElementById('fStatus').value;
+  const fp=document.getElementById('fPriority').value;
+  const ft=document.getElementById('fType').value;
+  const fa=document.getElementById('fAssignee').value;
+  const fq=document.getElementById('fSearch').value.toLowerCase();
+  let rows=_all;
+  if(fs)rows=rows.filter(i=>i.status===fs);
+  if(fp)rows=rows.filter(i=>i.priority===fp);
+  if(ft)rows=rows.filter(i=>i.case_type===ft);
+  if(fa)rows=rows.filter(i=>i.assignee===fa);
+  if(fq)rows=rows.filter(i=>i.title.toLowerCase().includes(fq)||i.issue_id.toLowerCase().includes(fq));
+  const tb=document.getElementById('tbody');
+  tb.innerHTML=rows.map(i=>{
+    const pCls='badge-'+i.priority.toLowerCase();
+    const sCls='badge-s-'+i.status;
+    const dCls=i.days_open>30?'days-warn':i.days_open>14?'days-mid':'days-ok';
+    return `<tr>
+      <td class="col-id" onclick="openEdit(${i.id})" title="点击编辑">${i.issue_id}</td>
+      <td><span class="badge ${pCls}">${i.priority}</span></td>
+      <td><span class="badge ${sCls}">${i.status}</span></td>
+      <td class="col-title" title="${esc(i.title)}">${esc(i.title)}</td>
+      <td class="hide-mobile">${esc(i.case_type)}</td>
+      <td class="hide-mobile">${esc(i.reporter)}</td>
+      <td class="hide-mobile">${esc(i.assignee)}</td>
+      <td class="hide-mobile">${i.found_date||''}</td>
+      <td class="${dCls}">${i.days_open||0}</td>
+      <td>
+        <button class="btn-sm btn-edit" onclick="openEdit(${i.id})" title="编辑"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn-sm btn-del" onclick="delIssue(${i.id},'${esc(i.title)}')" title="删除"><i class="fa-solid fa-trash-can"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function esc(s){return s?s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'';}
+
+function openCreate(){
+  document.getElementById('eId').value='';
+  document.getElementById('dlgTitle').textContent='新建问题';
+  ['eTitle','eDetail','eReporter','eFoundDate','eResolveDate','eLocation','eImpact','eSolution','eAssignee'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('eType').value='数据';
+  document.getElementById('ePriority').value='P2';
+  document.getElementById('eStatus').value='未解决';
+  document.getElementById('eCommon').value='0';
+  document.getElementById('dlgOverlay').classList.add('active');
+}
+
+function openEdit(id){
+  const i=_all.find(x=>x.id===id);if(!i)return;
+  document.getElementById('eId').value=i.id;
+  document.getElementById('dlgTitle').textContent='编辑 '+i.issue_id;
+  document.getElementById('eTitle').value=i.title;
+  document.getElementById('eDetail').value=i.detail||'';
+  document.getElementById('eType').value=i.case_type||'数据';
+  document.getElementById('ePriority').value=i.priority||'P2';
+  document.getElementById('eStatus').value=i.status||'未解决';
+  document.getElementById('eReporter').value=i.reporter||'';
+  document.getElementById('eAssignee').value=i.assignee||'';
+  document.getElementById('eFoundDate').value=(i.found_date||'').slice(0,10);
+  document.getElementById('eResolveDate').value=(i.resolve_date||'').slice(0,10);
+  document.getElementById('eLocation').value=i.location||'';
+  document.getElementById('eCommon').value=i.is_common?'1':'0';
+  document.getElementById('eImpact').value=i.impact||'';
+  document.getElementById('eSolution').value=i.solution||'';
+  document.getElementById('dlgOverlay').classList.add('active');
+}
+
+function closeDlg(){document.getElementById('dlgOverlay').classList.remove('active');}
+
+async function saveIssue(){
+  const id=document.getElementById('eId').value;
+  const body={
+    title:document.getElementById('eTitle').value,
+    detail:document.getElementById('eDetail').value,
+    case_type:document.getElementById('eType').value,
+    priority:document.getElementById('ePriority').value,
+    status:document.getElementById('eStatus').value,
+    reporter:document.getElementById('eReporter').value,
+    assignee:document.getElementById('eAssignee').value,
+    found_date:document.getElementById('eFoundDate').value,
+    resolve_date:document.getElementById('eResolveDate').value,
+    location:document.getElementById('eLocation').value,
+    is_common:parseInt(document.getElementById('eCommon').value),
+    impact:document.getElementById('eImpact').value,
+    solution:document.getElementById('eSolution').value,
+  };
+  if(!body.title){alert('标题必填');return;}
+  const url=id?API+'/issues/'+id:API+'/issues';
+  const method=id?'PUT':'POST';
+  const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  if(d.success){closeDlg();loadStats();loadList();}
+  else alert(d.message||'保存失败');
+}
+
+async function delIssue(id,title){
+  if(!confirm('确定删除「'+title+'」？此操作不可逆。'))return;
+  const r=await fetch(API+'/issues/'+id,{method:'DELETE'});
+  const d=await r.json();
+  if(d.success){loadStats();loadList();}
+  else alert(d.message||'删除失败');
+}
+
+// Filters
+['fStatus','fPriority','fType','fAssignee'].forEach(id=>document.getElementById(id).addEventListener('change',renderTable));
+document.getElementById('fSearch').addEventListener('input',renderTable);
+
+// Close dialog on overlay click
+document.getElementById('dlgOverlay').addEventListener('click',function(e){if(e.target===this)closeDlg();});
+
+// Init
+loadStats();loadList();
+</script>
+{% endblock %}
