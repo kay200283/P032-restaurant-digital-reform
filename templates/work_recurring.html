@@ -523,9 +523,8 @@ function sendAiMessage(){
       <div>
         <label style="font-size:0.78rem;color:#555;display:block;margin-bottom:3px;">是否有SOP</label>
         <select id="editSop" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
-          <option value="">无</option>
-          <option value="是">是</option>
           <option value="否">否</option>
+          <option value="是">是</option>
         </select>
       </div>
       <div>
@@ -948,14 +947,24 @@ function parseCycleRuleToFields(ct, rule, r_cycle_month_days, r_cycle_weekdays){
       else document.getElementById('editBiweekDays').value = '';
     }
   } else if(ct==='monthly'){
-    const m = rule.match(/(\d[\d,~末]+)/);
-    document.getElementById('editMonthDays').value = m ? m[1] : '';
+    const cmd = r_cycle_month_days || '';
+    if(cmd && cmd.trim()){
+      document.getElementById('editMonthDays').value = cmd.trim();
+    } else {
+      const m = rule.match(/(\d[\d,~\-末]+)/);
+      document.getElementById('editMonthDays').value = m ? m[1] : '';
+    }
   } else if(ct==='bimonthly'){
-    // 从rule文字解析奇偶月+号数
+    // 优先从cycle_month_days解析，格式同monthly
+    const bmd = r_cycle_month_days || '';
     const parity = rule.includes('奇')?'odd':'even';
     document.getElementById('editBimonthParity').value = parity;
-    const dayMatch = rule.match(/(\d[\d,~\-末]*)号/);
-    document.getElementById('editBimonthDays').value = dayMatch ? dayMatch[1] : '';
+    if(bmd && bmd.trim()){
+      document.getElementById('editBimonthDays').value = bmd.trim();
+    } else {
+      const dayMatch = rule.match(/(\d[\d,~\-末]*)号/);
+      document.getElementById('editBimonthDays').value = dayMatch ? dayMatch[1] : '';
+    }
   } else if(ct==='quarterly'){
     // 从cycle_month_days解析，格式"1,3:25"
     const md = r_cycle_month_days || '';
