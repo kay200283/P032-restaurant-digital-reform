@@ -608,8 +608,8 @@ def api_task_attachments_upload(task_id):
     ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
     if ext not in ALLOWED_EXT:
         return jsonify({'success': False, 'message': f'Unsupported file type: {ext}'}), 400
-    fname = secure_filename(f.filename)
-    unique_name = f"{uuid.uuid4().hex[:8]}_{fname}"
+    fname = f.filename
+    unique_name = f"{uuid.uuid4().hex[:8]}.{ext}"
     save_path = os.path.join(UPLOAD_FOLDER, unique_name)
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     f.save(save_path)

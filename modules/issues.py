@@ -135,6 +135,9 @@ def api_issues_stats():
     total = conn.execute('SELECT COUNT(*) FROM issues').fetchone()[0]
     open_cnt = conn.execute('''SELECT COUNT(*) FROM issues WHERE status NOT IN ('已解决','已关闭')''').fetchone()[0]
     avg_days = conn.execute('''SELECT AVG(days_open) FROM issues WHERE status IN ('已解决','已关闭') AND days_open > 0''').fetchone()[0]
+    resolved_cnt = conn.execute("SELECT COUNT(*) FROM issues WHERE status='已解决'").fetchone()[0]
+    nonissue_cnt = conn.execute("SELECT COUNT(*) FROM issues WHERE status='非问题'").fetchone()[0]
+    completion_rate = round(resolved_cnt / total * 100, 1) if total > 0 else 0
     conn.close()
     return jsonify({
         'success': True,
@@ -143,7 +146,7 @@ def api_issues_stats():
             'by_priority_open': {r['priority']: r['cnt'] for r in prio_rows},
             'by_type_open': {r['case_type']: r['cnt'] for r in type_rows},
             'total': total,
-            'open': open_cnt,
+            'open': open_cnt, 'resolved': resolved_cnt, 'nonissue': nonissue_cnt, 'completion_rate': completion_rate,
             'avg_resolve_days': round(avg_days, 1) if avg_days else 0
         }
     })
