@@ -104,13 +104,17 @@ def api_issues_update(issue_id):
     days_open = _calc_days_open(found_date, resolve_date, status)
     conn.execute('''UPDATE issues SET title=?, detail=?, case_type=?, reporter=?, found_date=?,
         location=?, is_common=?, priority=?, status=?, resolve_date=?, solution=?,
-        impact=?, assignee=?, photo=?, days_open=?, updated_at=datetime('now','localtime')
+        impact=?, assignee=?, photo=?, days_open=?, expected_resolve_date=?,
+        assessed_at=?, improving_at=?, updated_at=datetime('now','localtime')
         WHERE id=?''',
         (body.get('title',r['title']), body.get('detail',r['detail']), body.get('case_type',r['case_type']),
          body.get('reporter',r['reporter']), found_date, body.get('location',r['location']),
          int(body.get('is_common',r['is_common'])), body.get('priority',r['priority']), status, resolve_date,
          body.get('solution',r['solution']), body.get('impact',r['impact']), body.get('assignee',r['assignee']),
-         body.get('photo',r['photo']), days_open, issue_id))
+         body.get('photo',r['photo']), days_open,
+         body.get('expected_resolve_date', r['expected_resolve_date'] or ''),
+         body.get('assessed_at', r['assessed_at'] or ''),
+         body.get('improving_at', r['improving_at'] or ''), issue_id))
     conn.commit()
     conn.close()
     return jsonify({'success': True})
