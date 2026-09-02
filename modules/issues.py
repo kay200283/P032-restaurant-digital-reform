@@ -38,6 +38,7 @@ def api_issues_list():
     conn = get_db()
     rows = conn.execute('''SELECT id, title, detail, case_type, reporter, found_date, location,
         is_common, priority, status, resolve_date, solution, impact, assignee, photo, days_open,
+        expected_resolve_date, assessed_at, improving_at,
         created_at, updated_at FROM issues ORDER BY id ASC''').fetchall()
     conn.close()
     data = []

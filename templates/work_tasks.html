@@ -846,10 +846,9 @@ async function saveTask(){
         msg += '\n建议调整到：'+s.desc+(s.is_overtime?' (加班)':'');
         if(confirm(msg+'\n\n确认使用建议时段？')){
           body.confirmed_slot = s;
-        } else { return; }
+        } else if(!confirm(msg+"\\n\\n仍要创建此任务？（将不自动排期）")){ return; }
       } else {
-        alert(msg+'\n当日无可用时段，请调整截止时间或执行人');
-        return;
+        if(!confirm(msg+'\n\n仍要创建此任务？（将不自动排期）')){ return; }
       }
     }
   } catch(e) {}
@@ -954,10 +953,9 @@ function confirmCreateTask(btn){
           msg += '\n建议调整到：'+s.desc+(s.is_overtime?' (加班)':'');
           if(confirm(msg+'\n\n确认使用建议时段？')){
             task.confirmed_slot = s;
-          } else { return; }
+        } else if(!confirm(msg+"\\n\\n仍要创建此任务？（将不自动排期）")){ return; }
         } else {
-          alert(msg+'\n当日无可用时段，请调整截止时间');
-          return;
+          if(!confirm(msg+'\n\n仍要创建此任务？（将不自动排期）')){ return; }
         }
       }
       doCreateTask(btn, task, isUpdate);
