@@ -176,7 +176,7 @@
   <div class="filter-row">
     <select id="fStatus"><option value="">全部状态</option><option>未开始</option><option>评估中</option><option>改善中</option><option>已解决</option><option>非问题</option></select>
     <select id="fPriority"><option value="">全部优先级</option><option>P0</option><option>P1</option><option>P2</option><option>P3</option></select>
-    <select id="fType"><option value="">全部类型</option><option>数据</option><option>POS-IT设备</option><option>合规</option><option>效期管理</option><option>商品管理</option><option>会员小程序</option><option>原料报损</option><option>点单管理</option><option>发票</option><option>功能需求</option><option>收银对账</option></select>
+    <select id="fType"><option value="">全部类型</option><option>数据</option><option>POS-IT设备</option><option>合规</option><option>效期管理</option><option>商品管理</option><option>会员小程序</option><option>原料报损</option><option>点单管理</option><option>发票</option><option>功能需求</option><option>收银对账</option><option>餐厅数字化改革系统</option></select>
     <select id="fAssignee"><option value="">全部跟进人</option></select>
     <input type="text" id="fSearch" placeholder="搜索标题...">
     <button class="btn-toggle" id="btnHideResolved" onclick="toggleResolved()" title="屏蔽/显示已解决"><i class="fa-solid fa-eye"></i> 屏蔽已解决</button>
@@ -276,7 +276,7 @@ var _resolveAttachments=[];
 var _hideResolved=false;
 
 const IMPACT_OPTS=['销售利润','运营效率','工时效率','用户体验','食品安全','合规风险','数据准确性','品牌形象'];
-const CASE_TYPES=['数据','POS-IT设备','合规','效期管理','商品管理','会员小程序','原料报损','点单管理','发票','功能需求','收银对账'];
+const CASE_TYPES=['数据','POS-IT设备','合规','效期管理','商品管理','会员小程序','原料报损','点单管理','发票','功能需求','收银对账','餐厅数字化改革系统'];
 
 async function loadStats(){
   const r=await fetch(API+'/issues/stats');const d=await r.json();if(!d.success)return;const s=d.data;
