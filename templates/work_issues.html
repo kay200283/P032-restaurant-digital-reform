@@ -1,12 +1,14 @@
 {% extends "base.html" %}
-{% block title %}问题管理 - 餐厅数字化改革{% endblock %}
+{% block title %}系统问题管理 - 餐厅数字化改革{% endblock %}
 {% block content %}
 <style>
 .issues-wrap{padding:16px 20px;}
 .stats-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
-.stat-card{flex:1;min-width:120px;background:#fff;border-radius:8px;padding:12px 16px;border-left:4px solid #8C8C8C;box-shadow:0 1px 4px rgba(0,0,0,.06);}
-.stat-card .stat-label{font-size:.75rem;color:#8C8C8C;margin-bottom:2px;}
-.stat-card .stat-value{font-size:1.4rem;font-weight:700;color:#2D4A3E;}
+.stat-card{flex:1;min-width:100px;background:#fff;border-radius:8px;padding:12px 16px;border-left:4px solid #8C8C8C;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.stat-card .stat-label{font-size:.72rem;color:#8C8C8C;margin-bottom:2px;}
+.stat-card .stat-value{font-size:1.3rem;font-weight:700;color:#2D4A3E;}
+.stat-card.total{border-left-color:#2D4A3E;}
+.stat-card.rate{border-left-color:#67C23A;} .stat-card.rate .stat-value{color:#67C23A;}
 .stat-card.p0{border-left-color:#F56C6C;} .stat-card.p0 .stat-value{color:#F56C6C;}
 .stat-card.p1{border-left-color:#E6A23C;} .stat-card.p1 .stat-value{color:#E6A23C;}
 .stat-card.p2{border-left-color:#409EFF;} .stat-card.p2 .stat-value{color:#409EFF;}
@@ -18,35 +20,48 @@
 .filter-row input[type=text]{width:180px;}
 .btn-new{background:#2D4A3E;color:#fff;border:none;border-radius:4px;padding:6px 16px;font-size:.82rem;cursor:pointer;margin-left:auto;}
 .btn-new:hover{background:#1a2e25;}
+.btn-toggle{background:#fff;color:#555;border:1px solid #ccc;border-radius:4px;padding:5px 10px;font-size:.78rem;cursor:pointer;white-space:nowrap;}
+.btn-toggle.active{background:#2D4A3E;color:#fff;border-color:#2D4A3E;}
+.btn-toggle:hover{border-color:#2D4A3E;}
 
+.table-wrap{overflow-y:auto;max-height:calc(100vh - 260px);border:1px solid #e8e8e8;border-radius:6px;}
 .issues-table{width:100%;border-collapse:collapse;font-size:.82rem;}
-.issues-table th{background:#f5f5f5;padding:8px 6px;text-align:left;border-bottom:2px solid #ddd;white-space:nowrap;font-weight:600;}
+.issues-table th{background:#2D4A3E;color:#fff;padding:8px 6px;text-align:left;border-bottom:2px solid #1a2e25;white-space:nowrap;font-weight:600;font-size:.82rem;position:sticky;top:0;z-index:2;box-shadow:0 1px 2px rgba(0,0,0,.1);}
 .issues-table td{padding:6px;border-bottom:1px solid #f0f0f0;vertical-align:middle;}
 .issues-table tr:hover{background:#f9f9f9;}
 .issues-table .col-id{font-family:monospace;font-size:.78rem;color:#2D4A3E;cursor:pointer;}
-.issues-table .col-title{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.issues-table .col-title{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
 .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:600;white-space:nowrap;}
 .badge-p0{background:#fef0f0;color:#F56C6C;} .badge-p1{background:#fdf6ec;color:#E6A23C;}
 .badge-p2{background:#ecf5ff;color:#409EFF;} .badge-p3{background:#f4f4f5;color:#8C8C8C;}
-.badge-s-未解决{background:#fef0f0;color:#F56C6C;} .badge-s-未开始{background:#f4f4f5;color:#8C8C8C;}
-.badge-s-评估中{background:#fdf6ec;color:#E6A23C;} .badge-s-解决中{background:#ecf5ff;color:#409EFF;}
-.badge-s-改善中{background:#ecf5ff;color:#409EFF;} .badge-s-控制中{background:#ecf5ff;color:#409EFF;}
-.badge-s-已解决{background:#f0f9eb;color:#67C23A;} .badge-s-已关闭{background:#f4f4f5;color:#909399;}
+.badge-s-未开始{background:#f4f4f5;color:#8C8C8C;}
+.badge-s-评估中{background:#fdf6ec;color:#E6A23C;}
+.badge-s-改善中{background:#ecf5ff;color:#409EFF;}
+.badge-s-已解决{background:#f0f9eb;color:#67C23A;}
+.badge-s-非问题{background:#f4f4f5;color:#8C8C8C;}
 
 .days-warn{color:#F56C6C;font-weight:600;} .days-mid{color:#E6A23C;} .days-ok{color:#8C8C8C;}
 
 .btn-sm{background:none;border:none;cursor:pointer;padding:2px 6px;font-size:.82rem;}
-.btn-edit{color:#2D4A3E;} .btn-del{color:#F56C6C;}
+.btn-edit{color:#2D4A3E;} .btn-del{color:#C45C5C;}
+
+/* Workflow action buttons in table */
+.btn-flow{padding:2px 6px;border-radius:3px;font-size:.68rem;cursor:pointer;border:1px solid;font-weight:600;white-space:nowrap;line-height:1.3;}
+.btn-flow.assess{background:#E6A23C;color:#fff;border-color:#E6A23C;} .btn-flow.assess:hover{background:#cf9236;}
+.btn-flow.improve{background:#409EFF;color:#fff;border-color:#409EFF;} .btn-flow.improve:hover{background:#3a8ee6;}
+.btn-flow.resolve{background:#67C23A;color:#fff;border-color:#67C23A;} .btn-flow.resolve:hover{background:#5daf34;}
+.btn-flow.nonissue{background:#8C8C8C;color:#fff;border-color:#8C8C8C;} .btn-flow.nonissue:hover{background:#737373;}
 
 /* Dialog */
 .dialog-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center;}
 .dialog-overlay.active{display:flex;}
-.dialog-box{background:#fff;border-radius:10px;width:680px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.2);}
+.dialog-box{background:#fff;border-radius:10px;width:720px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.2);}
 .dialog-title{font-size:1.1rem;font-weight:700;margin-bottom:16px;color:#2D4A3E;}
 .dialog-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;}
 .dialog-grid .full{grid-column:1/-1;}
 .dialog-grid label{font-size:.78rem;color:#8C8C8C;display:block;margin-bottom:2px;}
+.dialog-grid label .req{color:#F56C6C;margin-left:2px;}
 .dialog-grid input,.dialog-grid select,.dialog-grid textarea{width:100%;padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:.82rem;box-sizing:border-box;}
 .dialog-grid textarea{min-height:60px;resize:vertical;}
 .dialog-grid input[type=date]{width:100%;}
@@ -54,6 +69,65 @@
 .dialog-actions button{padding:6px 20px;border-radius:4px;font-size:.82rem;cursor:pointer;border:none;}
 .dialog-actions .btn-save{background:#2D4A3E;color:#fff;} .dialog-actions .btn-save:hover{background:#1a2e25;}
 .dialog-actions .btn-cancel{background:#f5f5f5;color:#333;} .dialog-actions .btn-cancel:hover{background:#eee;}
+/* Generic save/cancel for wizard etc. */
+.btn-save{background:#2D4A3E;color:#fff;border:none;border-radius:4px;padding:6px 20px;font-size:.82rem;cursor:pointer;} .btn-save:hover{background:#1a2e25;}
+.btn-cancel{background:#f5f5f5;color:#333;border:none;border-radius:4px;padding:6px 20px;font-size:.82rem;cursor:pointer;} .btn-cancel:hover{background:#eee;}
+
+/* Stage section headers in dialog */
+.stage-header{grid-column:1/-1;font-size:.78rem;font-weight:700;padding:6px 10px;background:#f0f5f3;color:#2D4A3E;border-left:3px solid #2D4A3E;margin:8px 0 4px;border-radius:0 4px 4px 0;}
+.stage-header:first-child{margin-top:0;}
+
+/* Impact multi-select */
+.impact-options{display:flex;flex-wrap:wrap;gap:5px;}
+.impact-options label{display:flex;align-items:center;gap:3px;font-size:.75rem;color:#333;cursor:pointer;padding:2px 6px;border:1px solid #ddd;border-radius:3px;background:#fafafa;transition:all .15s;white-space:nowrap;}
+.impact-options label:hover{border-color:#2D4A3E;}
+.impact-options input[type=checkbox]{margin:0;width:auto;}
+.impact-options input[type=checkbox]:checked+span{color:#2D4A3E;font-weight:600;}
+.impact-options label:has(input:checked){border-color:#2D4A3E;background:#f0f5f3;}
+
+/* Priority wizard */
+.priority-row{display:flex;align-items:center;gap:8px;}
+.priority-row select{width:80px;}
+.btn-wizard{background:none;border:1px solid #2D4A3E;color:#2D4A3E;border-radius:4px;padding:3px 10px;font-size:.75rem;cursor:pointer;white-space:nowrap;}
+.btn-wizard:hover{background:#2D4A3E;color:#fff;}
+
+.wizard-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1100;align-items:center;justify-content:center;}
+.wizard-overlay.active{display:flex;}
+.wizard-box{background:#fff;border-radius:12px;width:480px;max-width:92vw;padding:28px;box-shadow:0 12px 40px rgba(0,0,0,.25);}
+.wizard-box h3{font-size:1rem;color:#2D4A3E;margin-bottom:4px;}
+.wizard-step{display:none;} .wizard-step.active{display:block;}
+.wizard-step p{font-size:.85rem;color:#555;margin:12px 0 16px;line-height:1.6;}
+.wizard-choices{display:flex;flex-direction:column;gap:8px;}
+.wizard-choices button{width:100%;padding:10px 16px;border:1px solid #ddd;border-radius:6px;background:#fafafa;font-size:.85rem;cursor:pointer;text-align:left;transition:all .15s;}
+.wizard-choices button:hover{border-color:#2D4A3E;background:#f0f5f3;}
+.wizard-choices button.choice-yes{color:#F56C6C;} .wizard-choices button.choice-no{color:#67C23A;}
+.wizard-result{background:#f0f5f3;border-left:3px solid #2D4A3E;padding:12px 16px;border-radius:0 6px 6px 0;margin-top:16px;}
+.wizard-result .p-badge{display:inline-block;padding:4px 12px;border-radius:12px;font-weight:700;font-size:.9rem;margin-right:8px;}
+.wizard-result .p-badge.bp0{background:#F56C6C;color:#fff;} .wizard-result .p-badge.bp1{background:#E6A23C;color:#fff;}
+.wizard-result .p-badge.bp2{background:#409EFF;color:#fff;} .wizard-result .p-badge.bp3{background:#8C8C8C;color:#fff;}
+
+/* Timeline */
+.timeline{grid-column:1/-1;display:flex;align-items:center;gap:0;font-size:.72rem;color:#8C8C8C;margin:4px 0;padding:4px 0;flex-wrap:wrap;}
+.timeline .t-node{display:flex;align-items:center;gap:4px;white-space:nowrap;}
+.timeline .t-node .t-dot{width:8px;height:8px;border-radius:50%;background:#ddd;flex-shrink:0;}
+.timeline .t-node.done .t-dot{background:#67C23A;}
+.timeline .t-node.current .t-dot{background:#2D4A3E;box-shadow:0 0 0 2px rgba(45,74,62,.3);}
+.timeline .t-arrow{margin:0 6px;color:#ccc;}
+
+/* Attachments */
+.attach-area{display:flex;flex-direction:column;gap:6px;}
+.attach-list{display:flex;flex-wrap:wrap;gap:6px;}
+.attach-item{display:flex;align-items:center;gap:4px;padding:3px 8px;background:#f0f5f3;border:1px solid #d0e0d8;border-radius:4px;font-size:.75rem;color:#2D4A3E;}
+.attach-item a{color:#2D4A3E;text-decoration:underline;}
+.attach-item .del-att{color:#F56C6C;cursor:pointer;margin-left:4px;font-size:.7rem;}
+.btn-upload{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px dashed #aaa;border-radius:4px;background:#fafafa;font-size:.75rem;color:#555;cursor:pointer;}
+.btn-upload:hover{border-color:#2D4A3E;color:#2D4A3E;}
+.btn-upload input[type=file]{display:none;}
+
+/* Image preview overlay */
+.img-preview-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:2000;align-items:center;justify-content:center;cursor:pointer;}
+.img-preview-overlay.active{display:flex;}
+.img-preview-overlay img{max-width:90vw;max-height:85vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.4);object-fit:contain;}
 
 @media(max-width:768px){
   .stats-row{gap:8px;} .stat-card{min-width:80px;padding:8px 10px;}
@@ -61,57 +135,71 @@
   .dialog-grid{grid-template-columns:1fr;}
   .hide-mobile{display:none;}
 }
+
+/* SOP related styles */
+.sop-info-box{background:#f0f5f3;border-radius:4px;padding:8px 12px;margin-top:8px;border-left:3px solid #2D4A3E;font-size:0.82rem;}
+.sop-info-box a{color:#2D4A3E;text-decoration:none;font-weight:600;}
+.sop-info-box a:hover{text-decoration:underline;}
+.sop-pending{color:#E6A23C;font-style:italic;}
+.btn-sop-create{background:#2D4A3E;color:#fff;border:none;border-radius:4px;padding:6px 16px;font-size:0.82rem;cursor:pointer;margin-top:8px;}
+.btn-sop-create:hover{background:#1a2e25;}
+.sop-dialog-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1200;align-items:center;justify-content:center;}
+.sop-dialog-overlay.active{display:flex;}
+.sop-dialog-box{background:#fff;border-radius:10px;width:600px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.2);}
+.sop-dialog-title{font-size:1.1rem;font-weight:700;margin-bottom:16px;color:#2D4A3E;}
+.sop-dialog-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;}
+.sop-dialog-grid .full{grid-column:1/-1;}
+.sop-dialog-grid label{font-size:0.78rem;color:#8C8C8C;display:block;margin-bottom:2px;}
+.sop-dialog-grid label .req{color:#F56C6C;margin-left:2px;}
+.sop-dialog-grid input,.sop-dialog-grid select,.sop-dialog-grid textarea{width:100%;padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;box-sizing:border-box;}
+.sop-dialog-grid textarea{min-height:60px;resize:vertical;}
+.sop-dialog-actions{margin-top:16px;display:flex;gap:8px;justify-content:flex-end;}
+.sop-dialog-actions button{padding:6px 20px;border-radius:4px;font-size:0.82rem;cursor:pointer;border:none;}
+.sop-conflict-box{background:#fff3e0;border-radius:4px;padding:8px 12px;margin:8px 0;font-size:0.82rem;color:#E6A23C;border-left:3px solid #E6A23C;}
 </style>
 
 <div class="issues-wrap">
-  <!-- Stats -->
-  <div class="stats-row" id="statsRow">
+<div class="img-preview-overlay" id="imgPreview" onclick="this.classList.remove('active')"><img id="imgPreviewSrc" src=""></div>
+  <div class="stats-row">
+    <div class="stat-card total"><div class="stat-label">总问题数</div><div class="stat-value" id="statTotal">-</div></div>
+    <div class="stat-card rate"><div class="stat-label">完成率</div><div class="stat-value" id="statRate">-</div></div>
     <div class="stat-card"><div class="stat-label">待解决</div><div class="stat-value" id="statOpen">-</div></div>
-    <div class="stat-card p0"><div class="stat-label">P0 待解决</div><div class="stat-value" id="statP0">0</div></div>
-    <div class="stat-card p1"><div class="stat-label">P1 待解决</div><div class="stat-value" id="statP1">0</div></div>
-    <div class="stat-card p2"><div class="stat-label">P2 待解决</div><div class="stat-value" id="statP2">0</div></div>
-    <div class="stat-card p3"><div class="stat-label">P3 待解决</div><div class="stat-value" id="statP3">0</div></div>
+    <div class="stat-card p0"><div class="stat-label">P0</div><div class="stat-value" id="statP0">0</div></div>
+    <div class="stat-card p1"><div class="stat-label">P1</div><div class="stat-value" id="statP1">0</div></div>
+    <div class="stat-card p2"><div class="stat-label">P2</div><div class="stat-value" id="statP2">0</div></div>
+    <div class="stat-card p3"><div class="stat-label">P3</div><div class="stat-value" id="statP3">0</div></div>
+    <div class="stat-card" style="border-left-color:#67C23A;"><div class="stat-label">已解决</div><div class="stat-value" id="statResolved" style="color:#67C23A;">-</div></div>
+    <div class="stat-card" style="border-left-color:#8C8C8C;"><div class="stat-label">非问题</div><div class="stat-value" id="statNonIssue" style="color:#8C8C8C;">-</div></div>
     <div class="stat-card avg"><div class="stat-label">平均解决天数</div><div class="stat-value" id="statAvg">-</div></div>
   </div>
 
-  <!-- Filters -->
   <div class="filter-row">
-    <select id="fStatus"><option value="">全部状态</option><option>未解决</option><option>未开始</option><option>评估中</option><option>解决中</option><option>改善中</option><option>控制中</option><option>已解决</option><option>已关闭</option></select>
+    <select id="fStatus"><option value="">全部状态</option><option>未开始</option><option>评估中</option><option>改善中</option><option>已解决</option><option>非问题</option></select>
     <select id="fPriority"><option value="">全部优先级</option><option>P0</option><option>P1</option><option>P2</option><option>P3</option></select>
     <select id="fType"><option value="">全部类型</option><option>数据</option><option>POS-IT设备</option><option>合规</option><option>效期管理</option><option>商品管理</option><option>会员小程序</option><option>原料报损</option><option>点单管理</option><option>发票</option><option>功能需求</option><option>收银对账</option></select>
     <select id="fAssignee"><option value="">全部跟进人</option></select>
     <input type="text" id="fSearch" placeholder="搜索标题...">
+    <button class="btn-toggle" id="btnHideResolved" onclick="toggleResolved()" title="屏蔽/显示已解决"><i class="fa-solid fa-eye"></i> 屏蔽已解决</button>
     <button class="btn-new" onclick="openCreate()"><i class="fa-solid fa-plus"></i> 新建问题</button>
   </div>
 
-  <!-- Table -->
+  <div class="table-wrap">
   <table class="issues-table">
     <thead><tr>
-      <th>ID</th><th>优先级</th><th>状态</th><th>标题</th><th class="hide-mobile">类型</th><th class="hide-mobile">提出人</th><th class="hide-mobile">跟进人</th><th class="hide-mobile">发现日期</th><th>天数</th><th>操作</th>
+      <th>ID</th><th>优先级</th><th>状态</th><th>标题</th><th class="hide-mobile">类型</th><th class="hide-mobile">跟进人</th><th class="hide-mobile">发现日期</th><th>天数</th><th class="hide-mobile">计划解决</th><th class="hide-mobile">实际解决</th><th>流转</th><th>操作</th>
     </tr></thead>
     <tbody id="tbody"></tbody>
   </table>
+  </div>
 </div>
 
-<!-- Edit Dialog -->
+<!-- Main Edit Dialog -->
 <div class="dialog-overlay" id="dlgOverlay">
   <div class="dialog-box">
     <div class="dialog-title" id="dlgTitle">新建问题</div>
     <input type="hidden" id="eId">
-    <div class="dialog-grid">
-      <div class="full"><label>标题 *</label><input id="eTitle" required></div>
-      <div class="full"><label>详细描述</label><textarea id="eDetail"></textarea></div>
-      <div><label>Case类型</label><select id="eType"><option>数据</option><option>POS-IT设备</option><option>合规</option><option>效期管理</option><option>商品管理</option><option>会员小程序</option><option>原料报损</option><option>点单管理</option><option>发票</option><option>功能需求</option><option>收银对账</option></select></div>
-      <div><label>优先级</label><select id="ePriority"><option>P0</option><option>P1</option><option selected>P2</option><option>P3</option></select></div>
-      <div><label>提出人</label><input id="eReporter"></div>
-      <div><label>跟进人</label><input id="eAssignee"></div>
-      <div><label>发现日期</label><input type="date" id="eFoundDate"></div>
-      <div><label>解决日期</label><input type="date" id="eResolveDate"></div>
-      <div><label>事发地点</label><input id="eLocation"></div>
-      <div><label>状态</label><select id="eStatus"><option>未解决</option><option>未开始</option><option>评估中</option><option>解决中</option><option>改善中</option><option>控制中</option><option>已解决</option><option>已关闭</option></select></div>
-      <div><label>共性问题</label><select id="eCommon"><option value="0">否</option><option value="1">是</option></select></div>
-      <div><label>指标影响</label><input id="eImpact"></div>
-      <div class="full"><label>解决方案</label><textarea id="eSolution"></textarea></div>
+    <div class="dialog-grid" id="dlgGrid">
+      <!-- Dynamic content filled by JS -->
     </div>
     <div class="dialog-actions">
       <button class="btn-cancel" onclick="closeDlg()">取消</button>
@@ -120,80 +208,198 @@
   </div>
 </div>
 
+<!-- Priority Wizard -->
+<div class="wizard-overlay" id="wizardOverlay">
+  <div class="wizard-box">
+    <h3><i class="fa-solid fa-wand-magic-sparkles"></i> 优先级智能判定</h3>
+    <div class="wizard-step active" id="wizStep1">
+      <p><strong>1/3：</strong>该问题是否导致店铺无法正常营业？</p>
+      <div class="wizard-choices">
+        <button class="choice-yes" onclick="wizAnswer(1,true)"><i class="fa-solid fa-circle-exclamation"></i> 是，店铺无法营业</button>
+        <button class="choice-no" onclick="wizAnswer(1,false)"><i class="fa-solid fa-circle-check"></i> 否，可正常营业</button>
+      </div>
+    </div>
+    <div class="wizard-step" id="wizStep2">
+      <p><strong>2/3：</strong>是否涉及法律风险、食品安全或合规风险？</p>
+      <div class="wizard-choices">
+        <button class="choice-yes" onclick="wizAnswer(2,true)"><i class="fa-solid fa-circle-exclamation"></i> 是</button>
+        <button class="choice-no" onclick="wizAnswer(2,false)"><i class="fa-solid fa-circle-check"></i> 否</button>
+      </div>
+    </div>
+    <div class="wizard-step" id="wizStep3">
+      <p><strong>3/3：</strong>对店铺销售/利润的影响程度？</p>
+      <div class="wizard-choices">
+        <button onclick="wizAnswer(3,'severe')"><i class="fa-solid fa-arrow-down" style="color:#F56C6C"></i> 严重影响</button>
+        <button onclick="wizAnswer(3,'moderate')"><i class="fa-solid fa-arrow-right" style="color:#E6A23C"></i> 有一定影响</button>
+        <button onclick="wizAnswer(3,'none')"><i class="fa-solid fa-minus" style="color:#8C8C8C"></i> 不影响</button>
+      </div>
+    </div>
+    <div class="wizard-step" id="wizResult">
+      <div class="wizard-result" id="wizResultContent"></div>
+      <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn-cancel" onclick="closeWizard()">取消</button>
+        <button class="btn-save" onclick="applyWizard()">应用</button>
+      </div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;" id="wizNav">
+      <button class="btn-cancel" onclick="closeWizard()">跳过</button>
+    </div>
+  </div>
+</div>
+
+<!-- SOP Task Creation Dialog -->
+<div class="sop-dialog-overlay" id="sopDialogOverlay" onclick="if(event.target===this)closeSopDialog()">
+  <div class="sop-dialog-box">
+    <div class="sop-dialog-title" id="sopDialogTitle">创建SOP任务</div>
+    <div class="sop-dialog-grid" id="sopDialogGrid">
+      <div class="full"><label>任务名称 <span class="req">*</span></label><input id="sopTitle"></div>
+      <div><label>执行人 <span class="req">*</span></label><select id="sopExecutor"><option value="">请选择</option></select></div>
+      <div><label>截止时间 <span class="req">*</span></label><input type="datetime-local" id="sopDue"></div>
+      <div><label>开始时间</label><input type="datetime-local" id="sopStartTime"></div>
+      <div><label>预计时长(分钟)</label><input type="number" id="sopMinutes" value="30"></div>
+      <div class="full"><label>描述</label><textarea id="sopDesc" rows="3"></textarea></div>
+    </div>
+    <div id="sopConflictInfo"></div>
+    <div class="sop-dialog-actions">
+      <button class="btn-cancel" onclick="closeSopDialog()">取消</button>
+      <button class="btn-save" onclick="submitSopTask()">创建</button>
+    </div>
+  </div>
+</div>
+
 <script>
 var API='/issues/api';
 var _all=[];
+var _wizResult=null;
+var _attachments=[];
+var _resolveAttachments=[];
+var _hideResolved=false;
+
+const IMPACT_OPTS=['销售利润','运营效率','工时效率','用户体验','食品安全','合规风险','数据准确性','品牌形象'];
+const CASE_TYPES=['数据','POS-IT设备','合规','效期管理','商品管理','会员小程序','原料报损','点单管理','发票','功能需求','收银对账'];
 
 async function loadStats(){
-  const r=await fetch(API+'/issues/stats');const d=await r.json();
-  if(!d.success)return;
-  const s=d.data;
+  const r=await fetch(API+'/issues/stats');const d=await r.json();if(!d.success)return;const s=d.data;
+  document.getElementById('statTotal').textContent=s.total;
+  document.getElementById('statRate').textContent=s.completion_rate+'%';
   document.getElementById('statOpen').textContent=s.open;
   document.getElementById('statP0').textContent=s.by_priority_open.P0||0;
   document.getElementById('statP1').textContent=s.by_priority_open.P1||0;
   document.getElementById('statP2').textContent=s.by_priority_open.P2||0;
   document.getElementById('statP3').textContent=s.by_priority_open.P3||0;
+  document.getElementById('statResolved').textContent=s.resolved;
+  document.getElementById('statNonIssue').textContent=s.nonissue;
   document.getElementById('statAvg').textContent=s.avg_resolve_days;
 }
 
 async function loadList(){
-  const r=await fetch(API+'/issues');const d=await r.json();
-  if(!d.success)return;
-  _all=d.data;
-  // Populate assignee filter
+  const r=await fetch(API+'/issues');const d=await r.json();if(!d.success)return;_all=d.data;
   const assignees=new Set();_all.forEach(i=>{if(i.assignee)assignees.add(i.assignee);});
-  const sel=document.getElementById('fAssignee');
-  const cur=sel.value;sel.innerHTML='<option value="">全部跟进人</option>';
+  const sel=document.getElementById('fAssignee');const cur=sel.value;
+  sel.innerHTML='<option value="">全部跟进人</option>';
   [...assignees].sort().forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;sel.appendChild(o);});
-  sel.value=cur;
-  renderTable();
+  sel.value=cur;renderTable();
 }
 
 function renderTable(){
-  const fs=document.getElementById('fStatus').value;
-  const fp=document.getElementById('fPriority').value;
-  const ft=document.getElementById('fType').value;
-  const fa=document.getElementById('fAssignee').value;
-  const fq=document.getElementById('fSearch').value.toLowerCase();
+  const fs=document.getElementById('fStatus').value,fp=document.getElementById('fPriority').value,
+    ft=document.getElementById('fType').value,fa=document.getElementById('fAssignee').value,
+    fq=document.getElementById('fSearch').value.toLowerCase();
   let rows=_all;
-  if(fs)rows=rows.filter(i=>i.status===fs);
-  if(fp)rows=rows.filter(i=>i.priority===fp);
-  if(ft)rows=rows.filter(i=>i.case_type===ft);
-  if(fa)rows=rows.filter(i=>i.assignee===fa);
+  if(fs)rows=rows.filter(i=>i.status===fs);if(fp)rows=rows.filter(i=>i.priority===fp);
+  if(ft)rows=rows.filter(i=>i.case_type===ft);if(fa)rows=rows.filter(i=>i.assignee===fa);
   if(fq)rows=rows.filter(i=>i.title.toLowerCase().includes(fq)||i.issue_id.toLowerCase().includes(fq));
-  const tb=document.getElementById('tbody');
-  tb.innerHTML=rows.map(i=>{
-    const pCls='badge-'+i.priority.toLowerCase();
-    const sCls='badge-s-'+i.status;
-    const dCls=i.days_open>30?'days-warn':i.days_open>14?'days-mid':'days-ok';
+  if(_hideResolved)rows=rows.filter(i=>i.status!=='已解决'&&i.status!=='非问题');
+  document.getElementById('tbody').innerHTML=rows.map(i=>{
+    const pCls='badge-'+i.priority.toLowerCase(),sCls='badge-s-'+i.status,
+      dCls=i.days_open>30?'days-warn':i.days_open>14?'days-mid':'days-ok';
+    let flowBtn='';
+    if(i.status==='未开始')flowBtn=`<button class="btn-flow assess" onclick="doAssess(${i.id})">评估</button>`;
+    else if(i.status==='评估中')flowBtn=`<button class="btn-flow improve" onclick="doImprove(${i.id})">改善</button><button class="btn-flow nonissue" onclick="doNonIssue(${i.id})" style="margin-left:3px;"><i class="fa-solid fa-ban"></i> 非问题</button>`;
+    else if(i.status==='改善中')flowBtn=`<button class="btn-flow resolve" onclick="doResolve(${i.id})">解决</button>`;
     return `<tr>
-      <td class="col-id" onclick="openEdit(${i.id})" title="点击编辑">${i.issue_id}</td>
+      <td class="col-id" onclick="openEdit(${i.id})">${i.issue_id}</td>
       <td><span class="badge ${pCls}">${i.priority}</span></td>
       <td><span class="badge ${sCls}">${i.status}</span></td>
       <td class="col-title" title="${esc(i.title)}">${esc(i.title)}</td>
       <td class="hide-mobile">${esc(i.case_type)}</td>
-      <td class="hide-mobile">${esc(i.reporter)}</td>
       <td class="hide-mobile">${esc(i.assignee)}</td>
-      <td class="hide-mobile">${i.found_date||''}</td>
+      <td class="hide-mobile">${(i.found_date||'').slice(0,10)}</td>
       <td class="${dCls}">${i.days_open||0}</td>
-      <td>
-        <button class="btn-sm btn-edit" onclick="openEdit(${i.id})" title="编辑"><i class="fa-solid fa-pen"></i></button>
-        <button class="btn-sm btn-del" onclick="delIssue(${i.id},'${esc(i.title)}')" title="删除"><i class="fa-solid fa-trash-can"></i></button>
+      <td class="hide-mobile" style="white-space:nowrap;font-size:.78rem;color:#8C8C8C">${(i.expected_resolve_date||'').slice(0,10)||'—'}</td>
+      <td class="hide-mobile" style="white-space:nowrap;font-size:.78rem;color:#8C8C8C">${(i.resolve_date||'').slice(0,10)||'—'}</td>
+      <td>${flowBtn}</td>
+      <td style="white-space:nowrap;">
+        ${i.sop_task_id ? `<a href="/work-mgmt/tasks" target="_blank" title="SOP任务" style="color:#2D4A3E;margin-right:4px;font-size:0.82rem;cursor:pointer;" onclick="event.stopPropagation()"><i class="fa-solid fa-file-signature"></i></a>` : ''}
+        ${(i.status==='已解决'||i.status==='非问题') ? `<button class="btn-sm" style="color:#2D4A3E" onclick="openView(${i.id})" title="查看详情"><i class="fa-solid fa-eye"></i></button>` : `<button class="btn-sm btn-edit" onclick="openEdit(${i.id})" title="编辑"><i class="fa-solid fa-pen"></i></button><button class="btn-sm btn-del" onclick="delIssue(${i.id},'${esc(i.title)}')"><i class="fa-solid fa-trash-can"></i></button>`}
       </td>
     </tr>`;
   }).join('');
 }
 
 function esc(s){return s?s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'';}
+function getImpactVals(){return [...document.querySelectorAll('#impactOpts input:checked')].map(c=>c.value).join(',');}
+function setImpactVals(str){document.querySelectorAll('#impactOpts input').forEach(c=>c.checked=false);if(!str)return;str.split(',').forEach(v=>{const c=document.querySelector('#impactOpts input[value="'+v.trim()+'"]');if(c)c.checked=true;});}
+function todayStr(){return new Date().toISOString().slice(0,10);}
+function nowStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+
+function impactHtml(){
+  return `<div class="impact-options" id="impactOpts">${IMPACT_OPTS.map(o=>`<label><input type="checkbox" value="${o}"><span>${o}</span></label>`).join('')}</div>`;
+}
+function caseTypeHtml(sel='数据'){return `<select id="eType">${CASE_TYPES.map(t=>`<option${t===sel?' selected':''}>${t}</option>`).join('')}</select>`;}
+function priorityRowHtml(sel='P2'){return `<div class="priority-row"><select id="ePriority">${['P0','P1','P2','P3'].map(p=>`<option${p===sel?' selected':''}>${p}</option>`).join('')}</select><button type="button" class="btn-wizard" onclick="openWizard()"><i class="fa-solid fa-wand-magic-sparkles"></i> 智能判定</button></div>`;}
+function attachHtml(){return `<div class="attach-area"><div class="attach-list" id="attachList"></div><label class="btn-upload"><i class="fa-solid fa-cloud-arrow-up"></i> 上传附件<input type="file" id="attachInput" onchange="uploadAttachment()" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"></label></div>`;}
+function previewImg(url){var o=document.getElementById('imgPreview');var s=document.getElementById('imgPreviewSrc');s.src=url;o.classList.add('active');}
+function isImgUrl(url){var ext=url.toLowerCase().split('?')[0];return /\.(png|jpg|jpeg|gif|bmp|webp|svg)$/.test(ext);}
+function renderAttach(){document.getElementById('attachList').innerHTML=_attachments.map((a,i)=>{var isImg=isImgUrl(a.url);return `<div class="attach-item">${isImg?`<a href="#" onclick="previewImg('${a.url}');return false">${esc(a.filename||a.url)}</a>`:`<a href="${a.url}" target="_blank">${esc(a.filename||a.url)}</a>`}<span class="del-att" onclick="removeAttach(${i})">&times;</span></div>`;}).join('');}
+function removeAttach(i){_attachments.splice(i,1);renderAttach();}
+async function uploadAttachment(){const inp=document.getElementById('attachInput');if(!inp.files.length)return;const fd=new FormData();fd.append('file',inp.files[0]);try{const r=await fetch(API+'/issues/upload',{method:'POST',body:fd});const d=await r.json();if(d.success){_attachments.push({url:d.url,filename:d.filename});renderAttach();}else alert(d.message||'上传失败');}catch(e){alert('上传出错');}inp.value='';}
+function renderResolveAttach(){const el=document.getElementById('resolveAttachList');if(!el)return;el.innerHTML=_resolveAttachments.map((a,i)=>{var isImg=isImgUrl(a.url);return `<div class="attach-item">${isImg?`<a href="#" onclick="previewImg('${a.url}');return false">${esc(a.filename||a.url)}</a>`:`<a href="${a.url}" target="_blank">${esc(a.filename||a.url)}</a>`}<span class="del-att" onclick="removeResolveAttach(${i})">&times;</span></div>`;}).join('');}
+function removeResolveAttach(i){_resolveAttachments.splice(i,1);renderResolveAttach();}
+async function uploadResolveAttachment(){const inp=document.getElementById('resolveAttachInput');if(!inp.files.length)return;const fd=new FormData();fd.append('file',inp.files[0]);try{const r=await fetch(API+'/issues/upload',{method:'POST',body:fd});const d=await r.json();if(d.success){_resolveAttachments.push({url:d.url,filename:d.filename});renderResolveAttach();}else alert(d.message||'上传失败');}catch(e){alert('上传出错');}inp.value='';}
+
+function timelineHtml(i){
+  const nodes=[
+    {label:'创建',date:i.created_at||'',done:true},
+    {label:'评估',date:i.assessed_at||'',done:!!i.assessed_at,current:i.status==='评估中'},
+    {label:'改善',date:i.improving_at||'',done:!!i.improving_at,current:i.status==='改善中'},
+    {label:i.status==='非问题'?'非问题':'解决',date:i.resolve_date||'',done:i.status==='已解决'||i.status==='非问题',current:false},
+  ];
+  let h='<div class="timeline">';
+  nodes.forEach((n,idx)=>{
+    const cls=n.current?'current':(n.done?'done':'');
+    const dateStr=n.date?(n.date.length>16?n.date.slice(0,16):n.date.slice(0,10)):'—';
+    h+=`<div class="t-node ${cls}"><span class="t-dot"></span>${n.label}: ${dateStr}</div>`;
+    if(idx<nodes.length-1)h+='<span class="t-arrow">→</span>';
+  });
+  return h+'</div>';
+}
+
+/* === DIALOG RENDERERS === */
 
 function openCreate(){
   document.getElementById('eId').value='';
   document.getElementById('dlgTitle').textContent='新建问题';
-  ['eTitle','eDetail','eReporter','eFoundDate','eResolveDate','eLocation','eImpact','eSolution','eAssignee'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('eType').value='数据';
-  document.getElementById('ePriority').value='P2';
-  document.getElementById('eStatus').value='未解决';
-  document.getElementById('eCommon').value='0';
+  _attachments=[];
+  const g=document.getElementById('dlgGrid');
+  g.innerHTML=`
+    <div class="stage-header">基本信息（必填）</div>
+    <div class="full"><label>标题 <span class="req">*</span></label><input id="eTitle"></div>
+    <div><label>Case类型 <span class="req">*</span></label>${caseTypeHtml()}</div>
+    <div><label>优先级 <span class="req">*</span></label>${priorityRowHtml()}</div>
+    <div><label>提出人 <span class="req">*</span></label><input id="eReporter"></div>
+    <div><label>发现日期 <span class="req">*</span></label><input type="date" id="eFoundDate" value="${todayStr()}"></div>
+    <div class="stage-header">补充信息（必填）</div>
+    <div class="full"><label>详细描述 <span class="req">*</span></label><textarea id="eDetail"></textarea></div>
+    <div><label>跟进人</label><input id="eAssignee"></div>
+    <div><label>事发地点 <span class="req">*</span></label><input id="eLocation"></div>
+    <div><label>共性问题 <span class="req">*</span></label><select id="eCommon"><option value="0">否</option><option value="1">是</option></select></div>
+    <div class="full"><label>指标影响 <span class="req">*</span></label>${impactHtml()}</div>
+    <div class="stage-header">附件（选填）</div>
+    <div class="full"><label>附件</label>${attachHtml()}</div>
+    <div class="full"><label>解决方案（初稿）</label><textarea id="eSolution"></textarea></div>
+  `;
+  renderAttach();
   document.getElementById('dlgOverlay').classList.add('active');
 }
 
@@ -201,66 +407,373 @@ function openEdit(id){
   const i=_all.find(x=>x.id===id);if(!i)return;
   document.getElementById('eId').value=i.id;
   document.getElementById('dlgTitle').textContent='编辑 '+i.issue_id;
-  document.getElementById('eTitle').value=i.title;
-  document.getElementById('eDetail').value=i.detail||'';
-  document.getElementById('eType').value=i.case_type||'数据';
-  document.getElementById('ePriority').value=i.priority||'P2';
-  document.getElementById('eStatus').value=i.status||'未解决';
-  document.getElementById('eReporter').value=i.reporter||'';
-  document.getElementById('eAssignee').value=i.assignee||'';
-  document.getElementById('eFoundDate').value=(i.found_date||'').slice(0,10);
-  document.getElementById('eResolveDate').value=(i.resolve_date||'').slice(0,10);
-  document.getElementById('eLocation').value=i.location||'';
-  document.getElementById('eCommon').value=i.is_common?'1':'0';
-  document.getElementById('eImpact').value=i.impact||'';
-  document.getElementById('eSolution').value=i.solution||'';
+  _attachments=[];try{_attachments=JSON.parse(i.attachments||'[]');}catch(e){}
+  if(i.photo&&!_attachments.some(a=>a.url===i.photo))_attachments.push({url:i.photo,filename:'附图'});
+  const g=document.getElementById('dlgGrid');
+  g.innerHTML=`
+    <div class="stage-header">基本信息</div>
+    <div class="full"><label>标题 <span class="req">*</span></label><input id="eTitle" value="${esc(i.title)}"></div>
+    <div><label>Case类型</label>${caseTypeHtml(i.case_type)}</div>
+    <div><label>优先级</label>${priorityRowHtml(i.priority)}</div>
+    <div><label>提出人</label><input id="eReporter" value="${esc(i.reporter||'')}"></div>
+    <div><label>发现日期</label><input type="date" id="eFoundDate" value="${(i.found_date||'').slice(0,10)}"></div>
+    <div class="stage-header">补充信息</div>
+    <div class="full"><label>详细描述</label><textarea id="eDetail">${esc(i.detail||'')}</textarea></div>
+    <div><label>跟进人</label><input id="eAssignee" value="${esc(i.assignee||'')}"></div>
+    <div><label>事发地点</label><input id="eLocation" value="${esc(i.location||'')}"></div>
+    <div><label>共性问题</label><select id="eCommon"><option value="0"${!i.is_common?' selected':''}>否</option><option value="1"${i.is_common?' selected':''}>是</option></select></div>
+    <div class="full"><label>指标影响</label>${impactHtml()}</div>
+    <div class="full"><label>附件</label>${attachHtml()}</div>
+    <div class="stage-header">解决信息</div>
+    <div class="full"><label>解决方案</label><textarea id="eSolution">${esc(i.solution||'')}</textarea></div>
+    <div><label>预计完成时间</label><input type="date" id="eExpectedDate" value="${(i.expected_resolve_date||'').slice(0,10)}"></div>
+    <div><label>解决日期</label><input type="date" id="eResolveDate" value="${(i.resolve_date||'').slice(0,10)}"></div>
+    <div><label>状态</label><select id="eStatus"><option${i.status==='未开始'?' selected':''}>未开始</option><option${i.status==='评估中'?' selected':''}>评估中</option><option${i.status==='改善中'?' selected':''}>改善中</option><option${i.status==='已解决'?' selected':''}>已解决</option><option${i.status==='非问题'?' selected':''}>非问题</option></select></div>
+    ${timelineHtml(i)}
+  `;
+  setImpactVals(i.impact||'');
+  renderAttach();
   document.getElementById('dlgOverlay').classList.add('active');
 }
 
-function closeDlg(){document.getElementById('dlgOverlay').classList.remove('active');}
+
+function openView(id){
+  const i=_all.find(x=>x.id===id);if(!i)return;
+  document.getElementById('eId').value=i.id;
+  document.getElementById('dlgTitle').textContent='查看详情 — '+i.issue_id;
+  _attachments=[];try{_attachments=JSON.parse(i.attachments||'[]');}catch(e){}
+  if(i.photo&&!_attachments.some(a=>a.url===i.photo))_attachments.push({url:i.photo,filename:'附图'});
+  const g=document.getElementById('dlgGrid');
+  g.innerHTML=`
+    <div class="stage-header">基本信息</div>
+    <div class="full"><label>标题</label><input id="eTitle" value="${esc(i.title)}" readonly></div>
+    <div><label>Case类型</label><input value="${esc(i.case_type||'')}" readonly></div>
+    <div><label>优先级</label><input value="${esc(i.priority||'')}" readonly></div>
+    <div><label>提出人</label><input value="${esc(i.reporter||'')}" readonly></div>
+    <div><label>发现日期</label><input type="date" id="eFoundDate" value="${(i.found_date||'').slice(0,10)}" readonly></div>
+    <div class="stage-header">补充信息</div>
+    <div class="full"><label>详细描述</label><textarea id="eDetail" readonly>${esc(i.detail||'')}</textarea></div>
+    <div><label>跟进人</label><input value="${esc(i.assignee||'')}" readonly></div>
+    <div><label>事发地点</label><input value="${esc(i.location||'')}" readonly></div>
+    <div><label>共性问题</label><input value="${i.is_common?'是':'否'}" readonly></div>
+    <div class="full"><label>指标影响</label><input value="${esc(i.impact||'')}" readonly></div>
+    <div class="full"><label>附件</label><div class="attach-area"><div class="attach-list" id="attachViewList"></div></div></div>
+    <div class="stage-header">解决信息</div>
+    <div class="full"><label>解决方案</label><textarea id="eSolution" readonly>${esc(i.solution||'')}</textarea></div>
+    <div><label>预计完成时间</label><input type="date" value="${(i.expected_resolve_date||'').slice(0,10)}" readonly></div>
+    <div><label>解决日期</label><input type="date" value="${(i.resolve_date||'').slice(0,10)}" readonly></div>
+    <div><label>状态</label><input value="${esc(i.status||'')}" readonly></div>
+    <div class="stage-header" style="grid-column:1/-1;">SOP信息</div>
+    ${i.sop_task_id ? `<div class="full"><div class="sop-info-box"><i class="fa-solid fa-file-signature" style="color:#2D4A3E;margin-right:4px;"></i>SOP任务: <a href="/work-mgmt/tasks" target="_blank" onclick="sessionStorage.setItem('highlightTask',${i.sop_task_id})">T-${i.sop_task_id}</a></div></div>` : (i.need_sop==='是' ? `<div class="full"><div class="sop-info-box"><span class="sop-pending"><i class="fa-solid fa-clock" style="margin-right:4px;"></i>待创建SOP任务</span> <button class="btn-sop-create" onclick="openSopTaskDialog(_all.find(x=>x.id===${i.id}))" style="margin-left:8px;padding:3px 10px;font-size:0.75rem;"><i class="fa-solid fa-file-signature"></i> 补建</button></div></div>` : (!i.need_sop && !i.sop_task_id && (i.status==='已解决'||i.status==='非问题') ? `<div class="full"><div class="sop-info-box"><button class="btn-sop-create" onclick="openSopTaskDialog(_all.find(x=>x.id===${i.id}))" style="padding:3px 10px;font-size:0.75rem;"><i class="fa-solid fa-file-signature"></i> 补建SOP任务</button></div></div>` : `<div class="full"><div class="sop-info-box" style="color:#8C8C8C;">未设置</div></div>`))}
+    ${timelineHtml(i)}
+  `;
+  // Render attachments as read-only links (no delete buttons)
+  const avl=document.getElementById('attachViewList');
+  if(avl)avl.innerHTML=_attachments.map(a=>{var isImg=isImgUrl(a.url);return `<div class="attach-item">${isImg?`<a href="#" onclick="previewImg('${a.url}');return false">${esc(a.filename||a.url)}</a>`:`<a href="${a.url}" target="_blank">${esc(a.filename||a.url)}</a>`}</div>`;}).join('');
+  // Hide save button
+  document.querySelector('.dialog-actions .btn-save').style.display='none';
+  document.getElementById('dlgOverlay').classList.add('active');
+}
+/* === WORKFLOW TRANSITIONS === */
+function doAssess(id){
+  // 未开始 → 评估中: simple, no extra input needed
+  if(!confirm('开始评估此问题？'))return;
+  fetch(API+'/issues/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'评估中',assessed_at:nowStr()})}).then(r=>r.json()).then(d=>{if(d.success){loadStats();loadList();}else alert(d.message||'操作失败');});
+}
+
+function doImprove(id){
+  // 评估中 → 改善中: need solution + expected_resolve_date
+  const i=_all.find(x=>x.id===id);if(!i)return;
+  document.getElementById('eId').value=i.id;
+  document.getElementById('dlgTitle').textContent='开始改善 — '+i.issue_id;
+  _attachments=[];try{_attachments=JSON.parse(i.attachments||'[]');}catch(e){}
+  const g=document.getElementById('dlgGrid');
+  g.innerHTML=`
+    <div class="stage-header">评估结论（必填）</div>
+    <div class="full"><label>解决方案 <span class="req">*</span></label><textarea id="eSolution">${esc(i.solution||'')}</textarea></div>
+    <div><label>预计完成时间 <span class="req">*</span></label><input type="date" id="eExpectedDate"></div>
+    <div class="stage-header">补充信息</div>
+    <div class="full"><label>指标影响</label>${impactHtml()}</div>
+    <div class="full"><label>附件</label>${attachHtml()}</div>
+  `;
+  setImpactVals(i.impact||'');
+  renderAttach();
+  // Override save to do the transition
+  document.getElementById('dlgOverlay').classList.add('active');
+  // Replace save handler temporarily
+  document.querySelector('.dialog-actions .btn-save').onclick=async function(){
+    const sol=document.getElementById('eSolution').value;
+    const exp=document.getElementById('eExpectedDate').value;
+    if(!sol){alert('解决方案必填');return;}
+    if(!exp){alert('预计完成时间必填');return;}
+    const body={status:'改善中',improving_at:nowStr(),solution:sol,expected_resolve_date:exp,impact:getImpactVals(),attachments:JSON.stringify(_attachments)};
+    const r=await fetch(API+'/issues/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();if(d.success){closeDlg();loadStats();loadList();}else alert(d.message||'操作失败');
+  };
+}
+
+function doNonIssue(id){
+  const i=_all.find(x=>x.id===id);if(!i)return;
+  _currentResolveIssue=i;
+  document.getElementById('eId').value=i.id;
+  document.getElementById('dlgTitle').textContent='标记为非问题 — '+i.issue_id;
+  const g=document.getElementById('dlgGrid');
+  g.innerHTML=`
+    <div class="stage-header">非问题确认</div>
+    <div class="full" style="font-size:.85rem;color:#555;padding:8px 0;">将该问题标记为"非问题"，表示经评估后确认无需改善或解决。</div>
+    <div class="stage-header">SOP任务</div>
+    <div><label>是否需要SOP <span class="req">*</span></label><select id="eNeedSop" onchange="onNeedSopChange()"><option value="">请选择</option><option value="是">是</option><option value="否">否</option></select></div>
+    <div class="full" id="sopBtnArea" style="display:none;"><button class="btn-sop-create" onclick="openSopTaskDialog(_currentResolveIssue)"><i class="fa-solid fa-file-signature"></i> 创建SOP任务</button></div>
+  `;
+  document.getElementById('dlgOverlay').classList.add('active');
+  document.querySelector('.dialog-actions .btn-save').onclick=async function(){
+    const ns2=document.getElementById('eNeedSop');if(ns2&&!ns2.value){alert('请选择是否需要SOP');return;}
+    const ns=document.getElementById('eNeedSop');
+    const body={status:'非问题',resolve_date:todayStr(),need_sop:ns?ns.value:''};
+    const r=await fetch(API+'/issues/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();if(d.success){closeDlg();loadStats();loadList();}else alert(d.message||'操作失败');
+  };
+}
+
+function doResolve(id){
+  const i=_all.find(x=>x.id===id);if(!i)return;
+  _currentResolveIssue=i;
+  document.getElementById('eId').value=i.id;
+  document.getElementById('dlgTitle').textContent='标记解决 — '+i.issue_id;
+  _resolveAttachments=[];try{_resolveAttachments=JSON.parse(i.resolve_attachments||'[]');}catch(e){}
+  const g=document.getElementById('dlgGrid');
+  g.innerHTML=`
+    <div class="stage-header">解决确认</div>
+    <div><label>解决日期 <span class="req">*</span></label><input type="date" id="eResolveDate" value="${todayStr()}"></div>
+    <div class="full"><label>最终解决方案（可修改）</label><textarea id="eSolution">${esc(i.solution||'')}</textarea></div>
+    <div class="stage-header">解决附件（独立于问题附件）</div>
+    <div class="full"><label>解决时的截图/文档</label>
+      <div class="attach-area"><div class="attach-list" id="resolveAttachList"></div>
+      <label class="btn-upload"><i class="fa-solid fa-cloud-arrow-up"></i> 上传附件<input type="file" id="resolveAttachInput" onchange="uploadResolveAttachment()" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"></label></div>
+    </div>
+    <div class="stage-header">SOP任务</div>
+    <div><label>是否需要SOP <span class="req">*</span></label><select id="eNeedSop" onchange="onNeedSopChange()"><option value="">请选择</option><option value="是">是</option><option value="否">否</option></select></div>
+    <div class="full" id="sopBtnArea" style="display:none;"><button class="btn-sop-create" onclick="openSopTaskDialog(_currentResolveIssue)"><i class="fa-solid fa-file-signature"></i> 创建SOP任务</button></div>
+  `;
+  renderResolveAttach();
+  document.getElementById('dlgOverlay').classList.add('active');
+  document.querySelector('.dialog-actions .btn-save').onclick=async function(){
+    const rd=document.getElementById('eResolveDate').value;
+    if(!rd){alert('解决日期必填');return;}const ns2=document.getElementById('eNeedSop');if(ns2&&!ns2.value){alert('请选择是否需要SOP');return;}
+    const ns=document.getElementById('eNeedSop');const body={status:'已解决',resolve_date:rd,solution:document.getElementById('eSolution').value,resolve_attachments:JSON.stringify(_resolveAttachments),need_sop:ns?ns.value:''};
+    const r=await fetch(API+'/issues/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();if(d.success){closeDlg();loadStats();loadList();}else alert(d.message||'操作失败');
+  };
+}
+
+function closeDlg(){
+  document.getElementById('dlgOverlay').classList.remove('active');
+  // Reset save handler and visibility
+  const sb=document.querySelector('.dialog-actions .btn-save');
+  sb.onclick=saveIssue;
+  sb.style.display='';
+}
 
 async function saveIssue(){
   const id=document.getElementById('eId').value;
-  const body={
-    title:document.getElementById('eTitle').value,
-    detail:document.getElementById('eDetail').value,
-    case_type:document.getElementById('eType').value,
-    priority:document.getElementById('ePriority').value,
-    status:document.getElementById('eStatus').value,
-    reporter:document.getElementById('eReporter').value,
-    assignee:document.getElementById('eAssignee').value,
-    found_date:document.getElementById('eFoundDate').value,
-    resolve_date:document.getElementById('eResolveDate').value,
-    location:document.getElementById('eLocation').value,
-    is_common:parseInt(document.getElementById('eCommon').value),
-    impact:document.getElementById('eImpact').value,
-    solution:document.getElementById('eSolution').value,
-  };
+  const body={title:v('eTitle'),detail:v('eDetail'),case_type:v('eType'),priority:v('ePriority'),
+    reporter:v('eReporter'),assignee:v('eAssignee'),found_date:v('eFoundDate'),
+    location:v('eLocation'),is_common:parseInt(v('eCommon')||'0'),impact:getImpactVals(),
+    solution:v('eSolution'),attachments:JSON.stringify(_attachments)};
+  const eRd=document.getElementById('eResolveDate');if(eRd)body.resolve_date=eRd.value;
+  const eExp=document.getElementById('eExpectedDate');if(eExp)body.expected_resolve_date=eExp.value;
+  const eSt=document.getElementById('eStatus');if(eSt)body.status=eSt.value;
   if(!body.title){alert('标题必填');return;}
-  const url=id?API+'/issues/'+id:API+'/issues';
-  const method=id?'PUT':'POST';
+  if(!body.detail){alert('详细描述必填');return;}
+  if(!body.location){alert('事发地点必填');return;}
+  if(!body.impact){alert('指标影响至少选一项');return;}
+  const url=id?API+'/issues/'+id:API+'/issues',method=id?'PUT':'POST';
   const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  const d=await r.json();
-  if(d.success){closeDlg();loadStats();loadList();}
-  else alert(d.message||'保存失败');
+  const d=await r.json();if(d.success){closeDlg();loadStats();loadList();}else alert(d.message||'保存失败');
 }
+function v(id){const e=document.getElementById(id);return e?e.value:'';}
 
 async function delIssue(id,title){
   if(!confirm('确定删除「'+title+'」？此操作不可逆。'))return;
-  const r=await fetch(API+'/issues/'+id,{method:'DELETE'});
-  const d=await r.json();
-  if(d.success){loadStats();loadList();}
-  else alert(d.message||'删除失败');
+  const r=await fetch(API+'/issues/'+id,{method:'DELETE'});const d=await r.json();
+  if(d.success){loadStats();loadList();}else alert(d.message||'删除失败');
 }
 
-// Filters
+/* Priority Wizard */
+const P_DESC={P0:'店铺无法营业或涉及法律/食安/合规风险',P1:'严重影响销售/利润、工时效率、用户体验或食安/合规风险',P2:'有一定影响销售/利润、工时效率、用户体验',P3:'不影响销售/利润，仅影响工时效率或用户体验'};
+function openWizard(){_wizResult=null;document.querySelectorAll('.wizard-step').forEach(s=>s.classList.remove('active'));document.getElementById('wizStep1').classList.add('active');document.getElementById('wizNav').style.display='flex';document.getElementById('wizardOverlay').classList.add('active');}
+function closeWizard(){document.getElementById('wizardOverlay').classList.remove('active');}
+function wizAnswer(step,ans){if(step===1&&ans===true){showWizR('P0');return;}if(step===2&&ans===true){showWizR('P0');return;}if(step===1&&!ans){document.getElementById('wizStep1').classList.remove('active');document.getElementById('wizStep2').classList.add('active');return;}if(step===2&&!ans){document.getElementById('wizStep2').classList.remove('active');document.getElementById('wizStep3').classList.add('active');return;}if(step===3)showWizR(ans==='severe'?'P1':ans==='moderate'?'P2':'P3');}
+function showWizR(p){_wizResult=p;document.querySelectorAll('.wizard-step').forEach(s=>s.classList.remove('active'));document.getElementById('wizNav').style.display='none';document.getElementById('wizResultContent').innerHTML=`<div style="font-size:.85rem;margin-bottom:6px;color:#555;">建议优先级：</div><span class="p-badge bp${p.toLowerCase()}">${p}</span><span style="font-size:.82rem;color:#555;">${P_DESC[p]}</span>`;document.getElementById('wizResult').classList.add('active');}
+function applyWizard(){if(_wizResult){const s=document.getElementById('ePriority');if(s)s.value=_wizResult;}closeWizard();}
+
 ['fStatus','fPriority','fType','fAssignee'].forEach(id=>document.getElementById(id).addEventListener('change',renderTable));
 document.getElementById('fSearch').addEventListener('input',renderTable);
+/* Disable click-outside-to-close to prevent accidental dismissal */
 
-// Close dialog on overlay click
-document.getElementById('dlgOverlay').addEventListener('click',function(e){if(e.target===this)closeDlg();});
+function toggleResolved(){
+  _hideResolved=!_hideResolved;
+  const btn=document.getElementById('btnHideResolved');
+  btn.classList.toggle('active',_hideResolved);
+  btn.innerHTML=_hideResolved?'<i class="fa-solid fa-eye-slash"></i> 显示已解决':'<i class="fa-solid fa-eye"></i> 屏蔽已解决';
+  renderTable();
+}
 
-// Init
+/* Ctrl+V paste image support */
+document.addEventListener('paste',function(e){
+  const items=e.clipboardData&&e.clipboardData.items;
+  if(!items)return;
+  for(let i=0;i<items.length;i++){
+    if(items[i].type.indexOf('image')!==-1){
+      const blob=items[i].getAsFile();
+      const fd=new FormData();
+      fd.append('file',blob,'paste_'+Date.now()+'.png');
+      fetch(API+'/issues/upload',{method:'POST',body:fd}).then(r=>r.json()).then(d=>{
+        if(d.success){
+          // Add to whichever attachment list is currently visible
+          const ral=document.getElementById('resolveAttachList');
+          if(ral){_resolveAttachments.push({url:d.url,filename:d.filename});renderResolveAttach();}
+          else{_attachments.push({url:d.url,filename:d.filename});renderAttach();}
+        }
+      });
+      e.preventDefault();
+      break;
+    }
+  }
+});
+document.getElementById('wizardOverlay').addEventListener('click',function(e){if(e.target===this)closeWizard();});
+
 loadStats();loadList();
+
+/* === SOP Task Functions === */
+var _currentResolveIssue = null;
+
+function onNeedSopChange() {
+  var sel = document.getElementById('eNeedSop');
+  var area = document.getElementById('sopBtnArea');
+  if (!sel || !area) return;
+  area.style.display = (sel.value === '是') ? '' : 'none';
+}
+
+async function openSopTaskDialog(issue) {
+  if (!issue) return;
+  var overlay = document.getElementById('sopDialogOverlay');
+  document.getElementById('sopTitle').value = 'SOP: ' + (issue.title || '');
+  document.getElementById('sopDesc').value = '基于问题' + issue.issue_id + '建立SOP';
+  document.getElementById('sopDue').value = '';
+  document.getElementById('sopStartTime').value = '';
+  document.getElementById('sopMinutes').value = '30';
+  document.getElementById('sopConflictInfo').innerHTML = '';
+
+  // Load users for executor dropdown
+  try {
+    var r = await fetch('/users/api/users');
+    var d = await r.json();
+    var sel = document.getElementById('sopExecutor');
+    sel.innerHTML = '<option value="">请选择</option>';
+    (d.data || d.users || []).forEach(function(u) {
+      var o = document.createElement('option');
+      o.value = u.id;
+      o.textContent = u.display_name || u.name || u.username;
+      sel.appendChild(o);
+    });
+  } catch(e) {
+    // fallback: try work-mgmt options API
+    try {
+      var r2 = await fetch('/work-mgmt/api/options');
+      var d2 = await r2.json();
+      var sel2 = document.getElementById('sopExecutor');
+      sel2.innerHTML = '<option value="">请选择</option>';
+      (d2.executors || []).forEach(function(u) {
+        var o = document.createElement('option');
+        o.value = u.id;
+        o.textContent = u.display_name || u.name || u.username;
+        sel2.appendChild(o);
+      });
+    } catch(e2) {}
+  }
+
+  overlay.classList.add('active');
+  // Store issue id on the overlay for submit
+  overlay.dataset.issueId = issue.id;
+}
+
+function closeSopDialog() {
+  document.getElementById('sopDialogOverlay').classList.remove('active');
+}
+
+async function submitSopTask() {
+  var overlay = document.getElementById('sopDialogOverlay');
+  var issueId = parseInt(overlay.dataset.issueId);
+  var title = document.getElementById('sopTitle').value.trim();
+  var executor_id = parseInt(document.getElementById('sopExecutor').value);
+  var expected_end = document.getElementById('sopDue').value;
+  var start_time = document.getElementById('sopStartTime').value;
+  var estimated_minutes = parseInt(document.getElementById('sopMinutes').value) || 30;
+  var description = document.getElementById('sopDesc').value.trim();
+
+  if (!title) { alert('请填写任务名称'); return; }
+  if (!executor_id) { alert('请选择执行人'); return; }
+  if (!expected_end) { alert('请填写截止时间'); return; }
+
+  // Validate schedule (reuse work-mgmt API)
+  var body = {
+    title: title,
+    executor_id: executor_id,
+    expected_end: expected_end,
+    estimated_minutes: estimated_minutes,
+    description: description,
+    start_time: start_time || null
+  };
+
+  try {
+    var vr = await fetch('/work-mgmt/api/tasks/validate-schedule', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({executor_id: executor_id, expected_end: expected_end, estimated_minutes: estimated_minutes || 30})
+    });
+    var vd = await vr.json();
+    if (vd.success && vd.validation && vd.validation.has_conflict) {
+      var v = vd.validation;
+      var msg = '时段有冲突：\n';
+      v.conflicts.forEach(function(c) { msg += '  - ' + c.start + '-' + c.end + ' ' + c.name + '\n'; });
+      if (v.suggested && v.suggested.length) {
+        var s = v.suggested[0];
+        msg += '\n建议调整到：' + s.desc + (s.is_overtime ? ' (加班)' : '');
+        if (confirm(msg + '\n\n确认使用建议时段？')) {
+          body.confirmed_slot = s;
+        } else { return; }
+      } else {
+        document.getElementById('sopConflictInfo').innerHTML = '<div class="sop-conflict-box">' + msg + '<br>当日无可用时段，请调整时间</div>';
+        return;
+      }
+    }
+  } catch(e) {}
+
+  // Create SOP task via issues API
+  try {
+    var res = await fetch('/issues/api/issues/' + issueId + '/create-sop-task', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    var d = await res.json();
+    if (d.success) {
+      closeSopDialog();
+      // Update the resolve form if it's open
+      var nsEl = document.getElementById('eNeedSop');
+      if (nsEl) nsEl.value = '是';
+      var sopBtnArea = document.getElementById('sopBtnArea');
+      if (sopBtnArea) sopBtnArea.style.display = 'none';
+      loadList();
+      alert('SOP任务创建成功: ' + d.task_no);
+    } else {
+      alert(d.message || '创建失败');
+    }
+  } catch(e) {
+    alert('创建出错: ' + e.message);
+  }
+}
+
 </script>
 {% endblock %}

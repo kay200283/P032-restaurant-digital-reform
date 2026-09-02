@@ -58,6 +58,10 @@ def internal_error(e):
 
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'uploads')
 
+@app.route('/uploads/<path:filename>')
+def serve_upload(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
 from modules.auth import auth_bp
 from modules.system import system_bp
 from modules.work_mgmt import work_mgmt_bp

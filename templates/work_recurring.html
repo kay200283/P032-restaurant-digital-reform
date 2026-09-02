@@ -1281,7 +1281,7 @@ function hasFreqMismatch(r){
   const dbFreq = r.freq_per_month || 0;
   if(['daily','on_demand'].includes(ct)) return false; // daily/on_demand不检查
   const calcF = calcFreq(ct, wd, md);
-  return Math.abs(calcF - dbFreq) > 0.1;
+  return Math.abs(calcF - dbFreq) > 0.5;
 }
 
 function round1(v){ return Math.round(v*10)/10; }

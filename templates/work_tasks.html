@@ -133,6 +133,15 @@
       <div class="detail-value" id="detailDesc" style="white-space:pre-wrap;background:#f8f9fa;padding:8px 10px;border-radius:4px;"></div>
     </div>
 
+    <div class="detail-section" id="detailRelatedIssueSection" style="display:none;">
+      <div class="detail-label"><i class="fa-solid fa-bug" style="margin-right:4px;"></i>关联问题</div>
+      <div id="detailRelatedIssue" class="detail-value" style="background:#f0f5f3;padding:8px 10px;border-radius:4px;border-left:3px solid #2D4A3E;"></div>
+    </div>
+
+    <div id="detailSopBadge" style="display:none;margin-bottom:12px;">
+      <span style="display:inline-block;padding:3px 10px;border-radius:4px;background:#2D4A3E;color:#fff;font-size:0.72rem;font-weight:600;"><i class="fa-solid fa-file-signature" style="margin-right:3px;"></i>SOP任务</span>
+    </div>
+
     <div class="detail-section">
       <div class="detail-label"><i class="fa-solid fa-paperclip" style="margin-right:4px;"></i>任务材料</div>
       <div id="detailMaterials"></div>
@@ -461,6 +470,28 @@ async function openDetailModal(id){
     document.getElementById('detailDescSection').style.display = '';
   } else {
     document.getElementById('detailDescSection').style.display = 'none';
+  }
+
+  // Related issue info
+  if(r.related_issue_id){
+    document.getElementById('detailRelatedIssueSection').style.display = '';
+    fetch('/work-mgmt/api/tasks/' + r.id + '/related-issue').then(function(res){return res.json();}).then(function(d){
+      if(d.success && d.data){
+        var issue = d.data;
+        document.getElementById('detailRelatedIssue').innerHTML = '<i class="fa-solid fa-bug" style="margin-right:4px;color:#E6A23C;"></i>关联问题: <a href="/issues" target="_blank" style="color:#2D4A3E;text-decoration:none;font-weight:600;">' + escHtml(issue.issue_id) + '</a> <span style="color:#8C8C8C;font-size:0.75rem;">' + escHtml(issue.title || '') + '</span>';
+      } else {
+        document.getElementById('detailRelatedIssueSection').style.display = 'none';
+      }
+    });
+  } else {
+    document.getElementById('detailRelatedIssueSection').style.display = 'none';
+  }
+
+  // SOP badge
+  if(r.is_sop){
+    document.getElementById('detailSopBadge').style.display = '';
+  } else {
+    document.getElementById('detailSopBadge').style.display = 'none';
   }
 
   // 执行结果

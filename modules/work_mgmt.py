@@ -187,6 +187,17 @@ def api_recurring_update(task_id):
             avg_hours, data.get('is_active', 1), fst, fet, task_id
         ))
         _book_recurring_instance(task_id, conn)
+        # Auto-cleanup: if set to inactive, delete future calendar instances
+        new_active = data.get('is_active', 1)
+        if new_active == 0 or new_active is False:
+            from datetime import date as _d_del
+            today_str = _d_del.today().isoformat()
+            del_count = conn.execute(
+                "DELETE FROM calendar_instances WHERE source_type='recurring' AND source_id=? AND date>=?",
+                (task_id, today_str)
+            ).rowcount
+            if del_count > 0:
+                app.logger.info(f'Deactivated recurring task {task_id}: removed {del_count} future instances')
         conn.commit()
         _resp = {'success': True, 'message': '更新成功'}
         return jsonify(_resp)
@@ -367,6 +378,8 @@ def api_tasks_list():
                 'task_no': r['task_no'] or '',
                 'reject_count': r['reject_count'] or 0,
                 'last_reject_reason': r['last_reject_reason'] or '',
+                'related_issue_id': r['related_issue_id'] if 'related_issue_id' in r.keys() else None,
+                'is_sop': r['is_sop'] if 'is_sop' in r.keys() else 0,
             })
         return jsonify({'success': True, 'data': result})
     finally:
@@ -410,13 +423,14 @@ def api_tasks_create():
     try:
         cur = conn.execute('''
             INSERT INTO tasks (title, executor_id, description, materials_json,
-                              estimated_minutes, expected_end, status, created_by, task_no, start_time)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                              estimated_minutes, expected_end, status, created_by, task_no, start_time,
+                              related_issue_id, is_sop)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             data['title'], data.get('executor_id'), data.get('description', ''),
             data.get('materials_json', ''), data.get('estimated_minutes', 0),
             data.get('expected_end'), 'pending', session.get('user_id'), _gen_task_no(conn),
-            data.get('start_time')
+            data.get('start_time'), data.get('related_issue_id'), data.get('is_sop', 0)
         ))
         task_id = cur.lastrowid
         _book_task_instance(task_id, conn, confirmed_slot=data.get('confirmed_slot'))
@@ -434,14 +448,9 @@ def api_tasks_update(task_id):
     conn = get_db()
     try:
         if data.get('action') == 'start':
-            _tst = conn.execute('SELECT start_time FROM tasks WHERE id=?', (task_id,)).fetchone()
-            _st_val = _tst['start_time'] if _tst and _tst['start_time'] else None
-            if _st_val:
-                conn.execute('''UPDATE tasks SET status='in_progress', started_at=?,
-                                updated_at=datetime('now','localtime') WHERE id=?''', (_st_val, task_id))
-            else:
-                conn.execute('''UPDATE tasks SET status='in_progress', started_at=datetime('now','localtime'),
-                                updated_at=datetime('now','localtime') WHERE id=?''', (task_id,))
+            # started_at=当前时间(点击执行)，排定时间不影响实际工时
+            conn.execute("""UPDATE tasks SET status='in_progress', started_at=datetime('now','localtime'),
+                            updated_at=datetime('now','localtime') WHERE id=?""", (task_id,))
             conn.execute("UPDATE calendar_instances SET status='in_progress', updated_at=datetime('now','localtime') WHERE source_type='task' AND source_id=?", (task_id,))
         elif data.get('action') == 'complete':
             conn.execute('''
@@ -1732,7 +1741,7 @@ def _find_task_slot(executor_id, expected_end_str, duration_minutes, conn):
     existing = conn.execute(
         "SELECT start_time, end_time, source_type, source_id FROM calendar_instances WHERE executor_id=? AND date=? AND status != 'leave' ORDER BY start_time",
         (executor_id, date_str)).fetchall()
-    occupied = [(LUNCH_S, LUNCH_E)]
+    occupied = []  # lunch handled separately
     conflict_details = []
     for r in existing:
         if r['start_time'] and r['end_time']:
@@ -1753,7 +1762,7 @@ def _find_task_slot(executor_id, expected_end_str, duration_minutes, conn):
     occupied.sort(key=lambda x: x[0])
     merged = []
     for s, e in occupied:
-        if merged and s <= merged[-1][1]:
+        if merged and s < merged[-1][1]:
             merged[-1] = (merged[-1][0], max(merged[-1][1], e))
         else:
             merged.append((s, e))
@@ -1766,6 +1775,9 @@ def _find_task_slot(executor_id, expected_end_str, duration_minutes, conn):
     ideal_end = deadline
     if ideal_start < WORK_START:
         ideal_start = WORK_START
+    # If ideal starts during lunch, push to after lunch
+    if LUNCH_S <= ideal_start < LUNCH_E:
+        ideal_start = LUNCH_E
     has_conflict = False
     for s, e in merged:
         if ideal_start < e and ideal_end > s:
@@ -1788,6 +1800,16 @@ def _find_task_slot(executor_id, expected_end_str, duration_minutes, conn):
         ce = _g_dt_now.strptime(cd['end'], '%H:%M')
         if ideal_start < ce and ideal_end > cs:
             result['conflicts'].append(cd)
+    # For gap-finding, re-include lunch as blocked period
+    merged_with_lunch = sorted(merged + [(LUNCH_S, LUNCH_E)], key=lambda x: x[0])
+    lunch_merged = []
+    for s, e in merged_with_lunch:
+        if lunch_merged and s < lunch_merged[-1][1]:
+            lunch_merged[-1] = (lunch_merged[-1][0], max(lunch_merged[-1][1], e))
+        else:
+            lunch_merged.append((s, e))
+    merged = lunch_merged
+
     # Find latest gap before deadline
     gaps = []
     cursor = WORK_START
@@ -2536,5 +2558,24 @@ def api_ai_chat_clear():
         conn.execute('DELETE FROM ai_chat_messages WHERE user_id=? AND module=?', (uid, mod))
         conn.commit()
         return jsonify({'success': True})
+    finally:
+        conn.close()
+
+@work_mgmt_bp.route('/api/tasks/<int:task_id>/related-issue', methods=['GET'])
+@login_required
+def api_tasks_related_issue(task_id):
+    """Get the related issue for a task."""
+    conn = get_db()
+    try:
+        r = conn.execute('SELECT related_issue_id FROM tasks WHERE id=?', (task_id,)).fetchone()
+        if not r or not r['related_issue_id']:
+            return jsonify({'success': False, 'message': '无关联问题'}), 404
+        issue_id = r['related_issue_id']
+        issue = conn.execute('SELECT id, title, status, priority, case_type, need_sop, sop_task_id FROM issues WHERE id=?', (issue_id,)).fetchone()
+        if not issue:
+            return jsonify({'success': False, 'message': '关联问题不存在'}), 404
+        d = dict(issue)
+        d['issue_id'] = 'ISS-{:06d}'.format(d['id'])
+        return jsonify({'success': True, 'data': d})
     finally:
         conn.close()

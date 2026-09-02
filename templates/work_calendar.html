@@ -402,7 +402,7 @@
         document.querySelectorAll(".fc-lunch-break").forEach(function(el){el.remove()});
         var slotH=36,pxPerMin=slotH/SLOT_MIN;
         var lunchPx=60*pxPerMin;
-        var startMin=9*60,lunchTop=(12*60+30-startMin)*pxPerMin;
+        var startMin=8.5*60,lunchTop=(12*60+30-startMin)*pxPerMin;
         document.querySelectorAll(".fc-timegrid-body").forEach(function(body){
             var div=document.createElement("div");div.className="fc-lunch-break";
             div.style.top=lunchTop+"px";div.style.height=lunchPx+"px";

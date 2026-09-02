@@ -67,11 +67,11 @@ def api_issues_get(issue_id):
 @login_required
 def api_issues_create():
     body = request.get_json(force=True)
-    title = body.get('title','').strip()
+    title = body.get('title',r['title']).strip()
     if not title:
         return jsonify({'success': False, 'message': '标题必填'})
-    found_date = body.get('found_date','')
-    resolve_date = body.get('resolve_date','')
+    found_date = body.get('found_date',r['found_date'])
+    resolve_date = body.get('resolve_date',r['resolve_date'])
     status = body.get('status','未解决')
     days_open = _calc_days_open(found_date, resolve_date, status)
     conn = get_db()
@@ -79,10 +79,10 @@ def api_issues_create():
     cursor.execute('''INSERT INTO issues (title, detail, case_type, reporter, found_date, location,
         is_common, priority, status, resolve_date, solution, impact, assignee, photo, days_open)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
-        (title, body.get('detail',''), body.get('case_type',''), body.get('reporter',''),
-         found_date, body.get('location',''), int(body.get('is_common',0)),
-         body.get('priority','P2'), status, resolve_date, body.get('solution',''),
-         body.get('impact',''), body.get('assignee',''), body.get('photo',''), days_open))
+        (title, body.get('detail',r['detail']), body.get('case_type',r['case_type']), body.get('reporter',r['reporter']),
+         found_date, body.get('location',r['location']), int(body.get('is_common',r['is_common'])),
+         body.get('priority',r['priority']), status, resolve_date, body.get('solution',r['solution']),
+         body.get('impact',r['impact']), body.get('assignee',r['assignee']), body.get('photo',r['photo']), days_open))
     new_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -93,23 +93,23 @@ def api_issues_create():
 def api_issues_update(issue_id):
     body = request.get_json(force=True)
     conn = get_db()
-    r = conn.execute('SELECT id FROM issues WHERE id=?', (issue_id,)).fetchone()
+    r = conn.execute('SELECT * FROM issues WHERE id=?', (issue_id,)).fetchone()
     if not r:
         conn.close()
         return jsonify({'success': False, 'message': '不存在'}), 404
-    found_date = body.get('found_date','')
-    resolve_date = body.get('resolve_date','')
+    found_date = body.get('found_date',r['found_date'])
+    resolve_date = body.get('resolve_date',r['resolve_date'])
     status = body.get('status','未解决')
     days_open = _calc_days_open(found_date, resolve_date, status)
     conn.execute('''UPDATE issues SET title=?, detail=?, case_type=?, reporter=?, found_date=?,
         location=?, is_common=?, priority=?, status=?, resolve_date=?, solution=?,
         impact=?, assignee=?, photo=?, days_open=?, updated_at=datetime('now','localtime')
         WHERE id=?''',
-        (body.get('title',''), body.get('detail',''), body.get('case_type',''),
-         body.get('reporter',''), found_date, body.get('location',''),
-         int(body.get('is_common',0)), body.get('priority','P2'), status, resolve_date,
-         body.get('solution',''), body.get('impact',''), body.get('assignee',''),
-         body.get('photo',''), days_open, issue_id))
+        (body.get('title',r['title']), body.get('detail',r['detail']), body.get('case_type',r['case_type']),
+         body.get('reporter',r['reporter']), found_date, body.get('location',r['location']),
+         int(body.get('is_common',r['is_common'])), body.get('priority',r['priority']), status, resolve_date,
+         body.get('solution',r['solution']), body.get('impact',r['impact']), body.get('assignee',r['assignee']),
+         body.get('photo',r['photo']), days_open, issue_id))
     conn.commit()
     conn.close()
     return jsonify({'success': True})
