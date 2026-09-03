@@ -70,6 +70,9 @@
       <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:8px;color:#8C8C8C;font-size:0.72rem;"></i>
       <input type="text" id="filterSearch" placeholder="搜索任务..." oninput="loadList()" style="padding:4px 8px 4px 26px;border:1px solid #ddd;border-radius:4px;font-size:0.78rem;width:200px;outline:none;" onfocus="this.style.borderColor='#2D4A3E'" onblur="this.style.borderColor='#ddd'">
     </div>
+    <button id="btnHideDone" onclick="toggleHideDone()" style="background:#fff;color:#2D4A3E;border:1px solid #2D4A3E;border-radius:4px;padding:5px 10px;font-size:0.75rem;cursor:pointer;white-space:nowrap;margin-left:6px;" onmouseover="this.style.background='#2D4A3E';this.style.color='#fff'" onmouseout="if(!_hideDone){this.style.background='#fff';this.style.color='#2D4A3E'}else{this.style.background='#2D4A3E';this.style.color='#fff'}">
+      <i class="fa-solid fa-eye-slash"></i> 屏蔽已完成
+    </button>
     <div style="flex:1;"></div>
     <button onclick="openAddModal()" style="background:#2D4A3E;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:0.78rem;cursor:pointer;" onmouseover="this.style.background='#1a2e25'" onmouseout="this.style.background='#2D4A3E'">
       <i class="fa-solid fa-plus"></i> 新增
@@ -299,6 +302,22 @@ async function loadOptions(){
   }catch(e){}
 }
 
+var _hideDone = false;
+function toggleHideDone(){
+  _hideDone = !_hideDone;
+  var btn = document.getElementById('btnHideDone');
+  if(_hideDone){
+    btn.innerHTML = '<i class="fa-solid fa-eye"></i> 显示已完成';
+    btn.style.background = '#2D4A3E';
+    btn.style.color = '#fff';
+  } else {
+    btn.innerHTML = '<i class="fa-solid fa-eye-slash"></i> 屏蔽已完成';
+    btn.style.background = '#fff';
+    btn.style.color = '#2D4A3E';
+  }
+  loadList();
+}
+
 async function loadList(){
   var ex = document.getElementById('filterExecutor').value;
   var st = document.getElementById('filterStatus').value;
@@ -313,6 +332,7 @@ async function loadList(){
   if(!d.success){ document.getElementById('taskBody').innerHTML=''; return; }
   var list = d.data || [];
   if(q) list = list.filter(function(t){ return (t.title||'').toLowerCase().indexOf(q)>=0 || (t.description||'').toLowerCase().indexOf(q)>=0; });
+  if(_hideDone) list = list.filter(function(t){return t.status!=='completed';});
   var html = '';
   list.forEach(function(r){
     html += '<tr>';
