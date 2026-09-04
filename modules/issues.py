@@ -49,6 +49,12 @@ def api_issues_list():
     for r in rows:
         d = dict(r)
         d['issue_id'] = 'ISS-{:06d}'.format(d['id'])
+        # Resolve SOP task_no from tasks table
+        if d.get('sop_task_id'):
+            t = conn.execute('SELECT task_no FROM tasks WHERE id=?', (d['sop_task_id'],)).fetchone()
+            d['sop_task_no'] = t['task_no'] if t else ''
+        else:
+            d['sop_task_no'] = ''
         if d['status'] not in ('已解决','已关闭'):
             d['days_open'] = _calc_days_open(d['found_date'], d['resolve_date'], d['status'])
         data.append(d)
@@ -69,6 +75,11 @@ def api_issues_get(issue_id):
         return jsonify({'success': False, 'message': '不存在'}), 404
     d = dict(r)
     d['issue_id'] = 'ISS-{:06d}'.format(d['id'])
+    if d.get('sop_task_id'):
+        t = conn.execute('SELECT task_no FROM tasks WHERE id=?', (d['sop_task_id'],)).fetchone()
+        d['sop_task_no'] = t['task_no'] if t else ''
+    else:
+        d['sop_task_no'] = ''
     return jsonify({'success': True, 'data': d})
 
 @issues_bp.route('/api/issues', methods=['POST'])
