@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """P032 系统问题管理模块"""
 
+import os, uuid
 from flask import Blueprint, render_template, request, jsonify, session
 from datetime import datetime, timedelta, date as _date
 from init_db import get_db
@@ -11,7 +12,7 @@ from modules.auth import login_required
 
 issues_bp = Blueprint('issues', __name__, url_prefix='/issues')
 
-STATUS_ORDER = ['未开始','评估中','解决中','改善中','控制中','已解决','已关闭']
+STATUS_ORDER = ['未开始','评估中','改善中','已解决','非问题']
 PRIORITY_ORDER = ['P0','P1','P2','P3']
 CASE_TYPES = ['数据','POS-IT设备','合规','效期管理','商品管理','会员小程序','原料报损','点单管理','发票','功能需求','收银对账']
 
@@ -39,6 +40,7 @@ def api_issues_list():
     rows = conn.execute('''SELECT id, title, detail, case_type, reporter, found_date, location,
         is_common, priority, status, resolve_date, solution, impact, assignee, photo, days_open,
         expected_resolve_date, assessed_at, improving_at,
+        attachments, resolve_attachments,
         created_at, updated_at FROM issues ORDER BY id ASC''').fetchall()
     conn.close()
     data = []
@@ -56,6 +58,7 @@ def api_issues_get(issue_id):
     conn = get_db()
     r = conn.execute('''SELECT id, title, detail, case_type, reporter, found_date, location,
         is_common, priority, status, resolve_date, solution, impact, assignee, photo, days_open,
+        attachments, resolve_attachments,
         created_at, updated_at FROM issues WHERE id=?''', (issue_id,)).fetchone()
     conn.close()
     if not r:
@@ -68,22 +71,24 @@ def api_issues_get(issue_id):
 @login_required
 def api_issues_create():
     body = request.get_json(force=True)
-    title = body.get('title',r['title']).strip()
+    title = body.get('title', '').strip()
     if not title:
         return jsonify({'success': False, 'message': '标题必填'})
-    found_date = body.get('found_date',r['found_date'])
-    resolve_date = body.get('resolve_date',r['resolve_date'])
-    status = body.get('status','未解决')
+    found_date = body.get('found_date', '')
+    resolve_date = body.get('resolve_date', '')
+    status = body.get('status', '未开始')
     days_open = _calc_days_open(found_date, resolve_date, status)
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('''INSERT INTO issues (title, detail, case_type, reporter, found_date, location,
-        is_common, priority, status, resolve_date, solution, impact, assignee, photo, days_open)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
-        (title, body.get('detail',r['detail']), body.get('case_type',r['case_type']), body.get('reporter',r['reporter']),
-         found_date, body.get('location',r['location']), int(body.get('is_common',r['is_common'])),
-         body.get('priority',r['priority']), status, resolve_date, body.get('solution',r['solution']),
-         body.get('impact',r['impact']), body.get('assignee',r['assignee']), body.get('photo',r['photo']), days_open))
+        is_common, priority, status, resolve_date, solution, impact, assignee, photo, days_open,
+        attachments)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+        (title, body.get('detail',''), body.get('case_type',''), body.get('reporter',''),
+         found_date, body.get('location',''), int(body.get('is_common',0)),
+         body.get('priority','中'), status, resolve_date, body.get('solution',''),
+         body.get('impact',''), body.get('assignee',''), body.get('photo',''), days_open,
+         body.get('attachments','')))
     new_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -100,12 +105,13 @@ def api_issues_update(issue_id):
         return jsonify({'success': False, 'message': '不存在'}), 404
     found_date = body.get('found_date',r['found_date'])
     resolve_date = body.get('resolve_date',r['resolve_date'])
-    status = body.get('status','未解决')
+    status = body.get('status','未开始')
     days_open = _calc_days_open(found_date, resolve_date, status)
     conn.execute('''UPDATE issues SET title=?, detail=?, case_type=?, reporter=?, found_date=?,
         location=?, is_common=?, priority=?, status=?, resolve_date=?, solution=?,
         impact=?, assignee=?, photo=?, days_open=?, expected_resolve_date=?,
-        assessed_at=?, improving_at=?, updated_at=datetime('now','localtime')
+        assessed_at=?, improving_at=?, attachments=?, resolve_attachments=?,
+        need_sop=?, updated_at=datetime('now','localtime')
         WHERE id=?''',
         (body.get('title',r['title']), body.get('detail',r['detail']), body.get('case_type',r['case_type']),
          body.get('reporter',r['reporter']), found_date, body.get('location',r['location']),
@@ -114,7 +120,11 @@ def api_issues_update(issue_id):
          body.get('photo',r['photo']), days_open,
          body.get('expected_resolve_date', r['expected_resolve_date'] or ''),
          body.get('assessed_at', r['assessed_at'] or ''),
-         body.get('improving_at', r['improving_at'] or ''), issue_id))
+         body.get('improving_at', r['improving_at'] or ''),
+         body.get('attachments', r['attachments'] or ''),
+         body.get('resolve_attachments', r['resolve_attachments'] or ''),
+         body.get('need_sop', r['need_sop'] or ''),
+         issue_id))
     conn.commit()
     conn.close()
     return jsonify({'success': True})
@@ -155,6 +165,65 @@ def api_issues_stats():
             'avg_resolve_days': round(avg_days, 1) if avg_days else 0
         }
     })
+
+
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'issue_attachments')
+ALLOWED_EXT = {'png','jpg','jpeg','gif','bmp','webp','pdf','doc','docx','xls','xlsx','ppt','pptx','txt','csv','zip','rar'}
+
+@issues_bp.route('/api/issues/upload', methods=['POST'])
+@login_required
+def api_issues_upload():
+    """上传问题附件，图片自动压缩"""
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'message': 'No file'}), 400
+    f = request.files['file']
+    if not f.filename:
+        return jsonify({'success': False, 'message': 'Empty filename'}), 400
+    ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
+    if ext not in ALLOWED_EXT:
+        return jsonify({'success': False, 'message': f'Unsupported file type: {ext}'}), 400
+    fname = f.filename
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+    IMG_EXT = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
+    if ext in IMG_EXT:
+        try:
+            from PIL import Image
+            img = Image.open(f.stream)
+            # Convert RGBA/P to RGB for JPEG output
+            original_mode = img.mode
+            if original_mode in ('RGBA', 'P', 'LA', 'PA'):
+                bg = Image.new('RGB', img.size, (255, 255, 255))
+                if original_mode == 'P':
+                    img = img.convert('RGBA')
+                bg.paste(img, mask=img.split()[-1] if 'A' in img.mode else None)
+                img = bg
+            elif img.mode != 'RGB':
+                img = img.convert('RGB')
+            # Resize: max dimension 1200px
+            max_dim = 1200
+            w, h = img.size
+            if max(w, h) > max_dim:
+                ratio = max_dim / max(w, h)
+                img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+            # Always save as JPEG for best compression
+            unique_name = f"{uuid.uuid4().hex[:8]}.jpg"
+            save_path = os.path.join(UPLOAD_FOLDER, unique_name)
+            img.save(save_path, 'JPEG', quality=80, optimize=True)
+        except Exception:
+            # Fallback: save original if PIL fails
+            f.stream.seek(0)
+            unique_name = f"{uuid.uuid4().hex[:8]}.{ext}"
+            save_path = os.path.join(UPLOAD_FOLDER, unique_name)
+            f.save(save_path)
+    else:
+        unique_name = f"{uuid.uuid4().hex[:8]}.{ext}"
+        save_path = os.path.join(UPLOAD_FOLDER, unique_name)
+        f.save(save_path)
+
+    url = f"/uploads/issue_attachments/{unique_name}"
+    return jsonify({'success': True, 'url': url, 'filename': fname})
+
 
 @issues_bp.route('/api/issues/export', methods=['GET'])
 @login_required

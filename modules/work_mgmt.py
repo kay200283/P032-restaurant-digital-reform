@@ -197,7 +197,7 @@ def api_recurring_update(task_id):
                 (task_id, today_str)
             ).rowcount
             if del_count > 0:
-                app.logger.info(f'Deactivated recurring task {task_id}: removed {del_count} future instances')
+                import logging; logging.info(f'Deactivated recurring task {task_id}: removed {del_count} future instances')
         conn.commit()
         _resp = {'success': True, 'message': '更新成功'}
         return jsonify(_resp)

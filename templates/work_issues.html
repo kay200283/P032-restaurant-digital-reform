@@ -117,6 +117,7 @@
 /* Attachments */
 .attach-area{display:flex;flex-direction:column;gap:6px;}
 .attach-list{display:flex;flex-wrap:wrap;gap:6px;}
+.paste-hint{font-size:0.72rem;color:#8C8C8C;margin-top:4px;}
 .attach-item{display:flex;align-items:center;gap:4px;padding:3px 8px;background:#f0f5f3;border:1px solid #d0e0d8;border-radius:4px;font-size:.75rem;color:#2D4A3E;}
 .attach-item a{color:#2D4A3E;text-decoration:underline;}
 .attach-item .del-att{color:#F56C6C;cursor:pointer;margin-left:4px;font-size:.7rem;}
@@ -351,10 +352,10 @@ function priorityRowHtml(sel='P2'){return `<div class="priority-row"><select id=
 function attachHtml(){return `<div class="attach-area"><div class="attach-list" id="attachList"></div><label class="btn-upload"><i class="fa-solid fa-cloud-arrow-up"></i> 上传附件<input type="file" id="attachInput" onchange="uploadAttachment()" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"></label></div>`;}
 function previewImg(url){var o=document.getElementById('imgPreview');var s=document.getElementById('imgPreviewSrc');s.src=url;o.classList.add('active');}
 function isImgUrl(url){var ext=url.toLowerCase().split('?')[0];return /\.(png|jpg|jpeg|gif|bmp|webp|svg)$/.test(ext);}
-function renderAttach(){document.getElementById('attachList').innerHTML=_attachments.map((a,i)=>{var isImg=isImgUrl(a.url);return `<div class="attach-item">${isImg?`<a href="#" onclick="previewImg('${a.url}');return false">${esc(a.filename||a.url)}</a>`:`<a href="${a.url}" target="_blank">${esc(a.filename||a.url)}</a>`}<span class="del-att" onclick="removeAttach(${i})">&times;</span></div>`;}).join('');}
+function renderAttach(){document.getElementById('attachList').innerHTML=_attachments.map((a,i)=>{var isImg=isImgUrl(a.url);var fn=esc(a.filename||a.url);return `<div class="attach-item">${isImg?`<img data-img="${a.url}" src="${a.url}" style="max-width:80px;max-height:60px;border-radius:3px;cursor:pointer;object-fit:cover;vertical-align:middle" onclick="previewImg('${a.url}')" title="${fn}"><a href="${a.url}" download="${fn}" title="下载" style="margin-left:4px;color:#2D4A3E;font-size:.7rem"><i class="fa-solid fa-download"></i></a>`:`<a href="${a.url}" target="_blank" download="${fn}"><i class="fa-solid fa-file" style="margin-right:2px"></i>${fn}</a>`}<span class="del-att" onclick="removeAttach(${i})">&times;</span></div>`;}).join('');}
 function removeAttach(i){_attachments.splice(i,1);renderAttach();}
 async function uploadAttachment(){const inp=document.getElementById('attachInput');if(!inp.files.length)return;const fd=new FormData();fd.append('file',inp.files[0]);try{const r=await fetch(API+'/issues/upload',{method:'POST',body:fd});const d=await r.json();if(d.success){_attachments.push({url:d.url,filename:d.filename});renderAttach();}else alert(d.message||'上传失败');}catch(e){alert('上传出错');}inp.value='';}
-function renderResolveAttach(){const el=document.getElementById('resolveAttachList');if(!el)return;el.innerHTML=_resolveAttachments.map((a,i)=>{var isImg=isImgUrl(a.url);return `<div class="attach-item">${isImg?`<a href="#" onclick="previewImg('${a.url}');return false">${esc(a.filename||a.url)}</a>`:`<a href="${a.url}" target="_blank">${esc(a.filename||a.url)}</a>`}<span class="del-att" onclick="removeResolveAttach(${i})">&times;</span></div>`;}).join('');}
+function renderResolveAttach(){const el=document.getElementById('resolveAttachList');if(!el)return;el.innerHTML=_resolveAttachments.map((a,i)=>{var isImg=isImgUrl(a.url);var fn=esc(a.filename||a.url);return `<div class="attach-item">${isImg?`<img data-img="${a.url}" src="${a.url}" style="max-width:80px;max-height:60px;border-radius:3px;cursor:pointer;object-fit:cover;vertical-align:middle" onclick="previewImg('${a.url}')" title="${fn}"><a href="${a.url}" download="${fn}" title="下载" style="margin-left:4px;color:#2D4A3E;font-size:.7rem"><i class="fa-solid fa-download"></i></a>`:`<a href="${a.url}" target="_blank" download="${fn}"><i class="fa-solid fa-file" style="margin-right:2px"></i>${fn}</a>`}<span class="del-att" onclick="removeResolveAttach(${i})">&times;</span></div>`;}).join('');}
 function removeResolveAttach(i){_resolveAttachments.splice(i,1);renderResolveAttach();}
 async function uploadResolveAttachment(){const inp=document.getElementById('resolveAttachInput');if(!inp.files.length)return;const fd=new FormData();fd.append('file',inp.files[0]);try{const r=await fetch(API+'/issues/upload',{method:'POST',body:fd});const d=await r.json();if(d.success){_resolveAttachments.push({url:d.url,filename:d.filename});renderResolveAttach();}else alert(d.message||'上传失败');}catch(e){alert('上传出错');}inp.value='';}
 
@@ -469,7 +470,7 @@ function openView(id){
   `;
   // Render attachments as read-only links (no delete buttons)
   const avl=document.getElementById('attachViewList');
-  if(avl)avl.innerHTML=_attachments.map(a=>{var isImg=isImgUrl(a.url);return `<div class="attach-item">${isImg?`<a href="#" onclick="previewImg('${a.url}');return false">${esc(a.filename||a.url)}</a>`:`<a href="${a.url}" target="_blank">${esc(a.filename||a.url)}</a>`}</div>`;}).join('');
+  if(avl)avl.innerHTML=_attachments.map(a=>{var isImg=isImgUrl(a.url);var fn=esc(a.filename||a.url);return `<div class="attach-item">${isImg?`<img data-img="${a.url}" src="${a.url}" style="max-width:80px;max-height:60px;border-radius:3px;cursor:pointer;object-fit:cover;vertical-align:middle" onclick="previewImg('${a.url}')" title="${fn}"><a href="${a.url}" download="${fn}" title="下载" style="margin-left:4px;color:#2D4A3E;font-size:.7rem"><i class="fa-solid fa-download"></i></a>`:`<a href="${a.url}" target="_blank" download="${fn}"><i class="fa-solid fa-file" style="margin-right:2px"></i>${fn}</a>`}</div>`;}).join('');
   // Hide save button
   document.querySelector('.dialog-actions .btn-save').style.display='none';
   document.getElementById('dlgOverlay').classList.add('active');
