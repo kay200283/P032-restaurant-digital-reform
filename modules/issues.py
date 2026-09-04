@@ -40,7 +40,9 @@ def api_issues_list():
     rows = conn.execute('''SELECT id, title, detail, case_type, reporter, found_date, location,
         is_common, priority, status, resolve_date, solution, impact, assignee, photo, days_open,
         expected_resolve_date, assessed_at, improving_at,
+        expected_resolve_date, assessed_at, improving_at,
         attachments, resolve_attachments,
+        need_sop, sop_task_id,
         created_at, updated_at FROM issues ORDER BY id ASC''').fetchall()
     conn.close()
     data = []
@@ -58,7 +60,9 @@ def api_issues_get(issue_id):
     conn = get_db()
     r = conn.execute('''SELECT id, title, detail, case_type, reporter, found_date, location,
         is_common, priority, status, resolve_date, solution, impact, assignee, photo, days_open,
+        expected_resolve_date, assessed_at, improving_at,
         attachments, resolve_attachments,
+        need_sop, sop_task_id,
         created_at, updated_at FROM issues WHERE id=?''', (issue_id,)).fetchone()
     conn.close()
     if not r:
@@ -82,6 +86,7 @@ def api_issues_create():
     cursor = conn.cursor()
     cursor.execute('''INSERT INTO issues (title, detail, case_type, reporter, found_date, location,
         is_common, priority, status, resolve_date, solution, impact, assignee, photo, days_open,
+        expected_resolve_date, assessed_at, improving_at,
         attachments)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
         (title, body.get('detail',''), body.get('case_type',''), body.get('reporter',''),
@@ -111,7 +116,7 @@ def api_issues_update(issue_id):
         location=?, is_common=?, priority=?, status=?, resolve_date=?, solution=?,
         impact=?, assignee=?, photo=?, days_open=?, expected_resolve_date=?,
         assessed_at=?, improving_at=?, attachments=?, resolve_attachments=?,
-        need_sop=?, updated_at=datetime('now','localtime')
+        need_sop=?, sop_task_id=?, updated_at=datetime('now','localtime')
         WHERE id=?''',
         (body.get('title',r['title']), body.get('detail',r['detail']), body.get('case_type',r['case_type']),
          body.get('reporter',r['reporter']), found_date, body.get('location',r['location']),
@@ -124,10 +129,80 @@ def api_issues_update(issue_id):
          body.get('attachments', r['attachments'] or ''),
          body.get('resolve_attachments', r['resolve_attachments'] or ''),
          body.get('need_sop', r['need_sop'] or ''),
+         body.get('sop_task_id', r['sop_task_id']),
          issue_id))
     conn.commit()
     conn.close()
     return jsonify({'success': True})
+
+
+
+def _gen_task_no(conn):
+    """Generate task number: WK+yyyyMMdd-NNN"""
+    today = datetime.now().strftime('%Y%m%d')
+    prefix = 'WK' + today + '-'
+    row = conn.execute(
+        'SELECT task_no FROM tasks WHERE task_no LIKE ? ORDER BY task_no DESC LIMIT 1',
+        (prefix + '%',)
+    ).fetchone()
+    if row and row['task_no']:
+        seq = int(row['task_no'].split('-')[-1]) + 1
+    else:
+        seq = 1
+    return prefix + str(seq).zfill(3)
+
+@issues_bp.route('/api/issues/<int:issue_id>/create-sop-task', methods=['POST'])
+@login_required
+def api_issues_create_sop_task(issue_id):
+    """为问题创建SOP任务，同步回写sop_task_id"""
+    body = request.get_json()
+    conn = get_db()
+    try:
+        issue = conn.execute('SELECT id, title, status, sop_task_id FROM issues WHERE id=?', (issue_id,)).fetchone()
+        if not issue:
+            conn.close()
+            return jsonify({'success': False, 'message': '问题不存在'}), 404
+        if issue['sop_task_id']:
+            conn.close()
+            return jsonify({'success': False, 'message': '该问题已关联SOP任务'}), 400
+
+        task_no = _gen_task_no(conn)
+
+        cur = conn.execute("""INSERT INTO tasks (title, executor_id, description, materials_json,
+                              estimated_minutes, expected_end, status, created_by, task_no, start_time,
+                              related_issue_id, is_sop)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (body.get('title', 'SOP: ' + (issue['title'] or '')),
+             body.get('executor_id'),
+             body.get('description', ''),
+             body.get('materials_json', ''),
+             body.get('estimated_minutes', 30),
+             body.get('expected_end'),
+             'pending',
+             session.get('user_id'),
+             task_no,
+             body.get('start_time'),
+             issue_id,
+             1))
+        task_id = cur.lastrowid
+
+        try:
+            from modules.work_mgmt import _book_task_instance
+            _book_task_instance(task_id, conn, confirmed_slot=body.get('confirmed_slot'))
+        except Exception:
+            pass
+
+        conn.execute('UPDATE issues SET sop_task_id=?, need_sop=?, updated_at=datetime("now","localtime") WHERE id=?',
+                     (task_id, '是', issue_id))
+        conn.commit()
+
+        return jsonify({'success': True, 'task_id': task_id, 'task_no': task_no})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
+    finally:
+        conn.close()
+
 
 @issues_bp.route('/api/issues/<int:issue_id>', methods=['DELETE'])
 @login_required
