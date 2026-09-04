@@ -44,7 +44,6 @@ def api_issues_list():
         attachments, resolve_attachments,
         need_sop, sop_task_id,
         created_at, updated_at FROM issues ORDER BY id ASC''').fetchall()
-    conn.close()
     data = []
     for r in rows:
         d = dict(r)
@@ -58,6 +57,7 @@ def api_issues_list():
         if d['status'] not in ('已解决','已关闭'):
             d['days_open'] = _calc_days_open(d['found_date'], d['resolve_date'], d['status'])
         data.append(d)
+    conn.close()
     return jsonify({'success': True, 'data': data})
 
 @issues_bp.route('/api/issues/<int:issue_id>', methods=['GET'])
@@ -70,8 +70,8 @@ def api_issues_get(issue_id):
         attachments, resolve_attachments,
         need_sop, sop_task_id,
         created_at, updated_at FROM issues WHERE id=?''', (issue_id,)).fetchone()
-    conn.close()
     if not r:
+        conn.close()
         return jsonify({'success': False, 'message': '不存在'}), 404
     d = dict(r)
     d['issue_id'] = 'ISS-{:06d}'.format(d['id'])
@@ -80,6 +80,7 @@ def api_issues_get(issue_id):
         d['sop_task_no'] = t['task_no'] if t else ''
     else:
         d['sop_task_no'] = ''
+    conn.close()
     return jsonify({'success': True, 'data': d})
 
 @issues_bp.route('/api/issues', methods=['POST'])
