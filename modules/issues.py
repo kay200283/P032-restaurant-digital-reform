@@ -100,11 +100,12 @@ def api_issues_create():
         is_common, priority, status, resolve_date, solution, impact, assignee, photo, days_open,
         expected_resolve_date, assessed_at, improving_at,
         attachments)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
         (title, body.get('detail',''), body.get('case_type',''), body.get('reporter',''),
          found_date, body.get('location',''), int(body.get('is_common',0)),
          body.get('priority','中'), status, resolve_date, body.get('solution',''),
          body.get('impact',''), body.get('assignee',''), body.get('photo',''), days_open,
+         body.get('expected_resolve_date',''), body.get('assessed_at',''), body.get('improving_at',''),
          body.get('attachments','')))
     new_id = cursor.lastrowid
     conn.commit()

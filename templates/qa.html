@@ -36,8 +36,8 @@
 .act-btn.btn-del{background:#fef0f0;color:#F56C6C;}
 .act-btn:hover{opacity:0.8;}
 /* 弹窗 */
-.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.45);z-index:1000;justify-content:center;align-items:center;}
-.modal-overlay.show{display:flex;}
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.45);z-index:1000;display:flex;justify-content:center;align-items:center;}
+.modal-overlay.active{opacity:1;visibility:visible;}
 .modal-box{background:#fff;border-radius:6px;width:720px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.15);padding:24px;position:relative;}
 .modal-close{position:absolute;top:12px;right:14px;font-size:1.2rem;cursor:pointer;color:#8C8C8C;border:none;background:none;}
 .modal-close:hover{color:#2D4A3E;}
@@ -63,7 +63,7 @@
 .btn-secondary:hover{background:#e0e0e0;}
 /* 图片预览 */
 .img-preview-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:2000;justify-content:center;align-items:center;cursor:zoom-out;}
-.img-preview-overlay.show{display:flex;}
+.img-preview-overlay.active{opacity:1;visibility:visible;}
 .img-preview-overlay img{max-width:90vw;max-height:90vh;object-fit:contain;}
 /* 版本历史 */
 .ver-timeline{margin-top:12px;border-left:2px solid #e8f0ed;padding-left:14px;}
@@ -183,7 +183,7 @@
 </div>
 
 <!-- 图片大图预览 -->
-<div class="img-preview-overlay" id="imgPreviewOverlay" onclick="this.classList.remove('show')">
+<div class="img-preview-overlay" id="imgPreviewOverlay" onclick="this.classList.remove('active')">
   <img id="imgPreviewSrc" src="">
 </div>
 
@@ -270,7 +270,7 @@ function openCreateModal(){
   document.getElementById('fAttList').innerHTML='';
   document.getElementById('fImgFile').value='';
   document.getElementById('fAttFile').value='';
-  document.getElementById('editOverlay').classList.add('show');
+  document.getElementById('editOverlay').classList.add('active');
 }
 
 async function openEditModal(id){
@@ -296,7 +296,7 @@ async function openEditModal(id){
   renderExistingAttachments();
   document.getElementById('fImgFile').value='';
   document.getElementById('fAttFile').value='';
-  document.getElementById('editOverlay').classList.add('show');
+  document.getElementById('editOverlay').classList.add('active');
 }
 
 function renderExistingAttachments(){
@@ -315,7 +315,7 @@ function renderExistingAttachments(){
 }
 
 function closeEditModal(){
-  document.getElementById('editOverlay').classList.remove('show');
+  document.getElementById('editOverlay').classList.remove('active');
 }
 
 // ====== 文件上传 ======
@@ -352,7 +352,7 @@ async function handleAttFileSelect(input){
 
 // ====== Ctrl+V 粘贴 ======
 document.addEventListener('paste', async function(e){
-  if(!document.getElementById('editOverlay').classList.contains('show')) return;
+  if(!document.getElementById('editOverlay').classList.contains('active')) return;
   const items = (e.clipboardData||e.originalEvent.clipboardData).items;
   for(const item of items){
     if(item.type.indexOf('image')===-1) continue;
@@ -417,12 +417,13 @@ async function saveQA(){
 // ====== 图片大图 ======
 function previewImg(src){
   document.getElementById('imgPreviewSrc').src = src;
-  document.getElementById('imgPreviewOverlay').classList.add('show');
+  document.getElementById('imgPreviewOverlay').classList.add('active');
 }
 
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 // ====== 初始化 ======
-loadList();
+window.onerror = function(msg, url, line) { console.error("JS Error:", msg, line); };
+loadList().catch(e => console.error("loadList error:", e));
 </script>
 {% endblock %}
