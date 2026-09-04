@@ -1,0 +1,428 @@
+{% extends "base.html" %}
+{% block title %}QA管理 - 餐厅数字化改革{% endblock %}
+{% block extra_css %}
+<style>
+.qa-top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
+.qa-top-bar h2{font-size:1.15rem;font-weight:700;color:#2D4A3E;margin:0;}
+.qa-desc{font-size:0.78rem;color:#8C8C8C;line-height:1.5;margin-bottom:16px;padding:8px 12px;background:#f8f9fa;border-radius:4px;border-left:3px solid #2D4A3E;}
+.qa-stats{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
+.qa-stat-item{padding:6px 14px;border-radius:4px;font-size:0.78rem;font-weight:600;display:flex;align-items:center;gap:4px;}
+.qa-stat-item.st-草稿{background:#f0f0f0;color:#8C8C8C;}
+.qa-stat-item.st-待审核{background:#fdf6ec;color:#E6A23C;}
+.qa-stat-item.st-生效{background:#e8f0ed;color:#2D4A3E;}
+.qa-stat-item.st-停用{background:#fef0f0;color:#F56C6C;}
+.qa-filter-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;}
+.qa-filter-bar select,.qa-filter-bar input{padding:5px 10px;font-size:0.78rem;border:1px solid #d9d9d9;border-radius:4px;outline:none;}
+.qa-filter-bar input:focus,.qa-filter-bar select:focus{border-color:#2D4A3E;}
+.qa-table{width:100%;border-collapse:collapse;font-size:0.78rem;}
+.qa-table th{background:#2D4A3E;color:#fff;padding:8px 6px;text-align:left;font-weight:500;white-space:nowrap;}
+.qa-table td{padding:7px 6px;border-bottom:1px solid #f0f0f0;vertical-align:middle;}
+.qa-table tr:hover td{background:#f8f9fa;}
+.qa-table .qa-no{font-weight:600;color:#2D4A3E;font-family:'Space Grotesk',monospace;}
+.qa-table .qa-q{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.status-tag{display:inline-block;padding:2px 8px;border-radius:3px;font-size:0.7rem;font-weight:600;}
+.status-tag.st-草稿{background:#f0f0f0;color:#8C8C8C;}
+.status-tag.st-待审核{background:#fdf6ec;color:#E6A23C;}
+.status-tag.st-生效{background:#e8f0ed;color:#2D4A3E;}
+.status-tag.st-停用{background:#fef0f0;color:#F56C6C;}
+.kw-tag{display:inline-block;padding:1px 6px;border-radius:2px;font-size:0.65rem;background:#e8f0ed;color:#2D4A3E;margin:1px;}
+.act-btn{padding:2px 8px;font-size:0.68rem;border:none;border-radius:3px;cursor:pointer;margin:0 2px;font-weight:500;}
+.act-btn.btn-edit{background:#e8f0ed;color:#2D4A3E;}
+.act-btn.btn-submit{background:#fdf6ec;color:#E6A23C;}
+.act-btn.btn-approve{background:#2D4A3E;color:#fff;}
+.act-btn.btn-reject{background:#f0f0f0;color:#8C8C8C;}
+.act-btn.btn-disable{background:#fef0f0;color:#F56C6C;}
+.act-btn.btn-reenable{background:#e8f0ed;color:#2D4A3E;}
+.act-btn.btn-del{background:#fef0f0;color:#F56C6C;}
+.act-btn:hover{opacity:0.8;}
+/* 弹窗 */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.45);z-index:1000;justify-content:center;align-items:center;}
+.modal-overlay.show{display:flex;}
+.modal-box{background:#fff;border-radius:6px;width:720px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.15);padding:24px;position:relative;}
+.modal-close{position:absolute;top:12px;right:14px;font-size:1.2rem;cursor:pointer;color:#8C8C8C;border:none;background:none;}
+.modal-close:hover{color:#2D4A3E;}
+.modal-title{font-size:1.05rem;font-weight:700;color:#2D4A3E;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #2D4A3E;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;}
+.form-grid .full{grid-column:1/-1;}
+.form-label{font-size:0.75rem;font-weight:600;color:#333;margin-bottom:3px;display:block;}
+.form-label .req{color:#F56C6C;margin-left:2px;}
+.form-input,.form-textarea,.form-select{width:100%;padding:6px 10px;font-size:0.78rem;border:1px solid #d9d9d9;border-radius:4px;outline:none;}
+.form-input:focus,.form-textarea:focus{border-color:#2D4A3E;}
+.form-textarea{min-height:80px;resize:vertical;line-height:1.5;}
+.paste-hint{font-size:0.68rem;color:#8C8C8C;margin-top:2px;}
+.img-previews{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.img-previews img{max-width:80px;max-height:60px;border-radius:3px;cursor:pointer;object-fit:cover;border:1px solid #eee;}
+.file-list{margin-top:6px;}
+.file-item{display:flex;align-items:center;gap:4px;font-size:0.72rem;margin-bottom:2px;}
+.file-item a{color:#2D4A3E;text-decoration:none;}
+.file-item a:hover{text-decoration:underline;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:12px;border-top:1px solid #f0f0f0;}
+.btn-primary{padding:7px 20px;font-size:0.78rem;background:#2D4A3E;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;}
+.btn-primary:hover{background:#3d6354;}
+.btn-secondary{padding:7px 20px;font-size:0.78rem;background:#f0f0f0;color:#333;border:none;border-radius:4px;cursor:pointer;}
+.btn-secondary:hover{background:#e0e0e0;}
+/* 图片预览 */
+.img-preview-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:2000;justify-content:center;align-items:center;cursor:zoom-out;}
+.img-preview-overlay.show{display:flex;}
+.img-preview-overlay img{max-width:90vw;max-height:90vh;object-fit:contain;}
+/* 版本历史 */
+.ver-timeline{margin-top:12px;border-left:2px solid #e8f0ed;padding-left:14px;}
+.ver-item{margin-bottom:10px;position:relative;}
+.ver-item::before{content:'';position:absolute;left:-18px;top:4px;width:10px;height:10px;border-radius:50%;background:#2D4A3E;border:2px solid #fff;}
+.ver-item .ver-no{font-weight:600;color:#2D4A3E;font-size:0.75rem;}
+.ver-item .ver-meta{font-size:0.68rem;color:#8C8C8C;}
+.ver-item .ver-note{font-size:0.72rem;color:#333;margin-top:2px;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding:16px;">
+  <div class="qa-top-bar">
+    <h2><i class="fa-solid fa-clipboard-question" style="margin-right:6px;"></i>QA管理</h2>
+    <button class="btn-primary" onclick="openCreateModal()"><i class="fa-solid fa-plus" style="margin-right:4px;"></i>新建QA</button>
+  </div>
+  <div class="qa-desc">
+    <strong>QA管理</strong> — 轻量知识问答基准：单条Q&A对，一问一答，适用于快速查阅的碎片化知识（操作要点、常见问题解答、参数标准、判定依据等）。建立门槛低，适合高频日常查询，未来可直接喂入AI做智能问答。
+  </div>
+  <div class="qa-stats" id="statsBar"></div>
+  <div class="qa-filter-bar">
+    <select id="filterStatus" onchange="loadList()">
+      <option value="">全部状态</option>
+      <option value="草稿">草稿</option>
+      <option value="待审核">待审核</option>
+      <option value="生效">生效</option>
+      <option value="停用">停用</option>
+    </select>
+    <input type="text" id="filterKw" placeholder="搜索关键词/编号" style="width:180px;" onkeydown="if(event.key==='Enter')loadList()">
+    <button class="btn-secondary" onclick="loadList()" style="padding:5px 12px;font-size:0.72rem;"><i class="fa-solid fa-search"></i></button>
+  </div>
+  <table class="qa-table">
+    <thead>
+      <tr>
+        <th style="width:90px;">编码</th>
+        <th>一级分类</th>
+        <th>二级分类</th>
+        <th>三级分类</th>
+        <th>四级分类</th>
+        <th>问题</th>
+        <th>编制人</th>
+        <th>版本</th>
+        <th>状态</th>
+        <th>关键词</th>
+        <th style="width:140px;">操作</th>
+      </tr>
+    </thead>
+    <tbody id="listBody"></tbody>
+  </table>
+</div>
+
+<!-- 新建/编辑弹窗 -->
+<div class="modal-overlay" id="editOverlay">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeEditModal()">&times;</button>
+    <div class="modal-title" id="editTitle">新建QA</div>
+    <div class="form-grid">
+      <div>
+        <label class="form-label">一级分类</label>
+        <input type="text" class="form-input" id="fCat1" placeholder="填写一级分类">
+      </div>
+      <div>
+        <label class="form-label">二级分类</label>
+        <input type="text" class="form-input" id="fCat2" placeholder="填写二级分类">
+      </div>
+      <div>
+        <label class="form-label">三级分类</label>
+        <input type="text" class="form-input" id="fCat3" placeholder="填写三级分类">
+      </div>
+      <div>
+        <label class="form-label">四级分类</label>
+        <input type="text" class="form-input" id="fCat4" placeholder="填写四级分类">
+      </div>
+      <div class="full">
+        <label class="form-label">Q 问题<span class="req">*</span></label>
+        <textarea class="form-textarea" id="fQuestion" rows="3" placeholder="输入问题"></textarea>
+      </div>
+      <div class="full">
+        <label class="form-label">A 答案</label>
+        <textarea class="form-textarea" id="fAnswer" rows="5" placeholder="输入答案"></textarea>
+      </div>
+      <div class="full">
+        <label class="form-label"><i class="fa-solid fa-image" style="margin-right:3px;"></i>附图（支持Ctrl+V粘贴）</label>
+        <input type="file" id="fImgFile" accept="image/*" multiple style="font-size:0.72rem;" onchange="handleImgFileSelect(this)">
+        <div class="paste-hint">Ctrl+V 粘贴截图</div>
+        <div class="img-previews" id="fImgPreviews"></div>
+      </div>
+      <div class="full">
+        <label class="form-label"><i class="fa-solid fa-paperclip" style="margin-right:3px;"></i>附件</label>
+        <input type="file" id="fAttFile" multiple style="font-size:0.72rem;" onchange="handleAttFileSelect(this)">
+        <div class="file-list" id="fAttList"></div>
+      </div>
+      <div class="full">
+        <label class="form-label">手动补充关键词（逗号分隔）</label>
+        <input type="text" class="form-input" id="fManualKw" placeholder="补充关键词，逗号分隔">
+      </div>
+      <div class="full" id="fChangeNoteRow" style="display:none;">
+        <label class="form-label">更新说明<span class="req">*</span></label>
+        <textarea class="form-textarea" id="fChangeNote" rows="2" placeholder="本次更新说明"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeEditModal()">取消</button>
+      <button class="btn-primary" id="fSaveBtn" onclick="saveQA()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 详情弹窗 -->
+<div class="modal-overlay" id="detailOverlay">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+    <div class="modal-title" id="detailTitle"></div>
+    <div id="detailContent"></div>
+  </div>
+</div>
+
+<!-- 图片大图预览 -->
+<div class="img-preview-overlay" id="imgPreviewOverlay" onclick="this.classList.remove('show')">
+  <img id="imgPreviewSrc" src="">
+</div>
+
+<script>
+const API = '/qa/api/qa';
+let _all = [];
+let _editingId = null;
+let _pendingImgs = []; // [{file, url, uploading}]
+let _pendingAtts = []; // [{file, uploading}]
+let _currentAttachments = []; // existing attachments for editing
+
+// ====== 列表 ======
+async function loadList(){
+  const status = document.getElementById('filterStatus').value;
+  const kw = document.getElementById('filterKw').value.trim();
+  let url = API + '?';
+  if(status) url += 'status='+encodeURIComponent(status)+'&';
+  if(kw) url += 'keyword='+encodeURIComponent(kw)+'&';
+  const res = await fetch(url);
+  _all = await res.json();
+  renderList();
+  loadStats();
+}
+
+function renderList(){
+  const tb = document.getElementById('listBody');
+  if(!_all.length){ tb.innerHTML='<tr><td colspan="11" style="text-align:center;color:#8C8C8C;padding:24px;">暂无数据</td></tr>'; return; }
+  tb.innerHTML = _all.map(i => {
+    const kwHtml = (i.all_keywords||[]).map(k=>`<span class="kw-tag">${esc(k)}</span>`).join('');
+    const stTag = `<span class="status-tag st-${i.status}">${i.status}</span>`;
+    let acts = '';
+    if(i.status==='草稿') acts=`<button class="act-btn btn-edit" onclick="openEditModal(${i.id})">编辑</button><button class="act-btn btn-submit" onclick="doAction(${i.id},'submit')">提交审核</button><button class="act-btn btn-del" onclick="doDelete(${i.id})">删除</button>`;
+    else if(i.status==='待审核') acts=`<button class="act-btn btn-reject" onclick="doAction(${i.id},'reject')">退回</button><button class="act-btn btn-approve" onclick="doAction(${i.id},'approve')">通过</button>`;
+    else if(i.status==='生效') acts=`<button class="act-btn btn-edit" onclick="openEditModal(${i.id})">编辑</button><button class="act-btn btn-disable" onclick="doAction(${i.id},'disable')">停用</button>`;
+    else if(i.status==='停用') acts=`<button class="act-btn btn-reenable" onclick="doAction(${i.id},'reenable')">重新启用</button>`;
+    return `<tr>
+      <td class="qa-no">${esc(i.qa_no)}</td>
+      <td>${esc(i.cat1)}</td><td>${esc(i.cat2)}</td><td>${esc(i.cat3)}</td><td>${esc(i.cat4)}</td>
+      <td class="qa-q" title="${esc(i.question)}">${esc(i.question)}</td>
+      <td>${esc(i.author)}</td>
+      <td style="font-family:'Space Grotesk',monospace;">V${i.version}</td>
+      <td>${stTag}</td>
+      <td>${kwHtml}</td>
+      <td>${acts}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadStats(){
+  const res = await fetch(API+'/stats');
+  const d = await res.json();
+  const bar = document.getElementById('statsBar');
+  const labels = {'草稿':'草稿','待审核':'待审核','生效':'生效','停用':'停用'};
+  bar.innerHTML = Object.entries(labels).map(([k,v])=>{
+    const cnt = d.status[k]||0;
+    return `<div class="qa-stat-item st-${k}">${v}: ${cnt}</div>`;
+  }).join('');
+}
+
+// ====== 操作 ======
+async function doAction(id, action){
+  const res = await fetch(API+'/'+id, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action})});
+  const d = await res.json();
+  if(d.success) loadList(); else alert(d.message||'操作失败');
+}
+
+async function doDelete(id){
+  if(!confirm('确认删除此QA？')) return;
+  const res = await fetch(API+'/'+id, {method:'DELETE'});
+  const d = await res.json();
+  if(d.success) loadList(); else alert(d.message||'删除失败');
+}
+
+// ====== 新建/编辑弹窗 ======
+function openCreateModal(){
+  _editingId = null;
+  _pendingImgs = [];
+  _pendingAtts = [];
+  _currentAttachments = [];
+  document.getElementById('editTitle').textContent = '新建QA';
+  document.getElementById('fChangeNoteRow').style.display = 'none';
+  ['fCat1','fCat2','fCat3','fCat4','fQuestion','fAnswer','fManualKw','fChangeNote'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fImgPreviews').innerHTML='';
+  document.getElementById('fAttList').innerHTML='';
+  document.getElementById('fImgFile').value='';
+  document.getElementById('fAttFile').value='';
+  document.getElementById('editOverlay').classList.add('show');
+}
+
+async function openEditModal(id){
+  const res = await fetch(API+'/'+id);
+  const d = await res.json();
+  if(!d.qa_no){alert('未找到');return;}
+  _editingId = id;
+  _pendingImgs = [];
+  _pendingAtts = [];
+  _currentAttachments = d.attachments_list || [];
+  document.getElementById('editTitle').textContent = '编辑 ' + d.qa_no;
+  document.getElementById('fCat1').value = d.cat1||'';
+  document.getElementById('fCat2').value = d.cat2||'';
+  document.getElementById('fCat3').value = d.cat3||'';
+  document.getElementById('fCat4').value = d.cat4||'';
+  document.getElementById('fQuestion').value = d.question||'';
+  document.getElementById('fAnswer').value = d.answer||'';
+  document.getElementById('fManualKw').value = d.manual_keywords||'';
+  document.getElementById('fChangeNote').value = '';
+  // 显示更新说明行(编辑已存在记录)
+  document.getElementById('fChangeNoteRow').style.display = 'block';
+  // 渲染已有附件
+  renderExistingAttachments();
+  document.getElementById('fImgFile').value='';
+  document.getElementById('fAttFile').value='';
+  document.getElementById('editOverlay').classList.add('show');
+}
+
+function renderExistingAttachments(){
+  const imgDiv = document.getElementById('fImgPreviews');
+  const attDiv = document.getElementById('fAttList');
+  imgDiv.innerHTML = '';
+  attDiv.innerHTML = '';
+  _currentAttachments.forEach(a => {
+    const url = '/uploads/'+a.filepath;
+    if(a.is_image){
+      imgDiv.innerHTML += `<img src="${url}" data-img="${url}" class="snap-attach-img" title="${esc(a.filename)}" onclick="previewImg('${url}')">`;
+    } else {
+      attDiv.innerHTML += `<div class="file-item"><a href="${url}" download="${esc(a.filename)}"><i class="fa-solid fa-file" style="margin-right:3px;"></i>${esc(a.filename)}</a></div>`;
+    }
+  });
+}
+
+function closeEditModal(){
+  document.getElementById('editOverlay').classList.remove('show');
+}
+
+// ====== 文件上传 ======
+async function uploadFile(file){
+  const fd = new FormData();
+  fd.append('file', file);
+  const res = await fetch(API+'/upload', {method:'POST', body:fd});
+  return await res.json();
+}
+
+async function handleImgFileSelect(input){
+  for(const file of input.files){
+    const d = await uploadFile(file);
+    if(d.success){
+      _pendingImgs.push({url:d.url, filename:d.filename, is_image:true});
+      const div = document.getElementById('fImgPreviews');
+      div.innerHTML += `<img src="${d.url}" data-img="${d.url}" class="snap-attach-img" title="${esc(d.filename)}" onclick="previewImg('${d.url}')">`;
+    }
+  }
+  input.value='';
+}
+
+async function handleAttFileSelect(input){
+  for(const file of input.files){
+    const d = await uploadFile(file);
+    if(d.success){
+      _pendingAtts.push({url:d.url, filename:d.filename, is_image:false});
+      const div = document.getElementById('fAttList');
+      div.innerHTML += `<div class="file-item"><a href="${d.url}" download="${esc(d.filename)}"><i class="fa-solid fa-file" style="margin-right:3px;"></i>${esc(d.filename)}</a></div>`;
+    }
+  }
+  input.value='';
+}
+
+// ====== Ctrl+V 粘贴 ======
+document.addEventListener('paste', async function(e){
+  if(!document.getElementById('editOverlay').classList.contains('show')) return;
+  const items = (e.clipboardData||e.originalEvent.clipboardData).items;
+  for(const item of items){
+    if(item.type.indexOf('image')===-1) continue;
+    e.preventDefault();
+    const file = item.getAsFile();
+    const d = await uploadFile(file);
+    if(d.success){
+      _pendingImgs.push({url:d.url, filename:d.filename, is_image:true});
+      const div = document.getElementById('fImgPreviews');
+      div.innerHTML += `<img src="${d.url}" data-img="${d.url}" class="snap-attach-img" title="${esc(d.filename)}" onclick="previewImg('${d.url}')">`;
+    }
+  }
+});
+
+// ====== 保存 ======
+async function saveQA(){
+  const question = document.getElementById('fQuestion').value.trim();
+  if(!question){alert('问题不能为空');return;}
+  const body = {
+    cat1: document.getElementById('fCat1').value.trim(),
+    cat2: document.getElementById('fCat2').value.trim(),
+    cat3: document.getElementById('fCat3').value.trim(),
+    cat4: document.getElementById('fCat4').value.trim(),
+    question,
+    answer: document.getElementById('fAnswer').value.trim(),
+    manual_keywords: document.getElementById('fManualKw').value.trim(),
+  };
+
+  if(_editingId){
+    // 编辑
+    const changeNote = document.getElementById('fChangeNote').value.trim();
+    body.change_note = changeNote;
+    const res = await fetch(API+'/'+_editingId, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    const d = await res.json();
+    if(!d.success){alert(d.message||'保存失败');return;}
+    // 上传新附件
+    const qaId = _editingId;
+    for(const img of _pendingImgs){
+      await fetch(API+'/'+qaId+'/attachments', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({filename:img.filename,filepath:img.url.replace('/uploads/',''),is_image:1})});
+    }
+    for(const att of _pendingAtts){
+      await fetch(API+'/'+qaId+'/attachments', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({filename:att.filename,filepath:att.url.replace('/uploads/',''),is_image:0})});
+    }
+  } else {
+    // 新建
+    const res = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    const d = await res.json();
+    if(!d.success){alert(d.message||'创建失败');return;}
+    // 上传附件
+    const qaId = d.id;
+    for(const img of _pendingImgs){
+      await fetch(API+'/'+qaId+'/attachments', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({filename:img.filename,filepath:img.url.replace('/uploads/',''),is_image:1})});
+    }
+    for(const att of _pendingAtts){
+      await fetch(API+'/'+qaId+'/attachments', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({filename:att.filename,filepath:att.url.replace('/uploads/',''),is_image:0})});
+    }
+  }
+  closeEditModal();
+  loadList();
+}
+
+// ====== 图片大图 ======
+function previewImg(src){
+  document.getElementById('imgPreviewSrc').src = src;
+  document.getElementById('imgPreviewOverlay').classList.add('show');
+}
+
+function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ====== 初始化 ======
+loadList();
+</script>
+{% endblock %}

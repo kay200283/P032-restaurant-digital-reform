@@ -53,6 +53,15 @@
                     </a>
                 </div>
                 <div class="nav-section">
+                    <div class="nav-section-title">基准管理</div>
+                    <a href="/qa" class="nav-item {% if request.path == '/qa' %}active{% endif %}">
+                        <i class="fa-solid fa-clipboard-question"></i><span>QA管理</span>
+                    </a>
+                    <a href="/qa" class="nav-item" style="color:#8C8C8C;pointer-events:none;">
+                        <i class="fa-solid fa-list-ol"></i><span>SOP管理</span><small style="font-size:0.6rem;margin-left:4px;">待开发</small>
+                    </a>
+                </div>
+                <div class="nav-section">
                     <div class="nav-section-title">系统</div>
                     <a href="/system" class="nav-item {% if request.path == '/system' %}active{% endif %}">
                         <i class="fa-solid fa-gear"></i><span>账号管理</span>

@@ -209,6 +209,63 @@ def init_database():
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_issues_case_type ON issues(case_type)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_issues_assignee ON issues(assignee)')
 
+    # ============ QA管理 ============
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS qa_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            qa_no TEXT UNIQUE NOT NULL,
+            cat1 TEXT DEFAULT '',
+            cat2 TEXT DEFAULT '',
+            cat3 TEXT DEFAULT '',
+            cat4 TEXT DEFAULT '',
+            question TEXT NOT NULL,
+            answer TEXT DEFAULT '',
+            images TEXT DEFAULT '',
+            attachments TEXT DEFAULT '',
+            author TEXT DEFAULT '',
+            author_id INTEGER,
+            version INTEGER DEFAULT 1,
+            status TEXT DEFAULT '草稿',
+            keywords TEXT DEFAULT '',
+            manual_keywords TEXT DEFAULT '',
+            related_sop TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now','localtime')),
+            updated_at TEXT DEFAULT (datetime('now','localtime'))
+        )
+    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_qa_no ON qa_items(qa_no)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_qa_status ON qa_items(status)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_qa_cat1 ON qa_items(cat1)')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS qa_versions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            qa_id INTEGER NOT NULL REFERENCES qa_items(id) ON DELETE CASCADE,
+            version INTEGER NOT NULL,
+            question TEXT,
+            answer TEXT,
+            images TEXT,
+            attachments TEXT,
+            change_note TEXT DEFAULT '',
+            author TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now','localtime'))
+        )
+    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_qav_qa_id ON qa_versions(qa_id)')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS qa_attachments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            qa_id INTEGER NOT NULL REFERENCES qa_items(id) ON DELETE CASCADE,
+            filename TEXT NOT NULL,
+            filepath TEXT NOT NULL,
+            file_type TEXT DEFAULT '',
+            file_size INTEGER DEFAULT 0,
+            is_image INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now','localtime'))
+        )
+    ''')
+
     admin = cursor.execute('SELECT 1 FROM users WHERE username = ?', ('admin',)).fetchone()
     if not admin:
         pw_hash = hashlib.sha256('admin123'.encode()).hexdigest()
