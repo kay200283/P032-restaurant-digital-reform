@@ -39,6 +39,9 @@
             <nav class="sidebar-nav">
                 <div class="nav-section">
                     <div class="nav-section-title">工作管理</div>
+                    <a href="/work-mgmt/gantt" class="nav-item {% if request.path == '/work-mgmt/gantt' %}active{% endif %}">
+                        <i class="fa-solid fa-chart-gantt"></i><span>系统开发日程</span>
+                    </a>
                     <a href="/work-mgmt/calendar" class="nav-item {% if request.path == '/work-mgmt/calendar' %}active{% endif %}">
                         <i class="fa-solid fa-calendar-days"></i><span>日程管理</span>
                     </a>
