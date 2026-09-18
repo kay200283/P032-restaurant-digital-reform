@@ -33,7 +33,7 @@
     font-size:14px;
     line-height:1.6;
   }
-  .app{max-width:1480px;margin:0 auto;padding:24px 20px 48px;}
+  .app{max-width:1200px;margin:0 auto;padding:24px 20px 48px;}
 
   header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:20px;}
   header.top h1{font-size:22px;margin:0;letter-spacing:.5px;}
@@ -98,7 +98,7 @@
   .gantt-layout{display:flex;border:1px solid var(--line);border-radius:8px;background:#fff;overflow:visible;padding-bottom:17px;}
   .gantt-fixed{flex-shrink:0;display:grid;grid-template-columns:var(--mod-w) var(--proj-w);background:#fff;z-index:10;position:relative;}
   .gantt-scroll{flex:1;overflow-x:auto;min-width:0;margin-bottom:-17px;}
-  .gantt-timeline{display:flex;flex-direction:column;min-width:calc(var(--mod-w) + var(--proj-w) + var(--n,1)*80px);}
+  .gantt-timeline{display:flex;flex-direction:column;min-width:calc(var(--mod-w) + var(--proj-w) + var(--n,1)*65px);}
   
   .gantt-inner{display:grid;grid-template-columns:repeat(var(--n,1),minmax(80px,1fr));}
   .g-corner{
@@ -265,7 +265,6 @@
       <p class="sub" style="font-size:14px;color:var(--ink-2);">模块 → 项目 → 调研/开发/测试/上线，层次分明</p>
     </div>
     <div class="actions">
-      <button class="primary" id="btn-render"><i class="fa-solid fa-link"></i> 生成分享链接</button>
       <button id="btn-theme"><i class="fa-solid fa-palette"></i> 配色：柔和</button>
       <button id="btn-print"><i class="fa-solid fa-print"></i> 打印</button>
       <button id="btn-pdf"><i class="fa-solid fa-file-pdf"></i> 导出PDF</button>
@@ -360,6 +359,19 @@
   <footer>打印时选择「另存为 PDF」即可保存图片版</footer>
 </div>
 
+
+<div id="complete-modal" style="display:none;position:fixed;z-index:1000;inset:0;background:rgba(0,0,0,.35);">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:10px;padding:24px 28px;box-shadow:0 8px 32px rgba(0,0,0,.18);min-width:320px;">
+    <h3 style="margin:0 0 16px;font-size:16px;color:var(--ink);">标注实际完成日期</h3>
+    <p id="complete-task-name" style="margin:0 0 12px;font-size:13px;color:var(--ink-2);"></p>
+    <input type="date" id="complete-date-input" style="width:100%;height:36px;border:1px solid var(--line);border-radius:6px;padding:0 10px;font-size:14px;">
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;">
+      <button id="complete-cancel" style="padding:6px 16px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;font-size:13px;">取消</button>
+      <button id="complete-clear" style="padding:6px 16px;border:1px solid #E0706A;border-radius:6px;background:#fff;color:#E0706A;cursor:pointer;font-size:13px;">清除完成</button>
+      <button id="complete-ok" style="padding:6px 16px;border:none;border-radius:6px;background:var(--brand);color:#fff;cursor:pointer;font-size:13px;">确认</button>
+    </div>
+  </div>
+</div>
 <div id="tooltip" role="tooltip"></div>
 
 {% endblock %}
@@ -489,6 +501,7 @@
       apiGet('/work-mgmt/gantt/api/tasks')
     ]);
     if (modResp.success && projResp.success && taskResp.success) {
+      currentApiTasks = taskResp.data;
       const text = dataToText(modResp.data, projResp.data, taskResp.data);
       if (text) {
         document.getElementById('input').value = text;
@@ -561,6 +574,7 @@
       $formMsg=document.getElementById('form-msg');
   
   var currentModules=[]; // 存储当前解析的模块数据，用于导出
+  var currentApiTasks=[]; // 存储API返回的任务数据（含actual_completion_date）
 
   function esc(s){
     return String(s).replace(/[&<>"']/g, function(c){
@@ -838,6 +852,19 @@
     currentModules=modules; // 保存数据供导出使用
     var all=[];
     modules.forEach(function(m){m.projects.forEach(function(p){p.tasks.forEach(function(t){all.push(t);});});});
+    // Merge actual_completion_date from API data
+    if(currentApiTasks&&currentApiTasks.length){
+      all.forEach(function(t){
+        for(var k=0;k<currentApiTasks.length;k++){
+          var at=currentApiTasks[k];
+          if(at.name===t.name){
+            t.actual_completion_date=at.actual_completion_date;
+            t.id=at.id;
+            break;
+          }
+        }
+      });
+    }
 
     // 表单下拉候选
     var modList=document.getElementById('mod-list');
@@ -926,14 +953,17 @@
         p.tasks.forEach(function(t){
           var idx=all.indexOf(t);
           if(t.milestone){
-            inner+='<div class="ms" data-i="'+idx+'" style="left:'+pct(t.start)+'%"></div>';
+            var msCls='ms'+(t.actual_completion_date?' completed':'');
+            inner+='<div class="'+msCls+'" data-i="'+idx+'" style="left:'+pct(t.start)+'%">'+(t.actual_completion_date?'<i class="fa-solid fa-check bar-check"></i>':'')+'</div>';
             inner+='<span class="ms-label" style="left:'+pct(t.start)+'%;color:'+color.dk+'">'+esc(t.name)+'</span>';
           }else{
             var lp=pct(t.start);
             var wp=dayDiff(t.start,new Date(+t.end+86400000))/totalDays*100;
-            inner+='<div class="bar" data-i="'+idx+'" style="left:'+lp+'%;width:'+wp+'%;'+cv+'">'+
+            var barCls='bar'+(t.actual_completion_date?' completed':'');
+            var barChk=t.actual_completion_date?'<i class="fa-solid fa-check bar-check"></i>':'';
+            inner+='<div class="'+barCls+'" data-i="'+idx+'" style="left:'+lp+'%;width:'+wp+'%;'+cv+'">'+
               (t.progress!=null?'<span class="bar-prog" style="width:'+t.progress+'%"></span>':'')+
-              '<span class="bar-txt">'+esc(t.name)+'</span></div>';
+              '<span class="bar-txt">'+esc(t.name)+'</span>'+barChk+'</div>';
           }
         });
         tracksHtml+='<div class="g-track'+startCls+'" style="background:'+color.fill+'2E">'+inner+'</div>';
@@ -960,6 +990,16 @@
 
     $gantt.querySelectorAll('.bar,.ms').forEach(function(el){
       var t=all[+el.getAttribute('data-i')];
+      el.style.cursor='pointer';
+      el.addEventListener('click',function(e){
+        e.stopPropagation();
+        var modal=document.getElementById('complete-modal');
+        document.getElementById('complete-task-name').textContent=t.name;
+        document.getElementById('complete-date-input').value=t.actual_completion_date||'';
+        modal.style.display='block';
+        modal._taskId=t.id;
+        modal._barEl=el;
+      });
       el.addEventListener('mouseenter',function(){
         var rows;
         if(t.milestone){
@@ -973,6 +1013,7 @@
               '<div class="t-prog-txt">已完成 '+t.progress+'%</div>';
           }
         }
+        if(t.actual_completion_date) rows+='<div style="color:#7FD1B4;font-size:11px;margin-top:4px;">\u2713 实际完成: '+esc(t.actual_completion_date)+'</div>';
         $tooltip.innerHTML=rows;
         $tooltip.style.display='block';
       });
@@ -984,6 +1025,29 @@
       });
       el.addEventListener('mouseleave',function(){$tooltip.style.display='none';});
     });
+
+    // Completion modal handlers
+    var cModal=document.getElementById('complete-modal');
+    if(cModal){
+      document.getElementById('complete-cancel').addEventListener('click',function(){cModal.style.display='none';});
+      document.getElementById('complete-clear').addEventListener('click',function(){
+        if(cModal._taskId){
+          apiPut('/work-mgmt/gantt/api/tasks/'+cModal._taskId+'/complete',{actual_completion_date:null}).then(function(){
+            cModal.style.display='none';loadFromApi().then(function(){render();});
+          });
+        }
+      });
+      document.getElementById('complete-ok').addEventListener('click',function(){
+        var d=document.getElementById('complete-date-input').value;
+        if(!d){alert('请选择日期');return;}
+        if(cModal._taskId){
+          apiPut('/work-mgmt/gantt/api/tasks/'+cModal._taskId+'/complete',{actual_completion_date:d}).then(function(){
+            cModal.style.display='none';loadFromApi().then(function(){render();});
+          });
+        }
+      });
+      cModal.addEventListener('click',function(e){if(e.target===cModal)cModal.style.display='none';});
+    }
 
     // 项目名悬停 → 显示项目方向说明（仅在有说明时）
     document.querySelectorAll('.g-projname').forEach(function(el){
@@ -1100,17 +1164,7 @@
   try{savedTheme=localStorage.getItem('gantt-theme');}catch(e){}
   applyTheme(savedTheme==='vivid'?'vivid':'soft');
 
-    // 生成分享链接功能
-  function generateShareLink(){
-    var text=$input.value.trim();
-    if(!text){alert('请先输入日程内容！');return;}
-    var encoded=btoa(unescape(encodeURIComponent(text)));
-    var baseUrl=window.location.href.split('?')[0];
-    var url=baseUrl+'?data='+encodeURIComponent(encoded);
-    if(navigator.clipboard){
-      navigator.clipboard.writeText(url).then(function(){alert('✅ 分享链接已复制到剪贴板！');}).catch(function(){prompt('请复制以下链接：',url);});
-    }else{prompt('请复制以下链接：',url);}
-  }
+
 
   // 从URL加载数据
   function loadFromURL(){
@@ -1138,13 +1192,10 @@
     if(helpEl)helpEl.style.display='none';
     try{render();}catch(e){console.error('甘特图渲染失败:',e);}
     setTimeout(function(){document.querySelectorAll('.p-actions').forEach(function(el){el.style.display='none';});},200);
-    document.getElementById('btn-render').textContent=' 复制链接';
-    document.getElementById('btn-render').onclick=generateShareLink;
     return true;
   }
 var timer=null;
   $input.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(render,250);});
-  document.getElementById('btn-render').addEventListener('click',generateShareLink);
   document.getElementById('btn-print').addEventListener('click',function(){window.print();});
   document.getElementById('btn-pdf').addEventListener('click',exportToPDF);
   document.getElementById('btn-excel').addEventListener('click',exportToExcel);
@@ -1209,7 +1260,12 @@ var timer=null;
     win.document.write('.g-track{border-color:#E5E9F2 !important;}');
     win.document.write('.g-projname{border-color:#E5E9F2 !important;}');
     win.document.write('*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
-    win.document.write('</style>');
+    win.document.write('
+  .bar.completed{border-right:3px solid #2D4A3E;opacity:0.85;}
+  .bar .bar-check{position:absolute;right:4px;top:50%;transform:translateY(-50%);font-size:11px;color:#fff;opacity:0.9;pointer-events:none;}
+  .ms.completed{border:2px solid #2D4A3E;background:#fff !important;}
+  .ms .bar-check{position:absolute;right:-2px;top:50%;transform:translateY(-50%);font-size:10px;color:#2D4A3E;pointer-events:none;}
+</style>');
     win.document.write('</head><body>');
     win.document.write(ganttLayout.outerHTML);
     win.document.write('</body></html>');

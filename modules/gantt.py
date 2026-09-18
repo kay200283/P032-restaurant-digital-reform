@@ -127,9 +127,10 @@ def api_tasks_update(task_id):
     data = request.get_json()
     conn = get_db()
     conn.execute('''UPDATE gantt_tasks SET project_id=?, name=?, start_date=?, end_date=?, 
-                    is_milestone=?, progress=?, sort_order=?, updated_at=datetime("now","localtime") WHERE id=?''',
+                    is_milestone=?, progress=?, sort_order=?, actual_completion_date=?, updated_at=datetime("now","localtime") WHERE id=?''',
                  (data.get('project_id'), data.get('name', ''), data.get('start_date', ''), data.get('end_date', ''),
-                  data.get('is_milestone', 0), data.get('progress', 0), data.get('sort_order', 0), task_id))
+                  data.get('is_milestone', 0), data.get('progress', 0), data.get('sort_order', 0), 
+                  data.get('actual_completion_date'), task_id))
     conn.commit()
     conn.close()
     return jsonify({'success': True})
@@ -138,6 +139,18 @@ def api_tasks_update(task_id):
 def api_tasks_delete(task_id):
     conn = get_db()
     conn.execute('DELETE FROM gantt_tasks WHERE id=?', (task_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True})
+
+# ========== Task Completion ==========
+@gantt_bp.route('/api/tasks/<int:task_id>/complete', methods=['PUT'])
+def api_tasks_complete(task_id):
+    data = request.get_json()
+    conn = get_db()
+    actual_date = data.get('actual_completion_date')  # null to clear, date string to set
+    conn.execute('UPDATE gantt_tasks SET actual_completion_date=?, progress=?, updated_at=datetime("now","localtime") WHERE id=?',
+                 (actual_date, 100 if actual_date else 0, task_id))
     conn.commit()
     conn.close()
     return jsonify({'success': True})
@@ -193,7 +206,7 @@ def api_export_excel():
     ws = wb.active
     ws.title = '项目进度日程'
     
-    headers = ['模块', '项目', '任务', '开始日期', '结束日期', '里程碑', '进度(%)']
+    headers = ['模块', '项目', '任务', '开始日期', '结束日期', '里程碑', '进度(%)', '实际完成日期']
     for col, h in enumerate(headers, 1):
         cell = ws.cell(1, col, h)
         cell.font = Font(name='Noto Sans SC', bold=True, color='FFFFFF', size=11)
@@ -216,6 +229,7 @@ def api_export_excel():
                 ws.cell(row_idx, 5, task['end_date'])
                 ws.cell(row_idx, 6, '是' if task['is_milestone'] else '否')
                 ws.cell(row_idx, 7, task['progress'])
+                ws.cell(row_idx, 8, task['actual_completion_date'] or '')
                 row_idx += 1
     
     for col in range(1, len(headers) + 1):
