@@ -894,7 +894,7 @@
       all.forEach(function(t){
         for(var k=0;k<currentApiTasks.length;k++){
           var at=currentApiTasks[k];
-          if(at.name===t.name && at.start_date===monthFromText(t.start)){
+          if(at.name===t.name && monthFromText(at.start_date)===monthFromText(t.start)){
             t.actual_completion_date=at.actual_completion_date;
             t.id=at.id;
             break;
@@ -1110,7 +1110,7 @@
           else if(l.startsWith('## ')){var pn=l.substring(3).split('|')[0].trim();inTarget=(curMod===modName&&pn===projName);if(!inTarget)newLines.push(lines[i]);}
           else{if(!inTarget)newLines.push(lines[i]);}
         }
-        $input.value=newLines.join('\n');render();saveToApi();eModal.style.display='none';formMsg('已删除：'+projName,false);
+        $input.value=newLines.join('\n');render();saveToApi().then(function(){loadFromApi().then(function(){render();});});eModal.style.display='none';formMsg('已删除：'+projName,false);
       });
       
       // Add task button in edit modal
@@ -1168,7 +1168,7 @@
             line='* '+tName+' | '+sTxt;
           } else {
             line=tName+' | '+sTxt;
-            if(eTxt&&eTxt!==sTxt) line+=' | '+eTxt;
+            if(eTxt) line+=' | '+eTxt;
             if(tProg&&+tProg>0) line+=' | '+tProg;
           }
           newProjLines.push(line);
@@ -1238,7 +1238,7 @@
         
         $input.value=newLines.join('\n');
         render();
-        saveToApi();
+        saveToApi().then(function(){loadFromApi().then(function(){render();});});
         eModal.style.display='none';
         formMsg('已保存：'+newProjName,false);
       });
