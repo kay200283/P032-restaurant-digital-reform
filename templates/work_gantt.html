@@ -1030,8 +1030,10 @@
         document.getElementById('complete-task-name').textContent=t.name;
         document.getElementById('complete-date-input').value=t.actual_completion_date||'';
         modal.style.display='block';
-        modal._taskId=t.id;
+        modal._taskId=t.id||null;
         modal._barEl=el;
+        if(!t.id){document.getElementById('complete-date-input').disabled=true;document.getElementById('complete-ok').disabled=true;document.getElementById('complete-clear').disabled=true;}
+        else{document.getElementById('complete-date-input').disabled=false;document.getElementById('complete-ok').disabled=false;document.getElementById('complete-clear').disabled=false;}
       });
       el.addEventListener('mouseenter',function(){
         var rows;
@@ -1065,6 +1067,7 @@
       document.getElementById('complete-cancel').addEventListener('click',function(){cModal.style.display='none';});
       document.getElementById('complete-clear').addEventListener('click',function(){
         if(cModal._taskId){
+          if(!cModal._taskId){cModal.style.display='none';return;}
           apiPut('/work-mgmt/gantt/api/tasks/'+cModal._taskId+'/complete',{actual_completion_date:null}).then(function(){
             cModal.style.display='none';loadFromApi().then(function(){render();});
           });
@@ -1074,6 +1077,7 @@
         var d=document.getElementById('complete-date-input').value;
         if(!d){alert('请选择日期');return;}
         if(cModal._taskId){
+          if(!cModal._taskId){alert('无法保存：任务ID缺失，请刷新页面重试');return;}
           apiPut('/work-mgmt/gantt/api/tasks/'+cModal._taskId+'/complete',{actual_completion_date:d}).then(function(){
             cModal.style.display='none';loadFromApi().then(function(){render();});
           });
