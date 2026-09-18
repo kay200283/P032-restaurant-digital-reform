@@ -168,7 +168,7 @@
     cursor:default;z-index:2;border:1px solid transparent;
   }
   .bar .bar-prog{position:absolute;left:0;top:0;bottom:0;border-radius:6px 0 0 6px;z-index:0;}
-  .bar .bar-txt{position:relative;z-index:1;}
+  .bar .bar-txt{position:relative;z-index:1;display:inline-block;max-width:calc(100% - 22px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;}
   .bar{transition:box-shadow .15s ease,border-color .15s ease;}
   .bar:hover{box-shadow:0 3px 10px rgba(21,32,51,.22);z-index:20;}
   body[data-theme="soft"] .bar:hover{border-color:var(--dk);}
@@ -257,6 +257,7 @@
 
   .bar.completed{opacity:0.85;}
   .bar .bar-check{position:absolute;right:-2px;top:-6px;font-size:10px;color:#2D4A3E;background:#E8F5E9;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:3;}
+
   .ms.completed{border:2px solid #2D4A3E;background:#fff !important;}
   .ms .bar-check{position:absolute;right:-6px;top:0;transform:translateY(-50%) rotate(-45deg);font-size:10px;color:#2D4A3E;pointer-events:none;}
 </style>
@@ -360,9 +361,13 @@
       <label style="font-size:12px;color:var(--ink-2);display:block;margin-bottom:4px;">模块名称</label>
       <input type="text" id="edit-module" style="width:100%;height:36px;border:1px solid var(--line);border-radius:6px;padding:0 10px;font-size:14px;">
     </div>
-    <div style="margin-bottom:16px;">
+    <div style="margin-bottom:12px;">
       <label style="font-size:12px;color:var(--ink-2);display:block;margin-bottom:4px;">主题名称</label>
       <input type="text" id="edit-project" style="width:100%;height:36px;border:1px solid var(--line);border-radius:6px;padding:0 10px;font-size:14px;">
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:12px;color:var(--ink-2);display:block;margin-bottom:4px;">项目说明</label>
+      <input type="text" id="edit-desc" style="width:100%;height:36px;border:1px solid var(--line);border-radius:6px;padding:0 10px;font-size:14px;" placeholder="可选，鼠标放项目名上可查看">
     </div>
     <div style="border-top:1px solid var(--line);padding-top:12px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
@@ -888,7 +893,7 @@ xml+='</Row>\n';
       });
     }
     var all=[];
-    modules.forEach(function(m){m.projects.forEach(function(p){p.tasks.forEach(function(t){all.push(t);});});});
+    modules.forEach(function(m){m.projects.forEach(function(p){p.tasks.forEach(function(t){t._projDesc=p.description||'';t._projName=p.name;t._modName=m.name;all.push(t);});});});
     // Merge actual_completion_date from API data
     currentApiTasks=window.currentApiTasks||[];
     if(currentApiTasks&&currentApiTasks.length){
@@ -1050,12 +1055,13 @@ xml+='</Row>\n';
           var n=mSpan(t.start,t.end);
           var dur=n<=1?'<span class="t-dur">单月完成</span>':'<span class="t-dur">共 '+n+' 个月</span>';
           rows='<div class="t-date">'+fmtMonth(t.start)+' – '+fmtMonth(t.end)+' '+dur+'</div>';
-          if(t.progress!=null){
+          if(t.progress!=null && !t.actual_completion_date){
             rows+='<div class="t-prog"><span style="width:'+t.progress+'%"></span></div>'+
               '<div class="t-prog-txt">已完成 '+t.progress+'%</div>';
           }
         }
         if(t.actual_completion_date) rows+='<div style="color:#7FD1B4;font-size:11px;margin-top:4px;">\u2713 实际完成: '+esc(t.actual_completion_date)+'</div>';
+        if(t._projDesc) rows+='<div class="t-desc">'+esc(t._projDesc)+'</div>';
         $tooltip.innerHTML=rows;
         $tooltip.style.display='block';
       });
@@ -1172,7 +1178,8 @@ xml+='</Row>\n';
         }
         
         // Find the project's ID and module's ID from currentModules
-        var projId=null,modId=null,projDesc='';
+        var projId=null,modId=null;
+        var projDesc=document.getElementById('edit-desc').value.trim();
         if(currentModules){
           for(var mi=0;mi<currentModules.length;mi++){
             if(currentModules[mi].name===eModal._origModName){
@@ -1180,7 +1187,6 @@ xml+='</Row>\n';
               for(var pi=0;pi<currentModules[mi].projects.length;pi++){
                 if(currentModules[mi].projects[pi].name===eModal._origProjName){
                   projId=currentModules[mi].projects[pi].id;
-                  projDesc=currentModules[mi].projects[pi].description||'';
                 }
               }
             }
@@ -1486,6 +1492,20 @@ var timer=null;
     
     document.getElementById('edit-module').value = modName;
     document.getElementById('edit-project').value = projName;
+    // Find project description
+    var projDescVal = '';
+    if(currentModules){
+      for(var mi=0;mi<currentModules.length;mi++){
+        if(currentModules[mi].name===modName){
+          for(var pi=0;pi<currentModules[mi].projects.length;pi++){
+            if(currentModules[mi].projects[pi].name===projName){
+              projDescVal = currentModules[mi].projects[pi].description || currentModules[mi].projects[pi].desc || '';
+            }
+          }
+        }
+      }
+    }
+    document.getElementById('edit-desc').value = projDescVal;
     
     // Find all tasks for this project from currentModules
     var tasks = [];
