@@ -1082,6 +1082,24 @@ xml+='</Row>\n';
       cModal.addEventListener('click',function(e){if(e.target===cModal)cModal.style.display='none';});
     }
 
+
+    // 项目名悬停 → 显示项目方向说明（仅在有说明时）
+    document.querySelectorAll('.g-projname').forEach(function(el){
+      var name=el.getAttribute('data-pname'), desc=el.getAttribute('data-pdesc');
+      if(!desc) return;
+      el.addEventListener('mouseenter',function(){
+        $tooltip.innerHTML='<div class="t-pname">'+esc(name)+'</div><div class="t-desc">'+esc(desc)+'</div>';
+        $tooltip.style.display='block';
+      });
+      el.addEventListener('mousemove',function(e){
+        var x=e.clientX+14,y=e.clientY+14;
+        if(x+300>window.innerWidth) x=e.clientX-290;
+        $tooltip.style.left=x+'px';$tooltip.style.top=y+'px';
+      });
+      el.addEventListener('mouseleave',function(){$tooltip.style.display='none';});
+    });
+  }
+
     // Edit modal handlers
     var eModal=document.getElementById('edit-modal');
     if(eModal){
@@ -1233,23 +1251,6 @@ xml+='</Row>\n';
         formMsg('已保存：'+newProjName,false);
       });
     }
-
-    // 项目名悬停 → 显示项目方向说明（仅在有说明时）
-    document.querySelectorAll('.g-projname').forEach(function(el){
-      var name=el.getAttribute('data-pname'), desc=el.getAttribute('data-pdesc');
-      if(!desc) return;
-      el.addEventListener('mouseenter',function(){
-        $tooltip.innerHTML='<div class="t-pname">'+esc(name)+'</div><div class="t-desc">'+esc(desc)+'</div>';
-        $tooltip.style.display='block';
-      });
-      el.addEventListener('mousemove',function(e){
-        var x=e.clientX+14,y=e.clientY+14;
-        if(x+300>window.innerWidth) x=e.clientX-290;
-        $tooltip.style.left=x+'px';$tooltip.style.top=y+'px';
-      });
-      el.addEventListener('mouseleave',function(){$tooltip.style.display='none';});
-    });
-  }
 
   /* ---------- 表单录入 ---------- */
   function monthToText(v){
@@ -1525,6 +1526,12 @@ var timer=null;
     // Build task rows
     var listEl = document.getElementById('edit-tasks-list');
     listEl.innerHTML = '';
+    if(tasks.length > 0){
+      var hdr = document.createElement('div');
+      hdr.style.cssText = 'font-size:11px;color:var(--ink-2);margin-bottom:4px;padding-left:2px;';
+      hdr.textContent = '已有日程（可直接编辑）：';
+      listEl.appendChild(hdr);
+    }
     tasks.forEach(function(t, idx){
       var row = document.createElement('div');
       row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;padding:6px 8px;background:#F6F8FB;border-radius:6px;';

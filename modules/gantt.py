@@ -163,9 +163,11 @@ def api_batch_save():
     conn = get_db()
     cursor = conn.cursor()
     
-    # Save actual_completion_date before clearing
+    # Save actual_completion_date before clearing (use project_name as key to survive renames)
     completion_map = {}
-    for row in cursor.execute('SELECT project_id, name, start_date, actual_completion_date FROM gantt_tasks WHERE actual_completion_date IS NOT NULL'):
+    for row in cursor.execute('''SELECT p.name, t.name, t.start_date, t.actual_completion_date 
+                                 FROM gantt_tasks t JOIN gantt_projects p ON t.project_id=p.id 
+                                 WHERE t.actual_completion_date IS NOT NULL'''):
         completion_map[(row[0], row[1], row[2])] = row[3]
     
     # Clear all existing data
@@ -191,8 +193,8 @@ def api_batch_save():
                 cursor.execute('INSERT INTO gantt_tasks (project_id, name, start_date, end_date, is_milestone, progress, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)',
                                (real_proj_id, task.get('name', ''), task.get('start_date', ''), task.get('end_date', ''),
                                 task.get('is_milestone', 0), task.get('progress', 0), task.get('sort_order', 0)))
-                # Restore completion date if exists
-                task_key = (real_proj_id, task.get('name', ''), task.get('start_date', ''))
+                # Restore completion date if exists (match by project_name + task_name + start_date)
+                task_key = (proj.get('name', ''), task.get('name', ''), task.get('start_date', ''))
                 if task_key in completion_map:
                     new_task_id = cursor.lastrowid
                     cursor.execute('UPDATE gantt_tasks SET actual_completion_date=? WHERE id=?',
