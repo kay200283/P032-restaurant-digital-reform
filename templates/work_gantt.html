@@ -890,7 +890,7 @@
       all.forEach(function(t){
         for(var k=0;k<currentApiTasks.length;k++){
           var at=currentApiTasks[k];
-          if(at.name===t.name && at.start_date===t.start){
+          if(at.name===t.name && at.start_date===fmtMonth(t.start)){
             t.actual_completion_date=at.actual_completion_date;
             t.id=at.id;
             break;
@@ -1264,9 +1264,16 @@
 
   function monthFromText(txt){
     if(!txt) return '';
-    var m=txt.match(/(\d{4})\s*[-/.年]\s*(\d{1,2})/);
+    // Handle Date objects
+    if(txt instanceof Date){
+      var y=txt.getFullYear(), m=txt.getMonth()+1;
+      return y+'-'+(m<10?'0':'')+m;
+    }
+    // Handle numeric timestamps
+    if(typeof txt==='number') txt=new Date(txt).toISOString().slice(0,7);
+    var m=String(txt).match(/(\d{4})\s*[-/.年]\s*(\d{1,2})/);
     if(m) return m[1]+'-'+(m[2].length<2?'0':'')+m[2];
-    return txt;
+    return String(txt);
   }
   function lastHeader(re){
     var found='';
