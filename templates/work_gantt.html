@@ -1277,8 +1277,8 @@
     }
     // Handle numeric timestamps
     if(typeof txt==='number') txt=new Date(txt).toISOString().slice(0,7);
-    var m=String(txt).match(/(\d{4})\s*[-/.年]\s*(\d{1,2})/);
-    if(m) return m[1]+'-'+(m[2].length<2?'0':'')+m[2];
+    var m=String(txt).match(/(\d{2,4})\s*[-/.年]\s*(\d{1,2})/);
+    if(m){var yr=m[1].length===2?(parseInt(m[1])>50?'19':'20')+m[1]:m[1];return yr+'-'+(m[2].length<2?'0':'')+m[2];}
     return String(txt);
   }
   function lastHeader(re){
