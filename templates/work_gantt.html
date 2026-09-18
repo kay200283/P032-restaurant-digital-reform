@@ -285,17 +285,17 @@
 <div class="app">
   <header class="top">
     <div>
-      <h1>📊 文字日程甘特图生成器</h1>
+      <h1>系统开发日程</h1>
       <p class="sub">填表单或写文字，自动出图。模块 → 项目 → 调研/测试/上线，层次分明。</p>
     </div>
     <div class="actions">
-      <button class="primary" id="btn-render">🔗 生成分享链接</button>
-      <button id="btn-theme">🎨 配色：柔和</button>
-      <button id="btn-print">🖨️ 打印</button>
-      <button id="btn-pdf">📄 导出PDF</button>
-      <button id="btn-excel">📊 导出Excel</button>
-      <button id="btn-sample">↩️ 恢复示例</button>
-      <button id="btn-clear">🧹 清空</button>
+      <button class="primary" id="btn-render"><i class="fa-solid fa-link"></i> 生成分享链接</button>
+      <button id="btn-theme"><i class="fa-solid fa-palette"></i> 配色：柔和</button>
+      <button id="btn-print"><i class="fa-solid fa-print"></i> 打印</button>
+      <button id="btn-pdf"><i class="fa-solid fa-file-pdf"></i> 导出PDF</button>
+      <button id="btn-excel"><i class="fa-solid fa-file-excel"></i> 导出Excel</button>
+      <button id="btn-sample"><i class="fa-solid fa-rotate-left"></i> 恢复示例</button>
+      <button id="btn-clear"><i class="fa-solid fa-trash-can"></i> 清空</button>
     </div>
   </header>
 
@@ -351,7 +351,7 @@
       <textarea id="input" style="display:none" spellcheck="false" aria-label="日程文字输入区"></textarea>
       <div class="errors" id="errors"></div>
       <details class="help">
-        <summary>📖 文字格式说明（超简单）</summary>
+        <summary><i class="fa-solid fa-book"></i> 文字格式说明</summary>
         <div class="help-body">
           <p>四种行：</p>
           <pre># 一级分类：模块
@@ -368,7 +368,7 @@
     </section>
 
     <section class="card">
-      <h2>📈 甘特图 <span class="hint">鼠标放到色块上看起止日期；图宽可左右拖动</span></h2>
+      <h2><i class="fa-solid fa-chart-gantt"></i> 甘特图 <span class="hint">鼠标放到色块上看起止日期；图宽可左右拖动</span></h2>
       <div class="gantt-layout">
         <div class="gantt-fixed" id="gantt-fixed"></div>
         <div class="gantt-scroll" id="gantt-scroll">
@@ -391,10 +391,7 @@
 {% block extra_js %}
 <script>
 // Override: load data from API instead of SAMPLE
-(function(){
-  "use strict";
-  
-  // --- API helpers ---
+// --- API helpers (global scope for IIFE access) ---
   async function apiGet(url) {
     const r = await fetch(url);
     return r.json();
@@ -713,7 +710,7 @@
   function showErrors(errors){
     if(!errors.length){$errors.classList.remove('show');$errors.innerHTML='';return;}
     $errors.classList.add('show');
-    $errors.innerHTML='⚠️ 有 '+errors.length+' 行没看懂，已跳过（不影响其他行出图）：<br>'+errors.map(esc).join('<br>');
+    $errors.innerHTML='⚠ 有 '+errors.length+' 行没看懂，已跳过（不影响其他行出图）：<br>'+errors.map(esc).join('<br>');
   }
 
   // Excel 导出功能（Excel XML 格式，支持样式）
@@ -1092,7 +1089,7 @@
     cur+=lines.join('\n')+'\n';
     $input.value=cur;
     render();
-    formMsg('✔ 已添加：'+task,false);
+    formMsg('已添加：'+task,false);
 
     // 保留模块/项目/开始月份，方便连续录入；清空内容类字段
     document.getElementById('f-task').value='';
@@ -1117,7 +1114,7 @@
   /* ---------- 主题 / 按钮 ---------- */
   function applyTheme(t){
     document.body.setAttribute('data-theme',t);
-    $btnTheme.textContent=t==='soft'?'🎨 配色：柔和':'🎨 配色：鲜明';
+    $btnTheme.textContent=t==='soft'?'配色：柔和':'配色：鲜明';
     try{localStorage.setItem('gantt-theme',t);}catch(e){}
   }
   $btnTheme.addEventListener('click',function(){
