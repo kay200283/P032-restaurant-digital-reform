@@ -803,6 +803,7 @@
     xml+='<Column ss:Width="100"/>';// 开始时间
     xml+='<Column ss:Width="100"/>';// 结束时间
     xml+='<Column ss:Width="80"/>';// 进度
+    xml+='<Column ss:Width="120"/>';// 实际完成日期
     
     // 表头
     xml+='<Row ss:Height="25">\n';
@@ -813,6 +814,7 @@
     xml+='  <Cell ss:StyleID="Header"><Data ss:Type="String">开始时间</Data></Cell>\n';
     xml+='  <Cell ss:StyleID="Header"><Data ss:Type="String">结束时间</Data></Cell>\n';
     xml+='  <Cell ss:StyleID="Header"><Data ss:Type="String">进度</Data></Cell>\n';
+    xml+='  <Cell ss:StyleID="Header"><Data ss:Type="String">实际完成日期</Data></Cell>\n';
     xml+='</Row>\n';
     
     // 数据行
@@ -828,7 +830,8 @@
           xml+='  <Cell ss:StyleID="Project"><Data ss:Type="String"></Data></Cell>\n';
           xml+='  <Cell ss:StyleID="Project"><Data ss:Type="String"></Data></Cell>\n';
           xml+='  <Cell ss:StyleID="Project"><Data ss:Type="String"></Data></Cell>\n';
-          xml+='</Row>\n';
+                    xml+='  <Cell ss:StyleID="Project"><Data ss:Type="String"></Data></Cell>\n';
+xml+='</Row>\n';
         }else{
           proj.tasks.forEach(function(task){
             var startStr=task.start?fmtDate(task.start):'';
@@ -842,6 +845,7 @@
             xml+='  <Cell ss:StyleID="Date"><Data ss:Type="String">'+escXml(startStr)+'</Data></Cell>\n';
             xml+='  <Cell ss:StyleID="Date"><Data ss:Type="String">'+escXml(endStr)+'</Data></Cell>\n';
             xml+='  <Cell ss:StyleID="Progress"><Data ss:Type="String">'+escXml(progStr)+'</Data></Cell>\n';
+            xml+='  <Cell ss:StyleID="Date"><Data ss:Type="String">'+escXml(task.actual_completion_date||'')+'</Data></Cell>\n';
             xml+='</Row>\n';
           });
         }
