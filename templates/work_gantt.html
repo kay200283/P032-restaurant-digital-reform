@@ -136,6 +136,9 @@
     padding:0 10px;height:32px;font-size:12.5px;font-weight:600;
     border-bottom:1px solid var(--line);box-sizing:border-box;overflow:visible;
   }
+  .g-projname[draggable=true]{cursor:grab;}
+  .g-projname.dragging{opacity:0.4;outline:2px dashed var(--brand);outline-offset:-2px;}
+  .g-projname.drag-over{border-top:3px solid var(--brand);}
   .g-projname .p-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
   .g-projname .p-info{
     flex:0 0 auto;font-style:normal;font-size:11px;line-height:1;
@@ -987,8 +990,8 @@ xml+='</Row>\n';
         // 二级项目名
         var infoIcon = p.desc ? '<i class="p-info" data-proj-info="1">ⓘ</i>' : '';
         // 添加编辑和删除按钮（直接绑定 onclick）
-        var actionBtns = '<span class="p-actions"><button class="p-edit" data-mod="'+esc(mod.name)+'" data-proj="'+esc(p.name)+'" title="编辑" onclick="editProject(this)"><i class="fa-solid fa-pen-to-square"></i></button><button class="p-del" data-mod="'+esc(mod.name)+'" data-proj="'+esc(p.name)+'" title="删除" onclick="deleteProject(this)"><i class="fa-solid fa-trash-can"></i></button></span>';
-        fixedHtml+='<div class="g-projname'+startCls+'" data-pname="'+esc(p.name)+'" data-pdesc="'+esc(p.desc||'')+'" data-mod="'+esc(mod.name)+'">'+
+        var actionBtns = '<span class="p-actions"><button class="p-edit" data-mod="'+esc(mod.name)+'" data-proj="'+esc(p.name)+'" data-mod-id="'+(mod.id||'')+'" data-proj-id="'+(p.id||'')+'" title="编辑" onclick="editProject(this)"><i class="fa-solid fa-pen-to-square"></i></button><button class="p-del" data-mod="'+esc(mod.name)+'" data-proj="'+esc(p.name)+'" title="删除" onclick="deleteProject(this)"><i class="fa-solid fa-trash-can"></i></button></span>';
+        fixedHtml+='<div class="g-projname'+startCls+'" draggable="true" data-pname="'+esc(p.name)+'" data-pdesc="'+esc(p.desc||'')+'" data-mod="'+esc(mod.name)+'" data-mod-id="'+(mod.id||'')+'" data-proj-id="'+(p.id||'')+'">'+
           '<span class="p-name" title="'+esc(p.name)+'">'+esc(p.name)+'</span>'+infoIcon+actionBtns+'</div>';
 
         var inner=vlines+todayLine;
@@ -1073,6 +1076,45 @@ xml+='</Row>\n';
       });
       el.addEventListener('mouseleave',function(){$tooltip.style.display='none';});
     });
+    // Drag-and-drop for project rows within same module
+    $gantt.querySelectorAll('.g-projname[draggable=true]').forEach(function(row){
+      row.addEventListener('dragstart',function(e){
+        e.dataTransfer.setData('text/plain',JSON.stringify({mod:row.getAttribute('data-mod'),proj:row.getAttribute('data-pname'),projId:row.getAttribute('data-proj-id'),modId:row.getAttribute('data-mod-id')}));
+        row.classList.add('dragging');
+        e.stopPropagation();
+      });
+      row.addEventListener('dragend',function(){
+        row.classList.remove('dragging');
+        $gantt.querySelectorAll('.drag-over').forEach(function(r){r.classList.remove('drag-over');});
+      });
+      row.addEventListener('dragover',function(e){
+        e.preventDefault();
+        var dg=$gantt.querySelector('.dragging');
+        if(dg&&dg.getAttribute('data-mod')===row.getAttribute('data-mod')&&dg!==row) row.classList.add('drag-over');
+      });
+      row.addEventListener('dragleave',function(){row.classList.remove('drag-over');});
+      row.addEventListener('drop',function(e){
+        e.preventDefault();row.classList.remove('drag-over');
+        var dg=$gantt.querySelector('.dragging');
+        if(!dg||dg===row||dg.getAttribute('data-mod')!==row.getAttribute('data-mod')) return;
+        var dragProjId=parseInt(dg.getAttribute('data-proj-id'));
+        var dropProjId=parseInt(row.getAttribute('data-proj-id'));
+        var modId=parseInt(row.getAttribute('data-mod-id'));
+        if(!dragProjId||!dropProjId) return;
+        var modProjs=window.apiProjectsData.filter(function(p){return p.module_id===modId;});
+        modProjs.sort(function(a,b){return (a.sort_order||0)-(b.sort_order||0);});
+        var dragIdx=modProjs.findIndex(function(p){return p.id===dragProjId;});
+        var dropIdx=modProjs.findIndex(function(p){return p.id===dropProjId;});
+        if(dragIdx<0||dropIdx<0) return;
+        var moved=modProjs.splice(dragIdx,1)[0];
+        modProjs.splice(dropIdx,0,moved);
+        var ups=[];
+        modProjs.forEach(function(p,i){
+          if((p.sort_order||0)!==i) ups.push(apiPut('/work-mgmt/gantt/api/projects/'+p.id,{module_id:p.module_id,name:p.name,description:p.description||'',sort_order:i}));
+        });
+        if(ups.length>0) Promise.all(ups).then(function(){loadFromApi().then(function(){render();});});
+      });
+    });
 
     // Completion modal handlers
     var cModal=document.getElementById('complete-modal');
@@ -1114,6 +1156,45 @@ xml+='</Row>\n';
         $tooltip.style.left=x+'px';$tooltip.style.top=y+'px';
       });
       el.addEventListener('mouseleave',function(){$tooltip.style.display='none';});
+    });
+    // Drag-and-drop for project rows within same module
+    $gantt.querySelectorAll('.g-projname[draggable=true]').forEach(function(row){
+      row.addEventListener('dragstart',function(e){
+        e.dataTransfer.setData('text/plain',JSON.stringify({mod:row.getAttribute('data-mod'),proj:row.getAttribute('data-pname'),projId:row.getAttribute('data-proj-id'),modId:row.getAttribute('data-mod-id')}));
+        row.classList.add('dragging');
+        e.stopPropagation();
+      });
+      row.addEventListener('dragend',function(){
+        row.classList.remove('dragging');
+        $gantt.querySelectorAll('.drag-over').forEach(function(r){r.classList.remove('drag-over');});
+      });
+      row.addEventListener('dragover',function(e){
+        e.preventDefault();
+        var dg=$gantt.querySelector('.dragging');
+        if(dg&&dg.getAttribute('data-mod')===row.getAttribute('data-mod')&&dg!==row) row.classList.add('drag-over');
+      });
+      row.addEventListener('dragleave',function(){row.classList.remove('drag-over');});
+      row.addEventListener('drop',function(e){
+        e.preventDefault();row.classList.remove('drag-over');
+        var dg=$gantt.querySelector('.dragging');
+        if(!dg||dg===row||dg.getAttribute('data-mod')!==row.getAttribute('data-mod')) return;
+        var dragProjId=parseInt(dg.getAttribute('data-proj-id'));
+        var dropProjId=parseInt(row.getAttribute('data-proj-id'));
+        var modId=parseInt(row.getAttribute('data-mod-id'));
+        if(!dragProjId||!dropProjId) return;
+        var modProjs=window.apiProjectsData.filter(function(p){return p.module_id===modId;});
+        modProjs.sort(function(a,b){return (a.sort_order||0)-(b.sort_order||0);});
+        var dragIdx=modProjs.findIndex(function(p){return p.id===dragProjId;});
+        var dropIdx=modProjs.findIndex(function(p){return p.id===dropProjId;});
+        if(dragIdx<0||dropIdx<0) return;
+        var moved=modProjs.splice(dragIdx,1)[0];
+        modProjs.splice(dropIdx,0,moved);
+        var ups=[];
+        modProjs.forEach(function(p,i){
+          if((p.sort_order||0)!==i) ups.push(apiPut('/work-mgmt/gantt/api/projects/'+p.id,{module_id:p.module_id,name:p.name,description:p.description||'',sort_order:i}));
+        });
+        if(ups.length>0) Promise.all(ups).then(function(){loadFromApi().then(function(){render();});});
+      });
     });
   }
 
@@ -1179,44 +1260,23 @@ xml+='</Row>\n';
           editedTasks.push({id:tId,name:tName,start_date:tStart,end_date:tMs?tStart:tEnd,is_milestone:tMs?1:0,progress:tProg});
         }
         
-        // Find the project's ID and module's ID from API data (more reliable than currentModules)
-        var projId=null,modId=null;
+        // Use IDs directly from the edit button (most reliable)
+        var projId=eModal._origProjId?parseInt(eModal._origProjId):null;
+        var modId=eModal._origModId?parseInt(eModal._origModId):null;
         var projDesc=document.getElementById('edit-desc').value.trim();
-        // Try API data first (has guaranteed IDs)
-        if(window.apiModulesData){
-          for(var mi=0;mi<window.apiModulesData.length;mi++){
-            if(window.apiModulesData[mi].name===eModal._origModName){
-              modId=window.apiModulesData[mi].id;
-              break;
-            }
-          }
-        }
-        if(window.apiProjectsData&&modId){
+        // Fallback: name-based lookup if IDs not available
+        if(!projId&&window.apiProjectsData){
           for(var pi=0;pi<window.apiProjectsData.length;pi++){
-            if(window.apiProjectsData[pi].name===eModal._origProjName&&window.apiProjectsData[pi].module_id===modId){
+            if(window.apiProjectsData[pi].name===eModal._origProjName){
               projId=window.apiProjectsData[pi].id;
-              break;
-            }
-          }
-        }
-        // Fallback to currentModules if API data not available
-        if(!projId&&currentModules){
-          for(var mi=0;mi<currentModules.length;mi++){
-            if(currentModules[mi].name===eModal._origModName){
-              modId=modId||currentModules[mi].id;
-              for(var pi=0;pi<currentModules[mi].projects.length;pi++){
-                if(currentModules[mi].projects[pi].name===eModal._origProjName){
-                  projId=projId||currentModules[mi].projects[pi].id;
-                  break;
-                }
-              }
+              if(!modId) modId=window.apiProjectsData[pi].module_id;
               break;
             }
           }
         }
         if(!projId){
           alert('无法找到项目ID，请刷新页面后重试');
-          console.error('[edit-save] projId is null! origMod:', eModal._origModName, 'origProj:', eModal._origProjName);
+          console.error('[edit-save] projId is null! origModId:', eModal._origModId, 'origProjId:', eModal._origProjId, 'origMod:', eModal._origModName, 'origProj:', eModal._origProjName);
           return;
         }
         
@@ -1525,12 +1585,19 @@ var timer=null;
     // Store original names for rename detection
     modal._origModName = modName;
     modal._origProjName = projName;
+    modal._origModId = btn.getAttribute('data-mod-id') || null;
+    modal._origProjId = btn.getAttribute('data-proj-id') || null;
     
     document.getElementById('edit-module').value = modName;
     document.getElementById('edit-project').value = projName;
-    // Find project description
+    // Find project description from API data (more reliable)
     var projDescVal = '';
-    if(currentModules){
+    var projIdNum = btn.getAttribute('data-proj-id');
+    if(projIdNum && window.apiProjectsData){
+      var ap = window.apiProjectsData.find(function(x){return x.id==projIdNum;});
+      if(ap) projDescVal = ap.description || '';
+    }
+    if(!projDescVal && currentModules){
       for(var mi=0;mi<currentModules.length;mi++){
         if(currentModules[mi].name===modName){
           for(var pi=0;pi<currentModules[mi].projects.length;pi++){
