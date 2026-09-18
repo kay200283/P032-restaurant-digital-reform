@@ -136,9 +136,11 @@
     padding:0 10px;height:32px;font-size:12.5px;font-weight:600;
     border-bottom:1px solid var(--line);box-sizing:border-box;overflow:visible;
   }
-  .g-projname[draggable=true]{cursor:grab;}
+  .g-projname[draggable=true]{cursor:grab;user-select:none;-webkit-user-select:none;}
   .g-projname.dragging{opacity:0.4;outline:2px dashed var(--brand);outline-offset:-2px;}
-  .g-projname.drag-over{border-top:3px solid var(--brand);}
+  .g-projname.drag-over-top{border-top:3px solid var(--brand);}
+  .g-projname.drag-over-bottom{border-bottom:3px solid var(--brand);}
+  .g-modname.drag-over-mod{border-bottom:3px solid var(--brand);opacity:0.8;}
   .g-projname .p-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
   .g-projname .p-info{
     flex:0 0 auto;font-style:normal;font-size:11px;line-height:1;
@@ -412,14 +414,17 @@
   }
   async function apiPost(url, data) {
     const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify(data)});
+    if(!r.ok){var t=await r.text(); throw new Error('POST '+url+' 失败: '+r.status+' '+t.substring(0,60));}
     return r.json();
   }
   async function apiPut(url, data) {
     const r = await fetch(url, {method:'PUT', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify(data)});
+    if(!r.ok){var t=await r.text(); throw new Error('PUT '+url+' 失败: '+r.status+' '+t.substring(0,60));}
     return r.json();
   }
   async function apiDel(url) {
     const r = await fetch(url, {method:'DELETE', credentials:'same-origin'});
+    if(!r.ok){var t=await r.text(); throw new Error('DELETE '+url+' 失败: '+r.status+' '+t.substring(0,60));}
     return r.json();
   }
 
@@ -982,7 +987,7 @@ xml+='</Row>\n';
       var nRows=mod.projects.length;
 
       // 一级模块（跨多行）
-      fixedHtml+='<div class="g-modname" style="grid-row:span '+nRows+';background:'+color.fill+'33;border-top-color:'+color.c+';">'+
+      fixedHtml+='<div class="g-modname" data-mod="'+esc(mod.name)+'" data-mod-id="'+(mod.id||'')+'" style="grid-row:span '+nRows+';background:'+color.fill+'33;border-top-color:'+color.c+';">'+
         '<span class="mod-badge" style="--c:'+color.c+'">'+(mi+1)+'</span><span>'+esc(mod.name)+'</span></div>';
 
       mod.projects.forEach(function(p,pi){
@@ -1076,45 +1081,119 @@ xml+='</Row>\n';
       });
       el.addEventListener('mouseleave',function(){$tooltip.style.display='none';});
     });
-    // Drag-and-drop for project rows within same module
-    $gantt.querySelectorAll('.g-projname[draggable=true]').forEach(function(row){
-      row.addEventListener('dragstart',function(e){
-        e.dataTransfer.setData('text/plain',JSON.stringify({mod:row.getAttribute('data-mod'),proj:row.getAttribute('data-pname'),projId:row.getAttribute('data-proj-id'),modId:row.getAttribute('data-mod-id')}));
+    // Drag-and-drop: attach once (not every render)
+    if(!window._ganttDragSetup){
+      window._ganttDragSetup=true;
+      var $gFixed=document.getElementById('gantt-fixed');
+      $gFixed.addEventListener('dragstart',function(e){
+        var row=e.target.closest('.g-projname');
+        if(!row) return;
+        e.dataTransfer.setData('text/plain',row.getAttribute('data-proj-id'));
+        e.dataTransfer.effectAllowed='move';
         row.classList.add('dragging');
-        e.stopPropagation();
       });
-      row.addEventListener('dragend',function(){
-        row.classList.remove('dragging');
-        $gantt.querySelectorAll('.drag-over').forEach(function(r){r.classList.remove('drag-over');});
-      });
-      row.addEventListener('dragover',function(e){
-        e.preventDefault();
-        var dg=$gantt.querySelector('.dragging');
-        if(dg&&dg.getAttribute('data-mod')===row.getAttribute('data-mod')&&dg!==row) row.classList.add('drag-over');
-      });
-      row.addEventListener('dragleave',function(){row.classList.remove('drag-over');});
-      row.addEventListener('drop',function(e){
-        e.preventDefault();row.classList.remove('drag-over');
-        var dg=$gantt.querySelector('.dragging');
-        if(!dg||dg===row||dg.getAttribute('data-mod')!==row.getAttribute('data-mod')) return;
-        var dragProjId=parseInt(dg.getAttribute('data-proj-id'));
-        var dropProjId=parseInt(row.getAttribute('data-proj-id'));
-        var modId=parseInt(row.getAttribute('data-mod-id'));
-        if(!dragProjId||!dropProjId) return;
-        var modProjs=window.apiProjectsData.filter(function(p){return p.module_id===modId;});
-        modProjs.sort(function(a,b){return (a.sort_order||0)-(b.sort_order||0);});
-        var dragIdx=modProjs.findIndex(function(p){return p.id===dragProjId;});
-        var dropIdx=modProjs.findIndex(function(p){return p.id===dropProjId;});
-        if(dragIdx<0||dropIdx<0) return;
-        var moved=modProjs.splice(dragIdx,1)[0];
-        modProjs.splice(dropIdx,0,moved);
-        var ups=[];
-        modProjs.forEach(function(p,i){
-          if((p.sort_order||0)!==i) ups.push(apiPut('/work-mgmt/gantt/api/projects/'+p.id,{module_id:p.module_id,name:p.name,description:p.description||'',sort_order:i}));
+      $gFixed.addEventListener('dragend',function(e){
+        var row=e.target.closest('.g-projname');
+        if(row) row.classList.remove('dragging');
+        $gFixed.querySelectorAll('.drag-over-top,.drag-over-bottom,.drag-over-mod').forEach(function(r){
+          r.classList.remove('drag-over-top');r.classList.remove('drag-over-bottom');r.classList.remove('drag-over-mod');
         });
-        if(ups.length>0) Promise.all(ups).then(function(){loadFromApi().then(function(){render();});});
       });
-    });
+      $gFixed.addEventListener('dragover',function(e){
+        var dg=$gFixed.querySelector('.dragging');
+        if(!dg) return;
+        var row=e.target.closest('.g-projname');
+        var modRow=e.target.closest('.g-modname');
+        if(!row && !modRow){
+          var allRows=$gFixed.querySelectorAll('.g-projname');
+          var mouseY=e.clientY;
+          var bestRow=null, bestDist=Infinity;
+          allRows.forEach(function(r){
+            if(r.getAttribute('data-mod')!==dg.getAttribute('data-mod')) return;
+            var rect=r.getBoundingClientRect();
+            var cy=rect.top+rect.height/2;
+            var dist=Math.abs(mouseY-cy);
+            if(dist<bestDist){bestDist=dist;bestRow=r;}
+          });
+          if(bestRow && bestRow!==dg) row=bestRow;
+        }
+        $gFixed.querySelectorAll('.drag-over-top,.drag-over-bottom,.drag-over-mod').forEach(function(r){
+          r.classList.remove('drag-over-top');r.classList.remove('drag-over-bottom');r.classList.remove('drag-over-mod');
+        });
+        if(row && row!==dg && dg.getAttribute('data-mod')===row.getAttribute('data-mod')){
+          e.preventDefault();
+          e.dataTransfer.dropEffect='move';
+          var rect=row.getBoundingClientRect();
+          var midY=rect.top+rect.height/2;
+          if(e.clientY<midY){
+            row.classList.add('drag-over-top');
+            row._dropPos='before';
+          } else {
+            row.classList.add('drag-over-bottom');
+            row._dropPos='after';
+          }
+        } else if(modRow && dg.getAttribute('data-mod')===modRow.getAttribute('data-mod')){
+          e.preventDefault();
+          e.dataTransfer.dropEffect='move';
+          modRow.classList.add('drag-over-mod');
+        }
+      });
+      $gFixed.addEventListener('dragleave',function(e){
+        var row=e.target.closest('.g-projname');
+        var modRow=e.target.closest('.g-modname');
+        if(row){row.classList.remove('drag-over-top');row.classList.remove('drag-over-bottom');}
+        if(modRow) modRow.classList.remove('drag-over-mod');
+      });
+      $gFixed.addEventListener('drop',function(e){
+        var row=e.target.closest('.g-projname');
+        var modRow=e.target.closest('.g-modname');
+        var dg=$gFixed.querySelector('.dragging');
+        if(!dg) return;
+        $gFixed.querySelectorAll('.drag-over-top,.drag-over-bottom,.drag-over-mod').forEach(function(r){
+          r.classList.remove('drag-over-top');r.classList.remove('drag-over-bottom');r.classList.remove('drag-over-mod');
+        });
+        if(row && row!==dg && dg.getAttribute('data-mod')===row.getAttribute('data-mod')){
+          e.preventDefault();
+          var dragProjId=parseInt(dg.getAttribute('data-proj-id'));
+          var dropProjId=parseInt(row.getAttribute('data-proj-id'));
+          var modId=parseInt(row.getAttribute('data-mod-id'));
+          if(!dragProjId||!dropProjId||!window.apiProjectsData) return;
+          var modProjs=window.apiProjectsData.filter(function(p){return p.module_id===modId;});
+          modProjs.sort(function(a,b){return (a.sort_order||0)-(b.sort_order||0);});
+          var dragIdx=modProjs.findIndex(function(p){return p.id===dragProjId;});
+          var dropIdx=modProjs.findIndex(function(p){return p.id===dropProjId;});
+          if(dragIdx<0||dropIdx<0) return;
+          var moved=modProjs.splice(dragIdx,1)[0];
+          var insertPos=row._dropPos==='after'?dropIdx:dropIdx;
+          if(dragIdx<dropIdx) insertPos=row._dropPos==='after'?dropIdx:dropIdx-1;
+          else insertPos=row._dropPos==='after'?dropIdx+1:dropIdx;
+          insertPos=Math.max(0,Math.min(insertPos,modProjs.length));
+          modProjs.splice(insertPos,0,moved);
+          var ups=[];
+          modProjs.forEach(function(p,i){
+            ups.push(apiPut('/work-mgmt/gantt/api/projects/'+p.id,{module_id:p.module_id,name:p.name,description:p.description||'',sort_order:i}));
+          });
+          Promise.all(ups).then(function(){loadFromApi().then(function(){render();});});
+        } else if(modRow && dg.getAttribute('data-mod')===modRow.getAttribute('data-mod')){
+          e.preventDefault();
+          var dragProjId=parseInt(dg.getAttribute('data-proj-id'));
+          var modId=parseInt(modRow.getAttribute('data-mod-id'));
+          if(!dragProjId||!window.apiProjectsData) return;
+          var modProjs=window.apiProjectsData.filter(function(p){return p.module_id===modId;});
+          modProjs.sort(function(a,b){return (a.sort_order||0)-(b.sort_order||0);});
+          var dragIdx=modProjs.findIndex(function(p){return p.id===dragProjId;});
+          if(dragIdx<0) return;
+          var moved=modProjs.splice(dragIdx,1)[0];
+          modProjs.push(moved);
+          var ups=[];
+          modProjs.forEach(function(p,i){
+            ups.push(apiPut('/work-mgmt/gantt/api/projects/'+p.id,{module_id:p.module_id,name:p.name,description:p.description||'',sort_order:i}));
+          });
+          Promise.all(ups).then(function(){loadFromApi().then(function(){render();});});
+        }
+      });
+    }
+
 
     // Completion modal handlers
     var cModal=document.getElementById('complete-modal');
@@ -1157,45 +1236,7 @@ xml+='</Row>\n';
       });
       el.addEventListener('mouseleave',function(){$tooltip.style.display='none';});
     });
-    // Drag-and-drop for project rows within same module
-    $gantt.querySelectorAll('.g-projname[draggable=true]').forEach(function(row){
-      row.addEventListener('dragstart',function(e){
-        e.dataTransfer.setData('text/plain',JSON.stringify({mod:row.getAttribute('data-mod'),proj:row.getAttribute('data-pname'),projId:row.getAttribute('data-proj-id'),modId:row.getAttribute('data-mod-id')}));
-        row.classList.add('dragging');
-        e.stopPropagation();
-      });
-      row.addEventListener('dragend',function(){
-        row.classList.remove('dragging');
-        $gantt.querySelectorAll('.drag-over').forEach(function(r){r.classList.remove('drag-over');});
-      });
-      row.addEventListener('dragover',function(e){
-        e.preventDefault();
-        var dg=$gantt.querySelector('.dragging');
-        if(dg&&dg.getAttribute('data-mod')===row.getAttribute('data-mod')&&dg!==row) row.classList.add('drag-over');
-      });
-      row.addEventListener('dragleave',function(){row.classList.remove('drag-over');});
-      row.addEventListener('drop',function(e){
-        e.preventDefault();row.classList.remove('drag-over');
-        var dg=$gantt.querySelector('.dragging');
-        if(!dg||dg===row||dg.getAttribute('data-mod')!==row.getAttribute('data-mod')) return;
-        var dragProjId=parseInt(dg.getAttribute('data-proj-id'));
-        var dropProjId=parseInt(row.getAttribute('data-proj-id'));
-        var modId=parseInt(row.getAttribute('data-mod-id'));
-        if(!dragProjId||!dropProjId) return;
-        var modProjs=window.apiProjectsData.filter(function(p){return p.module_id===modId;});
-        modProjs.sort(function(a,b){return (a.sort_order||0)-(b.sort_order||0);});
-        var dragIdx=modProjs.findIndex(function(p){return p.id===dragProjId;});
-        var dropIdx=modProjs.findIndex(function(p){return p.id===dropProjId;});
-        if(dragIdx<0||dropIdx<0) return;
-        var moved=modProjs.splice(dragIdx,1)[0];
-        modProjs.splice(dropIdx,0,moved);
-        var ups=[];
-        modProjs.forEach(function(p,i){
-          if((p.sort_order||0)!==i) ups.push(apiPut('/work-mgmt/gantt/api/projects/'+p.id,{module_id:p.module_id,name:p.name,description:p.description||'',sort_order:i}));
-        });
-        if(ups.length>0) Promise.all(ups).then(function(){loadFromApi().then(function(){render();});});
-      });
-    });
+
   }
 
     // Edit modal handlers
@@ -1285,9 +1326,9 @@ xml+='</Row>\n';
         if(newModName!==eModal._origModName&&modId){
           updates.push(apiPut('/work-mgmt/gantt/api/modules/'+modId,{name:newModName,color_index:0,sort_order:0}));
         }
-        // Update project name if changed
-        if(newProjName!==eModal._origProjName&&projId){
-          updates.push(apiPut('/work-mgmt/gantt/api/projects/'+projId,{module_id:modId,name:newProjName,description:projDesc,sort_order:0}));
+        // Always update project (save description + name)
+        if(projId){
+          updates.push(apiPut('/work-mgmt/gantt/api/projects/'+projId,{module_id:modId,name:newProjName,description:projDesc,sort_order:eModal._origProjSortOrder||0}));
         }
         
         // Get existing task IDs for this project from API
@@ -1300,7 +1341,7 @@ xml+='</Row>\n';
           editedTasks.forEach(function(t){
             if(t.id&&existingIds.indexOf(t.id)>-1){
               // Update existing task
-              updates.push(apiPut('/work-mgmt/gantt/api/tasks/'+t.id,{project_id:projId,name:t.name,start_date:t.start_date,end_date:t.end_date,is_milestone:t.is_milestone,progress:t.progress,sort_order:0}));
+              var tAcd=row._actualCompletionDate||null;updates.push(apiPut('/work-mgmt/gantt/api/tasks/'+t.id,{project_id:projId,name:t.name,start_date:t.start_date,end_date:t.end_date,is_milestone:t.is_milestone,progress:t.progress,sort_order:0,actual_completion_date:tAcd}));
               newIds.push(t.id);
             } else {
               // Create new task
@@ -1587,6 +1628,12 @@ var timer=null;
     modal._origProjName = projName;
     modal._origModId = btn.getAttribute('data-mod-id') || null;
     modal._origProjId = btn.getAttribute('data-proj-id') || null;
+    // Store original project sort_order
+    modal._origProjSortOrder = 0;
+    if(modal._origProjId && window.apiProjectsData){
+      var _ap = window.apiProjectsData.find(function(x){return x.id==modal._origProjId;});
+      if(_ap) modal._origProjSortOrder = _ap.sort_order || 0;
+    }
     
     document.getElementById('edit-module').value = modName;
     document.getElementById('edit-project').value = projName;
@@ -1639,6 +1686,7 @@ var timer=null;
       var row = document.createElement('div');
       row.className = 'task-row';
       row._taskId = t.id || null;
+      row._actualCompletionDate = t.actual_completion_date || null;
       row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;padding:6px 8px;background:#F6F8FB;border-radius:6px;';
       row.innerHTML = '<input type="text" class="et-name" value="'+esc(t.name)+'" style="flex:2;height:30px;border:1px solid var(--line);border-radius:4px;padding:0 8px;font-size:12px;" placeholder="日程名称">'
         + '<input type="month" class="et-start" value="'+monthFromText(t.start)+'" style="flex:1;height:30px;border:1px solid var(--line);border-radius:4px;padding:0 6px;font-size:12px;" title="开始">'
