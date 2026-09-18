@@ -274,8 +274,7 @@
       <button id="btn-print"><i class="fa-solid fa-print"></i> 打印</button>
       <button id="btn-pdf"><i class="fa-solid fa-file-pdf"></i> 导出PDF</button>
       <button id="btn-excel"><i class="fa-solid fa-file-excel"></i> 导出Excel</button>
-      <button id="btn-sample"><i class="fa-solid fa-rotate-left"></i> 恢复示例</button>
-      <button id="btn-clear"><i class="fa-solid fa-trash-can"></i> 清空</button>
+            <button id="btn-clear"><i class="fa-solid fa-trash-can"></i> 清空</button>
     </div>
   </header>
 
@@ -949,7 +948,7 @@
         // 二级项目名
         var infoIcon = p.desc ? '<i class="p-info" data-proj-info="1">ⓘ</i>' : '';
         // 添加编辑和删除按钮（直接绑定 onclick）
-        var actionBtns = '<span class="p-actions"><button class="p-edit" data-mod="'+esc(mod.name)+'" data-proj="'+esc(p.name)+'" title="编辑" onclick="editProject(this)">✏️</button><button class="p-del" data-mod="'+esc(mod.name)+'" data-proj="'+esc(p.name)+'" title="删除" onclick="deleteProject(this)">🗑️</button></span>';
+        var actionBtns = '<span class="p-actions"><button class="p-edit" data-mod="'+esc(mod.name)+'" data-proj="'+esc(p.name)+'" title="编辑" onclick="editProject(this)"><i class="fa-solid fa-pen-to-square"></i></button><button class="p-del" data-mod="'+esc(mod.name)+'" data-proj="'+esc(p.name)+'" title="删除" onclick="deleteProject(this)"><i class="fa-solid fa-trash-can"></i></button></span>';
         fixedHtml+='<div class="g-projname'+startCls+'" data-pname="'+esc(p.name)+'" data-pdesc="'+esc(p.desc||'')+'" data-mod="'+esc(mod.name)+'">'+
           '<span class="p-name" title="'+esc(p.name)+'">'+esc(p.name)+'</span>'+infoIcon+actionBtns+'</div>';
 
@@ -1185,7 +1184,7 @@
     }
     $input.value=text;
     document.querySelector('.input-card').style.display='none';
-    document.getElementById('btn-sample').style.display='none';
+    // btn-sample removed
     document.getElementById('btn-clear').style.display='none';
     var headerTitle=document.querySelector('header.top > div:first-child');
     if(headerTitle)headerTitle.style.display='none';
@@ -1204,7 +1203,7 @@ var timer=null;
   document.getElementById('btn-print').addEventListener('click',function(){window.print();});
   document.getElementById('btn-pdf').addEventListener('click',exportToPDF);
   document.getElementById('btn-excel').addEventListener('click',exportToExcel);
-  document.getElementById('btn-sample').addEventListener('click',function(){$input.value=SAMPLE;render();});
+  // btn-sample listener removed
   document.getElementById('btn-clear').addEventListener('click',function(){$input.value='';render();});
 
   // PDF 导出功能（新窗口打印，带提示）
@@ -1297,13 +1296,72 @@ var timer=null;
     });
   }
   
-  // Override sample button to save after loading sample
-  var origSample = document.getElementById('btn-sample');
-  if (origSample) {
-    origSample.addEventListener('click', function() {
-      setTimeout(function() { saveToApi(); }, 100);
-    });
-  }
+  // btn-sample override removed
+
+  // --- Edit/Delete Project (global for onclick) ---
+  window.editProject = function(btn){
+    var modName = btn.getAttribute('data-mod');
+    var projName = btn.getAttribute('data-proj');
+    // Find the project in currentModules and populate the form
+    var modEl = document.getElementById('f-module');
+    var projEl = document.getElementById('f-project');
+    var pdescEl = document.getElementById('f-pdesc');
+    if(modEl) modEl.value = modName;
+    if(projEl) projEl.value = projName;
+    // Find description
+    if(currentModules){
+      for(var mi=0;mi<currentModules.length;mi++){
+        if(currentModules[mi].name===modName){
+          for(var pi=0;pi<currentModules[mi].projects.length;pi++){
+            if(currentModules[mi].projects[pi].name===projName){
+              if(pdescEl) pdescEl.value = currentModules[mi].projects[pi].description||'';
+              break;
+            }
+          }
+          break;
+        }
+      }
+    }
+    // Focus on task field for adding new task to this project
+    var taskEl = document.getElementById('f-task');
+    if(taskEl) taskEl.focus();
+    formMsg('编辑模式：修改「'+projName+'」后重新添加即可',false);
+  };
+
+  window.deleteProject = function(btn){
+    var modName = btn.getAttribute('data-mod');
+    var projName = btn.getAttribute('data-proj');
+    if(!confirm('确定删除项目「'+projName+'」及其所有任务？')) return;
+    // Remove from text and re-render
+    var lines = $input.value.split(/\r?\n/);
+    var newLines = [];
+    var skipMod = false;
+    var skipProj = false;
+    for(var i=0;i<lines.length;i++){
+      var line = lines[i].trim();
+      if(line.startsWith('# ')){
+        skipMod = (line.substring(2).trim() === modName);
+        skipProj = false;
+        if(!skipMod) newLines.push(lines[i]);
+      } else if(line.startsWith('## ')){
+        if(skipMod){
+          var pName = line.substring(3).split('|')[0].trim();
+          skipProj = (pName === projName);
+        } else {
+          var pName = line.substring(3).split('|')[0].trim();
+          skipProj = (pName === projName && line.substring(3).split('|')[0].trim() === projName);
+          // Check if we're in the right module
+          if(!skipProj) newLines.push(lines[i]);
+        }
+      } else {
+        if(!skipProj) newLines.push(lines[i]);
+      }
+    }
+    $input.value = newLines.join('\n');
+    render();
+    saveToApi();
+    formMsg('已删除：'+projName,false);
+  };
 
 })();
 </script>
