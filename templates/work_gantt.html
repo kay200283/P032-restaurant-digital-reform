@@ -890,7 +890,7 @@
       all.forEach(function(t){
         for(var k=0;k<currentApiTasks.length;k++){
           var at=currentApiTasks[k];
-          if(at.name===t.name && at.start_date===fmtMonth(t.start)){
+          if(at.name===t.name && at.start_date===monthFromText(t.start)){
             t.actual_completion_date=at.actual_completion_date;
             t.id=at.id;
             break;
@@ -1032,8 +1032,10 @@
         modal.style.display='block';
         modal._taskId=t.id||null;
         modal._barEl=el;
-        if(!t.id){document.getElementById('complete-date-input').disabled=true;document.getElementById('complete-ok').disabled=true;document.getElementById('complete-clear').disabled=true;}
-        else{document.getElementById('complete-date-input').disabled=false;document.getElementById('complete-ok').disabled=false;document.getElementById('complete-clear').disabled=false;}
+        if(!t.id){document.getElementById('complete-task-name').textContent+=' (⚠ 未匹配到数据库记录)';}
+        document.getElementById('complete-date-input').disabled=false;
+        document.getElementById('complete-ok').disabled=false;
+        document.getElementById('complete-clear').disabled=false;
       });
       el.addEventListener('mouseenter',function(){
         var rows;
