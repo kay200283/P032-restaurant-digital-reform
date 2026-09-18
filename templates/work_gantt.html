@@ -704,4 +704,666 @@
   function showErrors(errors){
     if(!errors.length){$errors.classList.remove('show');$errors.innerHTML='';return;}
     $errors.classList.add('show');
-    $errors.innerHTML='⚠ 有 '+errors.length+' 行没看懂，已跳过（不影响其他行出图）：<br>'+errors.map(esc).join
+    $errors.innerHTML='⚠ 有 '+errors.length+' 行没看懂，已跳过（不影响其他行出图）：<br>'+errors.map(esc).join('<br>');
+  }
+
+  // Excel 导出功能（Excel XML 格式，支持样式）
+  function exportToExcel(){
+    if(!currentModules||currentModules.length===0){
+      alert('请先生成甘特图！');
+      return;
+    }
+    
+    // Excel XML 模板
+    var xml='<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml+='<?mso-application progid="Excel.Sheet"?>\n';
+    xml+='<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n';
+    xml+=' xmlns:o="urn:schemas-microsoft-com:office:office"\n';
+    xml+=' xmlns:x="urn:schemas-microsoft-com:office:excel"\n';
+    xml+=' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"\n';
+    xml+=' xmlns:html="http://www.w3.org/TR/REC-html40">\n';
+    
+    // 样式定义
+    xml+='<Styles>\n';
+    xml+='  <Style ss:ID="Default" ss:Name="Normal">\n';
+    xml+='    <Font ss:FontName="微软雅黑" ss:Size="10"/>\n';
+    xml+='  </Style>\n';
+    xml+='  <Style ss:ID="Header">\n';
+    xml+='    <Font ss:FontName="微软雅黑" ss:Size="11" ss:Bold="1" ss:Color="#FFFFFF"/>\n';
+    xml+='    <Interior ss:Color="#4472C4" ss:Pattern="Solid"/>\n';
+    xml+='    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>\n';
+    xml+='    <Borders>\n';
+    xml+='      <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>\n';
+    xml+='    </Borders>\n';
+    xml+='  </Style>\n';
+    xml+='  <Style ss:ID="Module">\n';
+    xml+='    <Font ss:FontName="微软雅黑" ss:Size="10" ss:Bold="1"/>\n';
+    xml+='    <Interior ss:Color="#D6E4F0" ss:Pattern="Solid"/>\n';
+    xml+='    <Alignment ss:Vertical="Center"/>\n';
+    xml+='  </Style>\n';
+    xml+='  <Style ss:ID="Project">\n';
+    xml+='    <Font ss:FontName="微软雅黑" ss:Size="10" ss:Bold="1"/>\n';
+    xml+='    <Alignment ss:Vertical="Center"/>\n';
+    xml+='  </Style>\n';
+    xml+='  <Style ss:ID="Task">\n';
+    xml+='    <Font ss:FontName="微软雅黑" ss:Size="10"/>\n';
+    xml+='    <Alignment ss:Vertical="Center"/>\n';
+    xml+='  </Style>\n';
+    xml+='  <Style ss:ID="Date">\n';
+    xml+='    <Font ss:FontName="微软雅黑" ss:Size="10"/>\n';
+    xml+='    <NumberFormat ss:Format="yyyy-mm-dd"/>\n';
+    xml+='    <Alignment ss:Horizontal="Center"/>\n';
+    xml+='  </Style>\n';
+    xml+='  <Style ss:ID="Progress">\n';
+    xml+='    <Font ss:FontName="微软雅黑" ss:Size="10"/>\n';
+    xml+='    <Alignment ss:Horizontal="Center"/>\n';
+    xml+='  </Style>\n';
+    xml+='</Styles>\n';
+    
+    xml+='<Worksheet ss:Name="甘特图数据">\n';
+    xml+='<Table>\n';
+    
+    // 列宽定义
+    xml+='<Column ss:Width="120"/>';// 模块
+    xml+='<Column ss:Width="150"/>';// 项目主题
+    xml+='<Column ss:Width="200"/>';// 项目说明
+    xml+='<Column ss:Width="180"/>';// 日程内容
+    xml+='<Column ss:Width="100"/>';// 开始时间
+    xml+='<Column ss:Width="100"/>';// 结束时间
+    xml+='<Column ss:Width="80"/>';// 进度
+    
+    // 表头
+    xml+='<Row ss:Height="25">\n';
+    xml+='  <Cell ss:StyleID="Header"><Data ss:Type="String">模块</Data></Cell>\n';
+    xml+='  <Cell ss:StyleID="Header"><Data ss:Type="String">项目主题</Data></Cell>\n';
+    xml+='  <Cell ss:StyleID="Header"><Data ss:Type="String">项目说明</Data></Cell>\n';
+    xml+='  <Cell ss:StyleID="Header"><Data ss:Type="String">日程内容</Data></Cell>\n';
+    xml+='  <Cell ss:StyleID="Header"><Data ss:Type="String">开始时间</Data></Cell>\n';
+    xml+='  <Cell ss:StyleID="Header"><Data ss:Type="String">结束时间</Data></Cell>\n';
+    xml+='  <Cell ss:StyleID="Header"><Data ss:Type="String">进度</Data></Cell>\n';
+    xml+='</Row>\n';
+    
+    // 数据行
+    currentModules.forEach(function(mod){
+      mod.projects.forEach(function(proj){
+        if(proj.tasks.length===0){
+          // 没有日程的项目也导出
+          xml+='<Row ss:Height="20">\n';
+          xml+='  <Cell ss:StyleID="Module"><Data ss:Type="String">'+escXml(mod.name)+'</Data></Cell>\n';
+          xml+='  <Cell ss:StyleID="Project"><Data ss:Type="String">'+escXml(proj.name)+'</Data></Cell>\n';
+          xml+='  <Cell ss:StyleID="Project"><Data ss:Type="String">'+escXml(proj.desc||'')+'</Data></Cell>\n';
+          xml+='  <Cell ss:StyleID="Project"><Data ss:Type="String"></Data></Cell>\n';
+          xml+='  <Cell ss:StyleID="Project"><Data ss:Type="String"></Data></Cell>\n';
+          xml+='  <Cell ss:StyleID="Project"><Data ss:Type="String"></Data></Cell>\n';
+          xml+='  <Cell ss:StyleID="Project"><Data ss:Type="String"></Data></Cell>\n';
+          xml+='</Row>\n';
+        }else{
+          proj.tasks.forEach(function(task){
+            var startStr=task.start?fmtDate(task.start):'';
+            var endStr=task.end?fmtDate(task.end):'';
+            var progStr=task.progress!=null?task.progress+'%':'';
+            xml+='<Row ss:Height="20">\n';
+            xml+='  <Cell ss:StyleID="Module"><Data ss:Type="String">'+escXml(mod.name)+'</Data></Cell>\n';
+            xml+='  <Cell ss:StyleID="Task"><Data ss:Type="String">'+escXml(proj.name)+'</Data></Cell>\n';
+            xml+='  <Cell ss:StyleID="Task"><Data ss:Type="String">'+escXml(proj.desc||'')+'</Data></Cell>\n';
+            xml+='  <Cell ss:StyleID="Task"><Data ss:Type="String">'+escXml(task.name)+'</Data></Cell>\n';
+            xml+='  <Cell ss:StyleID="Date"><Data ss:Type="String">'+escXml(startStr)+'</Data></Cell>\n';
+            xml+='  <Cell ss:StyleID="Date"><Data ss:Type="String">'+escXml(endStr)+'</Data></Cell>\n';
+            xml+='  <Cell ss:StyleID="Progress"><Data ss:Type="String">'+escXml(progStr)+'</Data></Cell>\n';
+            xml+='</Row>\n';
+          });
+        }
+      });
+    });
+    
+    xml+='</Table>\n';
+    xml+='</Worksheet>\n';
+    xml+='</Workbook>\n';
+    
+    // 创建 Blob 并下载
+    var blob=new Blob([xml],{type:'application/vnd.ms-excel'});
+    var link=document.createElement('a');
+    var url=URL.createObjectURL(blob);
+    link.setAttribute('href',url);
+    link.setAttribute('download','甘特图数据_'+new Date().toISOString().slice(0,10)+'.xls');
+    link.style.display='none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    $formMsg.textContent='✅ 已导出 Excel 文件';
+    $formMsg.style.color='var(--ok)';
+    setTimeout(function(){$formMsg.textContent='';},3000);
+  }
+  
+  // XML 转义
+  function escXml(s){
+    if(!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  
+  // 日期格式化
+  function fmtDate(d){
+    if(!d) return '';
+    return d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0')+'-'+d.getDate().toString().padStart(2,'0');
+  }
+
+  function render(){
+    var res=parseSchedule($input.value);
+    showErrors(res.errors);
+    var modules=res.modules;
+    currentModules=modules; // 保存数据供导出使用
+    var all=[];
+    modules.forEach(function(m){m.projects.forEach(function(p){p.tasks.forEach(function(t){all.push(t);});});});
+    // Merge actual_completion_date from API data
+    currentApiTasks=window.currentApiTasks||[];
+    if(currentApiTasks&&currentApiTasks.length){
+      all.forEach(function(t){
+        for(var k=0;k<currentApiTasks.length;k++){
+          var at=currentApiTasks[k];
+          if(at.name===t.name && at.start_date===t.start){
+            t.actual_completion_date=at.actual_completion_date;
+            t.id=at.id;
+            break;
+          }
+        }
+      });
+    }
+
+    // 表单下拉候选
+    var modList=document.getElementById('mod-list');
+    var projList=document.getElementById('proj-list');
+    modList.innerHTML=modules.map(function(m){return '<option value="'+esc(m.name)+'">';}).join('');
+    var pOpts=[];
+    modules.forEach(function(m){m.projects.forEach(function(p){pOpts.push(p.name);});});
+    projList.innerHTML=pOpts.map(function(n){return '<option value="'+esc(n)+'">';}).join('');
+
+    if(!all.length){
+      $gantt.style.removeProperty('--n');
+      document.getElementById('gantt-fixed').innerHTML='';
+      $gantt.innerHTML='<div class="empty" style="grid-column:1/-1">用左上方表单添加第一条日程吧～<br>（模块、项目、日程内容、开始月份为必填）</div>';
+      $legend.innerHTML='';
+      return;
+    }
+
+    var minD=new Date(Math.min.apply(null,all.map(function(t){return +t.start;})));
+    var maxD=new Date(Math.max.apply(null,all.map(function(t){return +t.end;})));
+    var rangeStart=new Date(minD.getFullYear(),minD.getMonth(),1);
+    var rangeEnd=new Date(maxD.getFullYear(),maxD.getMonth()+1,0);
+    var totalDays=dayDiff(rangeStart,rangeEnd)+1;
+
+    var months=[];
+    var c=new Date(rangeStart);
+    while(c<=rangeEnd){months.push(new Date(c));c.setMonth(c.getMonth()+1);}
+    var years=[];
+    months.forEach(function(m){
+      var y=m.getFullYear(),last=years[years.length-1];
+      if(last&&last.year===y) last.count++; else years.push({year:y,count:1});
+    });
+
+    function pct(d){return dayDiff(rangeStart,d)/totalDays*100;}
+
+    var today=new Date();
+    today=new Date(today.getFullYear(),today.getMonth(),today.getDate());
+    var showToday=today>=rangeStart&&today<=rangeEnd;
+    var todayPct=showToday?pct(today):-1;
+    var todayLine=showToday?'<div class="today-line" style="left:'+todayPct+'%"></div>':'';
+    var todayTag=showToday?'<div class="today-tag" style="left:'+todayPct+'%">今天</div>':'';
+
+    var vlines='';
+    for(var k=1;k<months.length;k++){
+      var bd=new Date(months[k].getFullYear(),months[k].getMonth(),1);
+      vlines+='<div class="vline" style="left:'+pct(bd)+'%"></div>';
+    }
+
+    // 左侧固定列 HTML
+    var fixedHtml='<div class="g-corner">模块 / 项目</div>';
+    // 右侧时间轴 HTML
+    var headerHtml='';
+    headerHtml+='<div class="g-year-row">';
+    years.forEach(function(y){
+      headerHtml+='<div class="g-year" style="grid-column:span '+y.count+'">'+y.year+' 年</div>';
+    });
+    headerHtml+='</div>';
+    headerHtml+='<div class="g-month-row">';
+    months.forEach(function(m){
+      headerHtml+='<div class="g-month">'+(m.getMonth()+1)+'月</div>';
+    });
+    headerHtml+='</div>';
+
+    var tracksHtml='';
+    var tagPlaced=false;
+
+    modules.forEach(function(mod,mi){
+      var color=PALETTE[mi%PALETTE.length];
+      var cv='--c:'+color.c+';--fill:'+color.fill+';--dk:'+color.dk+';';
+      var nRows=mod.projects.length;
+
+      // 一级模块（跨多行）
+      fixedHtml+='<div class="g-modname" style="grid-row:span '+nRows+';background:'+color.fill+'33;border-top-color:'+color.c+';">'+
+        '<span class="mod-badge" style="--c:'+color.c+'">'+(mi+1)+'</span><span>'+esc(mod.name)+'</span></div>';
+
+      mod.projects.forEach(function(p,pi){
+        var startCls=pi===0?' mod-start':'';
+        // 二级项目名
+        var infoIcon = p.desc ? '<i class="p-info" data-proj-info="1">ⓘ</i>' : '';
+        // 添加编辑和删除按钮（直接绑定 onclick）
+        var actionBtns = '<span class="p-actions"><button class="p-edit" data-mod="'+esc(mod.name)+'" data-proj="'+esc(p.name)+'" title="编辑" onclick="editProject(this)"><i class="fa-solid fa-pen-to-square"></i></button><button class="p-del" data-mod="'+esc(mod.name)+'" data-proj="'+esc(p.name)+'" title="删除" onclick="deleteProject(this)"><i class="fa-solid fa-trash-can"></i></button></span>';
+        fixedHtml+='<div class="g-projname'+startCls+'" data-pname="'+esc(p.name)+'" data-pdesc="'+esc(p.desc||'')+'" data-mod="'+esc(mod.name)+'">'+
+          '<span class="p-name" title="'+esc(p.name)+'">'+esc(p.name)+'</span>'+infoIcon+actionBtns+'</div>';
+
+        var inner=vlines+todayLine;
+        if(!tagPlaced&&showToday){inner+=todayTag;tagPlaced=true;}
+        p.tasks.forEach(function(t){
+          var idx=all.indexOf(t);
+          if(t.milestone){
+            var msCls='ms'+(t.actual_completion_date?' completed':'');
+            inner+='<div class="'+msCls+'" data-i="'+idx+'" style="left:'+pct(t.start)+'%">'+(t.actual_completion_date?'<i class="fa-solid fa-check bar-check"></i>':'')+'</div>';
+            inner+='<span class="ms-label" style="left:'+pct(t.start)+'%;color:'+color.dk+'">'+esc(t.name)+'</span>';
+          }else{
+            var lp=pct(t.start);
+            var wp=dayDiff(t.start,new Date(+t.end+86400000))/totalDays*100;
+            var barCls='bar'+(t.actual_completion_date?' completed':'');
+            var barChk=t.actual_completion_date?'<i class="fa-solid fa-check bar-check"></i>':'';
+            inner+='<div class="'+barCls+'" data-i="'+idx+'" style="left:'+lp+'%;width:'+wp+'%;'+cv+'">'+
+              (t.progress!=null?'<span class="bar-prog" style="width:'+t.progress+'%"></span>':'')+
+              '<span class="bar-txt">'+esc(t.name)+'</span>'+barChk+'</div>';
+          }
+        });
+        tracksHtml+='<div class="g-track'+startCls+'" style="background:'+color.fill+'2E">'+inner+'</div>';
+      });
+    });
+
+    $gantt.style.setProperty('--n',months.length);
+    document.getElementById('gantt-fixed').innerHTML=fixedHtml;
+    document.getElementById('gantt-scroll').style.setProperty('--n',months.length);
+    // 重新构建 timeline：年份行 + 月份行 + 色块行
+    var $timeline=document.getElementById('gantt-timeline');
+    $timeline.style.setProperty('--n',months.length);
+    $timeline.innerHTML=headerHtml+'<div class="gantt-inner" id="gantt"></div>';
+    $gantt=document.getElementById('gantt');
+    $gantt.innerHTML=tracksHtml;
+
+    var lh=modules.map(function(m,mi){
+      var color=PALETTE[mi%PALETTE.length];
+      return '<span class="item"><span class="swatch" style="background:'+color.c+'"></span>'+esc(m.name)+'</span>';
+    });
+    lh.push('<span class="item"><span class="diamond"></span>里程碑 / 截止点</span>');
+    if(showToday) lh.push('<span class="item"><span class="dash"></span>今天</span>');
+    $legend.innerHTML=lh.join('');
+
+    $gantt.querySelectorAll('.bar,.ms').forEach(function(el){
+      var t=all[+el.getAttribute('data-i')];
+      el.style.cursor='pointer';
+      el.addEventListener('click',function(e){
+        e.stopPropagation();
+        var modal=document.getElementById('complete-modal');
+        document.getElementById('complete-task-name').textContent=t.name;
+        document.getElementById('complete-date-input').value=t.actual_completion_date||'';
+        modal.style.display='block';
+        modal._taskId=t.id;
+        modal._barEl=el;
+      });
+      el.addEventListener('mouseenter',function(){
+        var rows;
+        if(t.milestone){
+          rows='<div class="t-date">&#9670; '+fmtMonth(t.start)+'</div>';
+        }else{
+          var n=mSpan(t.start,t.end);
+          var dur=n<=1?'<span class="t-dur">单月完成</span>':'<span class="t-dur">共 '+n+' 个月</span>';
+          rows='<div class="t-date">'+fmtMonth(t.start)+' – '+fmtMonth(t.end)+' '+dur+'</div>';
+          if(t.progress!=null){
+            rows+='<div class="t-prog"><span style="width:'+t.progress+'%"></span></div>'+
+              '<div class="t-prog-txt">已完成 '+t.progress+'%</div>';
+          }
+        }
+        if(t.actual_completion_date) rows+='<div style="color:#7FD1B4;font-size:11px;margin-top:4px;">\u2713 实际完成: '+esc(t.actual_completion_date)+'</div>';
+        $tooltip.innerHTML=rows;
+        $tooltip.style.display='block';
+      });
+      el.addEventListener('mousemove',function(e){
+        var x=e.clientX+14,y=e.clientY+14;
+        if(x+320>window.innerWidth) x=e.clientX-310;
+        $tooltip.style.left=x+'px';
+        $tooltip.style.top=y+'px';
+      });
+      el.addEventListener('mouseleave',function(){$tooltip.style.display='none';});
+    });
+
+    // Completion modal handlers
+    var cModal=document.getElementById('complete-modal');
+    if(cModal){
+      document.getElementById('complete-cancel').addEventListener('click',function(){cModal.style.display='none';});
+      document.getElementById('complete-clear').addEventListener('click',function(){
+        if(cModal._taskId){
+          apiPut('/work-mgmt/gantt/api/tasks/'+cModal._taskId+'/complete',{actual_completion_date:null}).then(function(){
+            cModal.style.display='none';loadFromApi().then(function(){render();});
+          });
+        }
+      });
+      document.getElementById('complete-ok').addEventListener('click',function(){
+        var d=document.getElementById('complete-date-input').value;
+        if(!d){alert('请选择日期');return;}
+        if(cModal._taskId){
+          apiPut('/work-mgmt/gantt/api/tasks/'+cModal._taskId+'/complete',{actual_completion_date:d}).then(function(){
+            cModal.style.display='none';loadFromApi().then(function(){render();});
+          });
+        }
+      });
+      cModal.addEventListener('click',function(e){if(e.target===cModal)cModal.style.display='none';});
+    }
+
+    // 项目名悬停 → 显示项目方向说明（仅在有说明时）
+    document.querySelectorAll('.g-projname').forEach(function(el){
+      var name=el.getAttribute('data-pname'), desc=el.getAttribute('data-pdesc');
+      if(!desc) return;
+      el.addEventListener('mouseenter',function(){
+        $tooltip.innerHTML='<div class="t-pname">'+esc(name)+'</div><div class="t-desc">'+esc(desc)+'</div>';
+        $tooltip.style.display='block';
+      });
+      el.addEventListener('mousemove',function(e){
+        var x=e.clientX+14,y=e.clientY+14;
+        if(x+300>window.innerWidth) x=e.clientX-290;
+        $tooltip.style.left=x+'px';$tooltip.style.top=y+'px';
+      });
+      el.addEventListener('mouseleave',function(){$tooltip.style.display='none';});
+    });
+  }
+
+  /* ---------- 表单录入 ---------- */
+  function monthToText(v){
+    if(!v) return '';
+    var p=v.split('-');
+    return ((+p[0])%100)+'年'+(+p[1])+'月';
+  }
+  function lastHeader(re){
+    var found='';
+    $input.value.split(/\r?\n/).forEach(function(line){
+      var m=line.trim().match(re);
+      if(m) found=m[1].trim();
+    });
+    return found;
+  }
+  function formMsg(text,isErr){
+    $formMsg.textContent=text;
+    $formMsg.className='form-msg'+(isErr?' err':'');
+  }
+
+  document.getElementById('btn-add').addEventListener('click',function(){
+    var mod=document.getElementById('f-module').value.trim();
+    var proj=document.getElementById('f-project').value.trim();
+    var pdesc=document.getElementById('f-pdesc').value.trim();
+    var task=document.getElementById('f-task').value.trim();
+    var isMs=document.querySelector('input[name=f-type]:checked').value==='ms';
+    var prog=document.getElementById('f-prog').value.trim();
+    var sv=document.getElementById('f-start').value;
+    var ev=document.getElementById('f-end').value;
+
+    if(!mod||!proj||!task||!sv){formMsg('请填完带 * 的必填项（模块、项目、日程内容、开始月份）',true);return;}
+    if(!isMs&&ev&&ev<sv){formMsg('结束月份不能早于开始月份',true);return;}
+    if(prog!==''&&(isNaN(+prog)||+prog<0||+prog>100)){formMsg('进度请填 0-100 的数字',true);return;}
+
+    var sTxt=monthToText(sv), eTxt=monthToText(ev);
+    var lines=[];
+    var curMod=lastHeader(/^#(?!#)\s*(.+)/);
+    var projHeader=pdesc?('## '+proj+' | '+pdesc):('## '+proj);
+    if(mod!==curMod){
+      lines.push('# '+mod,projHeader);
+    }else{
+      // 当前文字里最后的项目名（去掉「| 说明」部分）
+      var curProj='';
+      $input.value.split(/\r?\n/).forEach(function(l){
+        var m=l.trim().match(/^##\s*(.+)/);
+        if(m) curProj=m[1].split(/[|｜]/)[0].trim();
+      });
+      if(proj!==curProj) lines.push(projHeader);
+    }
+    var line;
+    if(isMs){
+      line='* '+task+' | '+sTxt;
+    }else{
+      line=task+' | '+sTxt;
+      if(eTxt&&eTxt!==sTxt) line+=' | '+eTxt;
+      if(prog!=='') line+=' | '+prog;
+    }
+    lines.push(line);
+
+    var cur=$input.value;
+    if(cur&&!cur.endsWith('\n')) cur+='\n';
+    cur+=lines.join('\n')+'\n';
+    $input.value=cur;
+    render();
+    formMsg('已添加：'+task,false);
+
+    // 保留模块/项目/开始月份，方便连续录入；清空内容类字段
+    document.getElementById('f-task').value='';
+    document.getElementById('f-pdesc').value='';
+    document.getElementById('f-end').value='';
+    document.getElementById('f-prog').value='';
+    document.getElementById('f-task').focus();
+  });
+
+  /* 里程碑模式下，结束月份 / 进度不适用，自动置灰 */
+  function syncType(){
+    var isMs=document.querySelector('input[name=f-type]:checked').value==='ms';
+    document.getElementById('f-end').disabled=isMs;
+    document.getElementById('f-prog').disabled=isMs;
+    if(isMs){document.getElementById('f-end').value='';document.getElementById('f-prog').value='';}
+  }
+  document.querySelectorAll('input[name=f-type]').forEach(function(r){
+    r.addEventListener('change',syncType);
+  });
+  syncType();
+
+  /* ---------- 主题 / 按钮 ---------- */
+  function applyTheme(t){
+    document.body.setAttribute('data-theme',t);
+    $btnTheme.textContent=t==='soft'?'配色：柔和':'配色：鲜明';
+    try{localStorage.setItem('gantt-theme',t);}catch(e){}
+  }
+  $btnTheme.addEventListener('click',function(){
+    applyTheme(document.body.getAttribute('data-theme')==='soft'?'vivid':'soft');
+  });
+  var savedTheme=null;
+  try{savedTheme=localStorage.getItem('gantt-theme');}catch(e){}
+  applyTheme(savedTheme==='vivid'?'vivid':'soft');
+
+
+
+  // 从URL加载数据
+  function loadFromURL(){
+    var params=new URLSearchParams(window.location.search);
+    var data=params.get('data');
+    if(!data) return false;
+    var text;
+    try{
+      text=decodeURIComponent(escape(atob(decodeURIComponent(data))));
+    }catch(e){
+      console.error('URL数据解析失败:',e);
+      return false;
+    }
+    $input.value=text;
+    document.querySelector('.input-card').style.display='none';
+    // btn-sample removed
+    document.getElementById('btn-clear').style.display='none';
+    var headerTitle=document.querySelector('header.top > div:first-child');
+    if(headerTitle)headerTitle.style.display='none';
+    var ganttH2=document.querySelector('section.card:not(.input-card) h2');
+    if(ganttH2)ganttH2.style.display='none';
+    document.getElementById('legend').style.display='none';
+    document.querySelector('footer').style.display='none';
+    var helpEl=document.querySelector('details.help');
+    if(helpEl)helpEl.style.display='none';
+    try{render();}catch(e){console.error('甘特图渲染失败:',e);}
+    setTimeout(function(){document.querySelectorAll('.p-actions').forEach(function(el){el.style.display='none';});},200);
+    return true;
+  }
+var timer=null;
+  $input.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(render,250);});
+  document.getElementById('btn-print').addEventListener('click',function(){window.print();});
+  document.getElementById('btn-pdf').addEventListener('click',exportToPDF);
+  document.getElementById('btn-excel').addEventListener('click',exportToExcel);
+  // btn-sample listener removed
+  document.getElementById('btn-clear').addEventListener('click',function(){$input.value='';render();});
+
+  // PDF 导出功能（新窗口打印，带提示）
+  function exportToPDF(){
+    if(!currentModules||currentModules.length===0){
+      alert('请先生成甘特图！');
+      return;
+    }
+    
+    // 获取甘特图容器
+    var ganttLayout=document.querySelector('.gantt-layout');
+    if(!ganttLayout){
+      alert('未找到甘特图！');
+      return;
+    }
+    
+    // 提示用户
+    var msg='请按以下步骤操作：\n\n';
+    msg+='① 在【打印机】下拉菜单中选择：另存为 PDF\n';
+    msg+='   （Mac 用户请选择：存储为 PDF）\n\n';
+    msg+='② 纸张方向选择：横向\n\n';
+    msg+='③ 点击【打印】按钮，选择保存位置和文件名\n\n';
+    msg+='完成后即可生成 PDF 文件！';
+    alert(msg);
+    
+    // 获取样式
+    var styles='';
+    document.querySelectorAll('style').forEach(function(s){styles+=s.outerHTML;});
+    
+    // 创建新窗口
+    var win=window.open('','_blank');
+    if(!win){
+      alert('请允许浏览器打开新窗口，或使用 Ctrl+P 打印');
+      return;
+    }
+    
+    // 写入内容
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>甘特图</title>');
+    win.document.write(styles);
+    win.document.write('<style>');
+    win.document.write('@page{margin:0.5cm;size:A3 landscape;}');
+    win.document.write('body{background:#fff;padding:15px;margin:0;}');
+    win.document.write('.gantt-layout{border:1px solid #E5E9F2;border-radius:8px;overflow:visible;width:92%;}');
+    win.document.write('.gantt-scroll{overflow:visible !important;flex:1;}');
+    win.document.write('.gantt-timeline{width:100% !important;min-width:100% !important;}');
+    win.document.write('.gantt-inner{grid-template-columns:repeat(var(--n,1),1fr) !important;}');
+    win.document.write('.g-year-row,.g-month-row{grid-template-columns:repeat(var(--n,1),1fr) !important;}');
+    win.document.write('.bar{background:var(--c,#2D4A3E) !important;color:#fff !important;border-color:var(--c,#2D4A3E) !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
+    win.document.write('.bar .bar-prog{background:rgba(0,0,0,.22) !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
+    win.document.write('.g-modname{background:var(--fill,#2D4A3E33) !important;border-top-color:var(--c,#2D4A3E) !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
+    win.document.write('.mod-badge{background:var(--c,#2D4A3E) !important;color:#fff !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
+    win.document.write('.ms{background:#fff !important;border:2px solid #EFA94E !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
+    win.document.write('.ms-label{color:var(--dk,#152033) !important;white-space:nowrap !important;overflow:visible !important;position:relative !important;z-index:10 !important;}');
+    win.document.write('.today-line{border-color:#E0706A !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
+    win.document.write('.today-tag{background:#E0706A !important;color:#fff !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
+    win.document.write('.g-year{border-color:#E5E9F2 !important;}');
+    win.document.write('.g-month{border-color:#E5E9F2 !important;}');
+    win.document.write('.g-track{border-color:#E5E9F2 !important;}');
+    win.document.write('.g-projname{border-color:#E5E9F2 !important;}');
+    win.document.write('*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
+    win.document.write('</style>');
+    win.document.write('</head><body>');
+    win.document.write(ganttLayout.outerHTML);
+    win.document.write('</body></html>');
+    win.document.close();
+    win.print();
+  }
+
+  // --- Override: on render, also trigger save ---
+  var origRender = typeof render !== 'undefined' ? render : null;
+  
+  // Load data from API then render
+  loadFromApi().then(() => {
+    if (typeof render === 'function') render();
+  });
+
+  // Override the add button to also save
+  var origAdd = document.getElementById('btn-add');
+  if (origAdd) {
+    origAdd.addEventListener('click', function() {
+      setTimeout(function() { saveToApi(); }, 100);
+    });
+  }
+  
+  // Override clear button to also clear API
+  var origClear = document.getElementById('btn-clear');
+  if (origClear) {
+    origClear.addEventListener('click', function() {
+      setTimeout(function() { saveToApi(); }, 100);
+    });
+  }
+  
+  // btn-sample override removed
+
+  // --- Edit/Delete Project (global for onclick) ---
+  window.editProject = function(btn){
+    var modName = btn.getAttribute('data-mod');
+    var projName = btn.getAttribute('data-proj');
+    // Find the project in currentModules and populate the form
+    var modEl = document.getElementById('f-module');
+    var projEl = document.getElementById('f-project');
+    var pdescEl = document.getElementById('f-pdesc');
+    if(modEl) modEl.value = modName;
+    if(projEl) projEl.value = projName;
+    // Find description
+    if(currentModules){
+      for(var mi=0;mi<currentModules.length;mi++){
+        if(currentModules[mi].name===modName){
+          for(var pi=0;pi<currentModules[mi].projects.length;pi++){
+            if(currentModules[mi].projects[pi].name===projName){
+              if(pdescEl) pdescEl.value = currentModules[mi].projects[pi].description||'';
+              break;
+            }
+          }
+          break;
+        }
+      }
+    }
+    // Focus on task field for adding new task to this project
+    var taskEl = document.getElementById('f-task');
+    if(taskEl) taskEl.focus();
+    formMsg('编辑模式：修改「'+projName+'」后重新添加即可',false);
+  };
+
+  window.deleteProject = function(btn){
+    var modName = btn.getAttribute('data-mod');
+    var projName = btn.getAttribute('data-proj');
+    if(!confirm('确定删除项目「'+projName+'」及其所有任务？')) return;
+    // Remove from text and re-render
+    var lines = $input.value.split(/\r?\n/);
+    var newLines = [];
+    var skipMod = false;
+    var skipProj = false;
+    for(var i=0;i<lines.length;i++){
+      var line = lines[i].trim();
+      if(line.startsWith('# ')){
+        skipMod = (line.substring(2).trim() === modName);
+        skipProj = false;
+        if(!skipMod) newLines.push(lines[i]);
+      } else if(line.startsWith('## ')){
+        if(skipMod){
+          var pName = line.substring(3).split('|')[0].trim();
+          skipProj = (pName === projName);
+        } else {
+          var pName = line.substring(3).split('|')[0].trim();
+          skipProj = (pName === projName && line.substring(3).split('|')[0].trim() === projName);
+          // Check if we're in the right module
+          if(!skipProj) newLines.push(lines[i]);
+        }
+      } else {
+        if(!skipProj) newLines.push(lines[i]);
+      }
+    }
+    $input.value = newLines.join('\n');
+    render();
+    saveToApi();
+    formMsg('已删除：'+projName,false);
+  };
+
+})();
+</script>
+{% endblock %}
