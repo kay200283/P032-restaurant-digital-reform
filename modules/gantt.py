@@ -163,6 +163,11 @@ def api_batch_save():
     conn = get_db()
     cursor = conn.cursor()
     
+    # Save actual_completion_date before clearing
+    completion_map = {}
+    for row in cursor.execute('SELECT project_id, name, start_date, actual_completion_date FROM gantt_tasks WHERE actual_completion_date IS NOT NULL'):
+        completion_map[(row[0], row[1], row[2])] = row[3]
+    
     # Clear all existing data
     cursor.execute('DELETE FROM gantt_tasks')
     cursor.execute('DELETE FROM gantt_projects')
@@ -186,6 +191,12 @@ def api_batch_save():
                 cursor.execute('INSERT INTO gantt_tasks (project_id, name, start_date, end_date, is_milestone, progress, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)',
                                (real_proj_id, task.get('name', ''), task.get('start_date', ''), task.get('end_date', ''),
                                 task.get('is_milestone', 0), task.get('progress', 0), task.get('sort_order', 0)))
+                # Restore completion date if exists
+                task_key = (real_proj_id, task.get('name', ''), task.get('start_date', ''))
+                if task_key in completion_map:
+                    new_task_id = cursor.lastrowid
+                    cursor.execute('UPDATE gantt_tasks SET actual_completion_date=? WHERE id=?',
+                                   (completion_map[task_key], new_task_id))
     
     conn.commit()
     conn.close()
