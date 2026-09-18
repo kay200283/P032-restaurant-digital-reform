@@ -523,7 +523,7 @@
       apiGet('/work-mgmt/gantt/api/tasks')
     ]);
     if (modResp.success && projResp.success && taskResp.success) {
-      window.currentApiTasks = taskResp.data;
+      window.currentApiTasks = taskResp.data; window.apiModulesData = modResp.data; window.apiProjectsData = projResp.data;
       const text = dataToText(modResp.data, projResp.data, taskResp.data);
       if (text) {
         document.getElementById('input').value = text;
@@ -876,6 +876,17 @@ xml+='</Row>\n';
     showErrors(res.errors);
     var modules=res.modules;
     currentModules=modules; // 保存数据供导出使用
+    // Merge IDs from API data
+    if(window.apiModulesData){
+      modules.forEach(function(m){
+        var am=window.apiModulesData.find(function(x){return x.name===m.name;});
+        if(am) m.id=am.id;
+        m.projects.forEach(function(p){
+          var ap=window.apiProjectsData?window.apiProjectsData.find(function(x){return x.name===p.name&&x.module_id===am.id;}):null;
+          if(ap) p.id=ap.id;
+        });
+      });
+    }
     var all=[];
     modules.forEach(function(m){m.projects.forEach(function(p){p.tasks.forEach(function(t){all.push(t);});});});
     // Merge actual_completion_date from API data
@@ -1144,16 +1155,31 @@ xml+='</Row>\n';
         var newProjName=document.getElementById('edit-project').value.trim();
         if(!newModName||!newProjName){alert('模块和主题名称不能为空');return;}
         
-        // Collect all task rows
+        // Collect all task rows from the modal
         var taskRows=document.getElementById('edit-tasks-list').children;
-        var newProjLines=[];
-        var projDesc='';
-        // Find original description
+        var editedTasks=[];
+        for(var ri=0;ri<taskRows.length;ri++){
+          var row=taskRows[ri];
+          if(row._deleted) continue;
+          var tId=row._taskId||null;
+          var tName=row.querySelector('.et-name').value.trim();
+          var tStart=row.querySelector('.et-start').value;
+          var tEnd=row.querySelector('.et-end').value;
+          var tProg=parseInt(row.querySelector('.et-prog').value)||0;
+          var tMs=row.querySelector('.et-ms').checked;
+          if(!tName||!tStart) continue;
+          editedTasks.push({id:tId,name:tName,start_date:tStart,end_date:tMs?tStart:tEnd,is_milestone:tMs?1:0,progress:tProg});
+        }
+        
+        // Find the project's ID and module's ID from currentModules
+        var projId=null,modId=null,projDesc='';
         if(currentModules){
           for(var mi=0;mi<currentModules.length;mi++){
             if(currentModules[mi].name===eModal._origModName){
+              modId=currentModules[mi].id;
               for(var pi=0;pi<currentModules[mi].projects.length;pi++){
                 if(currentModules[mi].projects[pi].name===eModal._origProjName){
+                  projId=currentModules[mi].projects[pi].id;
                   projDesc=currentModules[mi].projects[pi].description||'';
                 }
               }
@@ -1161,94 +1187,48 @@ xml+='</Row>\n';
           }
         }
         
-        for(var ri=0;ri<taskRows.length;ri++){
-          var row=taskRows[ri];
-          if(row._deleted) continue;
-          var tName=row.querySelector('.et-name').value.trim();
-          var tStart=row.querySelector('.et-start').value;
-          var tEnd=row.querySelector('.et-end').value;
-          var tProg=row.querySelector('.et-prog').value;
-          var tMs=row.querySelector('.et-ms').checked;
-          if(!tName||!tStart) continue;
-          var sTxt=monthToText(tStart), eTxt=monthToText(tEnd);
-          var line;
-          if(tMs){
-            line='* '+tName+' | '+sTxt;
-          } else {
-            line=tName+' | '+sTxt;
-            if(eTxt) line+=' | '+eTxt;
-            if(tProg&&+tProg>0) line+=' | '+tProg;
-          }
-          newProjLines.push(line);
+        // Update module name if changed
+        var updates=[];
+        if(newModName!==eModal._origModName&&modId){
+          updates.push(apiPut('/work-mgmt/gantt/api/modules/'+modId,{name:newModName,color_index:0,sort_order:0}));
+        }
+        // Update project name if changed
+        if(newProjName!==eModal._origProjName&&projId){
+          updates.push(apiPut('/work-mgmt/gantt/api/projects/'+projId,{module_id:modId,name:newProjName,description:projDesc,sort_order:0}));
         }
         
-        // Replace in the textarea: find and replace the project block
-        var origMod=eModal._origModName, origProj=eModal._origProjName;
-        var tlines=$input.value.split(/\r?\n/);
-        var newLines=[];
-        var curMod='',inProj=false,modHeaderAdded=false,projReplaced=false;
-        
-        for(var i=0;i<tlines.length;i++){
-          var l=tlines[i].trim();
-          if(l.startsWith('# ')){
-            curMod=l.substring(2).trim();
-            inProj=false;
-            // If module was renamed
-            if(curMod===origMod&&newModName!==origMod){
-              newLines.push('# '+newModName);
-              modHeaderAdded=true;
+        // Get existing task IDs for this project from API
+        apiGet('/work-mgmt/gantt/api/tasks').then(function(allTasks){
+          var existingIds=[];
+          allTasks.data.forEach(function(t){if(t.project_id===projId)existingIds.push(t.id);});
+          
+          var newIds=[];
+          // Update or create tasks
+          editedTasks.forEach(function(t){
+            if(t.id&&existingIds.indexOf(t.id)>-1){
+              // Update existing task
+              updates.push(apiPut('/work-mgmt/gantt/api/tasks/'+t.id,{project_id:projId,name:t.name,start_date:t.start_date,end_date:t.end_date,is_milestone:t.is_milestone,progress:t.progress,sort_order:0}));
+              newIds.push(t.id);
             } else {
-              newLines.push(tlines[i]);
-              modHeaderAdded=false;
+              // Create new task
+              updates.push(apiPost('/work-mgmt/gantt/api/tasks',{project_id:projId,name:t.name,start_date:t.start_date,end_date:t.end_date,is_milestone:t.is_milestone,progress:t.progress,sort_order:0}));
             }
-          } else if(l.startsWith('## ')){
-            var pn=l.substring(3).split('|')[0].trim();
-            if(curMod===origMod||curMod===newModName){
-              if(pn===origProj){
-                inProj=true;
-                projReplaced=true;
-                // Write new project header
-                var header=newProjName;
-                if(projDesc) header+=' | '+projDesc;
-                newLines.push('## '+header);
-                // Write new tasks
-                for(var ti=0;ti<newProjLines.length;ti++){
-                  newLines.push(newProjLines[ti]);
-                }
-              } else {
-                inProj=false;
-                newLines.push(tlines[i]);
-              }
-            } else {
-              newLines.push(tlines[i]);
+          });
+          
+          // Delete tasks that were removed
+          existingIds.forEach(function(eid){
+            if(newIds.indexOf(eid)===-1){
+              updates.push(apiDel('/work-mgmt/gantt/api/tasks/'+eid));
             }
-          } else {
-            if(!inProj) newLines.push(tlines[i]);
-          }
-        }
-        
-        // If project wasn't found (new), add it
-        if(!projReplaced){
-          // Find or add the module
-          var modIdx=-1;
-          for(var ni=0;ni<newLines.length;ni++){
-            if(newLines[ni].trim().startsWith('# ')&&newLines[ni].trim().substring(2).trim()===newModName){modIdx=ni;break;}
-          }
-          if(modIdx===-1){
-            newLines.push('# '+newModName);
-            modIdx=newLines.length-1;
-          }
-          var header=newProjName;
-          if(projDesc) header+=' | '+projDesc;
-          newLines.push('## '+header);
-          for(var ti=0;ti<newProjLines.length;ti++) newLines.push(newProjLines[ti]);
-        }
-        
-        $input.value=newLines.join('\n');
-        render();
-        saveToApi().then(function(){loadFromApi().then(function(){render();});});
-        eModal.style.display='none';
-        formMsg('已保存：'+newProjName,false);
+          });
+          
+          // Wait for all updates, then reload
+          Promise.all(updates).then(function(){
+            loadFromApi().then(function(){render();});
+            eModal.style.display='none';
+            formMsg('已保存：'+newProjName,false);
+          });
+        });
       });
     }
 
@@ -1534,6 +1514,7 @@ var timer=null;
     }
     tasks.forEach(function(t, idx){
       var row = document.createElement('div');
+      row._taskId = t.id || null;
       row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;padding:6px 8px;background:#F6F8FB;border-radius:6px;';
       row.innerHTML = '<input type="text" class="et-name" value="'+esc(t.name)+'" style="flex:2;height:30px;border:1px solid var(--line);border-radius:4px;padding:0 8px;font-size:12px;" placeholder="日程名称">'
         + '<input type="month" class="et-start" value="'+monthFromText(t.start)+'" style="flex:1;height:30px;border:1px solid var(--line);border-radius:4px;padding:0 6px;font-size:12px;" title="开始">'
