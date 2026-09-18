@@ -63,7 +63,7 @@
   .form-box{border:1px solid var(--line);border-radius:10px;background:#FAFBFD;padding:12px;margin-bottom:14px;}
   .form-box .form-title{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
   .form-grid{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;}
-  .form-grid label,.form-grid .field{font-size:12px;color:var(--ink-2);display:flex;flex-direction:column;gap:5px;min-width:160px;flex:1;}
+  .form-grid label,.form-grid .field{font-size:12px;color:var(--ink-2);display:flex;flex-direction:column;gap:5px;min-width:200px;flex:1;}
   .form-grid .lbl{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:#3A4658;white-space:nowrap;}
   .form-grid .req{color:#E0533D;font-style:normal;font-weight:700;}
   .form-grid .tip{font-weight:400;font-size:11px;color:#9AA5BA;margin-left:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;display:inline-block;vertical-align:middle;}
@@ -74,8 +74,8 @@
   .form-grid input:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0 3px rgba(45,74,62,.1);}
   .form-grid input::placeholder{color:#B4BCCB;}
   .form-grid input:disabled{background:#F2F4F8;color:#9AA5BA;cursor:not-allowed;}
-  .radio-row{display:flex;gap:12px;align-items:center;min-height:36px;font-size:13px;color:var(--ink);}
-  .radio-row label{display:flex;align-items:center;gap:4px;cursor:pointer;font-weight:400;flex-direction:row;white-space:nowrap;font-size:12px;}
+  .radio-row{display:flex;gap:16px;align-items:center;min-height:36px;font-size:13px;color:var(--ink);}
+  .radio-row label{display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:400;flex-direction:row;white-space:nowrap;}
   .form-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-left:auto;}
   .form-msg{font-size:12px;color:var(--ok,#16A37B);}
   .form-msg.err{color:#B42318;}
@@ -363,6 +363,34 @@
   <footer>打印时选择「另存为 PDF」即可保存图片版</footer>
 </div>
 
+
+<div id="edit-modal" style="display:none;position:fixed;z-index:1000;inset:0;background:rgba(0,0,0,.35);">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:10px;padding:24px 28px;box-shadow:0 8px 32px rgba(0,0,0,.18);min-width:560px;max-width:90vw;max-height:80vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <h3 style="margin:0;font-size:16px;color:var(--ink);">编辑项目</h3>
+      <button id="edit-close" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--ink-2);padding:4px;"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:12px;color:var(--ink-2);display:block;margin-bottom:4px;">模块名称</label>
+      <input type="text" id="edit-module" style="width:100%;height:36px;border:1px solid var(--line);border-radius:6px;padding:0 10px;font-size:14px;">
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:12px;color:var(--ink-2);display:block;margin-bottom:4px;">主题名称</label>
+      <input type="text" id="edit-project" style="width:100%;height:36px;border:1px solid var(--line);border-radius:6px;padding:0 10px;font-size:14px;">
+    </div>
+    <div style="border-top:1px solid var(--line);padding-top:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-size:13px;font-weight:600;color:var(--ink);">日程内容</span>
+        <button id="edit-add-task" style="background:none;border:1px solid var(--brand);border-radius:4px;color:var(--brand);cursor:pointer;font-size:11px;padding:2px 8px;"><i class="fa-solid fa-plus"></i> 新增</button>
+      </div>
+      <div id="edit-tasks-list"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;">
+      <button id="edit-delete-proj" style="padding:6px 16px;border:1px solid #E0706A;border-radius:6px;background:#fff;color:#E0706A;cursor:pointer;font-size:13px;"><i class="fa-solid fa-trash-can"></i> 删除项目</button>
+      <button id="edit-save" style="padding:6px 16px;border:none;border-radius:6px;background:var(--brand);color:#fff;cursor:pointer;font-size:13px;">保存</button>
+    </div>
+  </div>
+</div>
 
 <div id="complete-modal" style="display:none;position:fixed;z-index:1000;inset:0;background:rgba(0,0,0,.35);">
   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:10px;padding:24px 28px;box-shadow:0 8px 32px rgba(0,0,0,.18);min-width:320px;">
@@ -1054,6 +1082,158 @@
       cModal.addEventListener('click',function(e){if(e.target===cModal)cModal.style.display='none';});
     }
 
+    // Edit modal handlers
+    var eModal=document.getElementById('edit-modal');
+    if(eModal){
+      document.getElementById('edit-close').addEventListener('click',function(){eModal.style.display='none';});
+      eModal.addEventListener('click',function(e){if(e.target===eModal)eModal.style.display='none';});
+      
+      // Delete project button
+      document.getElementById('edit-delete-proj').addEventListener('click',function(){
+        var modName=eModal._origModName, projName=eModal._origProjName;
+        if(!confirm('确定删除项目「'+projName+'」及其所有日程？')) return;
+        var lines=$input.value.split(/\r?\n/);
+        var newLines=[],inTarget=false,curMod='';
+        for(var i=0;i<lines.length;i++){
+          var l=lines[i].trim();
+          if(l.startsWith('# ')){curMod=l.substring(2).trim();inTarget=false;newLines.push(lines[i]);}
+          else if(l.startsWith('## ')){var pn=l.substring(3).split('|')[0].trim();inTarget=(curMod===modName&&pn===projName);if(!inTarget)newLines.push(lines[i]);}
+          else{if(!inTarget)newLines.push(lines[i]);}
+        }
+        $input.value=newLines.join('\n');render();saveToApi();eModal.style.display='none';formMsg('已删除：'+projName,false);
+      });
+      
+      // Add task button in edit modal
+      document.getElementById('edit-add-task').addEventListener('click',function(){
+        var listEl=document.getElementById('edit-tasks-list');
+        var row=document.createElement('div');
+        row.style.cssText='display:flex;gap:6px;align-items:center;margin-bottom:6px;padding:6px 8px;background:#F6F8FB;border-radius:6px;';
+        row.innerHTML='<input type="text" class="et-name" value="" style="flex:2;height:30px;border:1px solid var(--line);border-radius:4px;padding:0 8px;font-size:12px;" placeholder="新日程名称">'
+          +'<input type="month" class="et-start" value="" style="flex:1;height:30px;border:1px solid var(--line);border-radius:4px;padding:0 6px;font-size:12px;" title="开始">'
+          +'<input type="month" class="et-end" value="" style="flex:1;height:30px;border:1px solid var(--line);border-radius:4px;padding:0 6px;font-size:12px;" title="结束">'
+          +'<input type="number" class="et-prog" value="0" min="0" max="100" style="width:48px;height:30px;border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:12px;text-align:center;" title="进度%">'
+          +'<label style="font-size:11px;color:var(--ink-2);white-space:nowrap;"><input type="checkbox" class="et-ms" style="margin-right:2px;">里程碑</label>'
+          +'<button class="et-del" style="background:none;border:none;cursor:pointer;color:#E0706A;font-size:13px;padding:2px 4px;" title="删除"><i class="fa-solid fa-xmark"></i></button>';
+        row.querySelector('.et-del').addEventListener('click',function(){row.remove();});
+        row.querySelector('.et-ms').addEventListener('change',function(){var ei=row.querySelector('.et-end');if(this.checked){ei.value='';ei.style.opacity='0.4';}else{ei.style.opacity='1';}});
+        listEl.appendChild(row);
+        row.querySelector('.et-name').focus();
+      });
+      
+      // Save button - rebuild the text for this project and replace in the textarea
+      document.getElementById('edit-save').addEventListener('click',function(){
+        var newModName=document.getElementById('edit-module').value.trim();
+        var newProjName=document.getElementById('edit-project').value.trim();
+        if(!newModName||!newProjName){alert('模块和主题名称不能为空');return;}
+        
+        // Collect all task rows
+        var taskRows=document.getElementById('edit-tasks-list').children;
+        var newProjLines=[];
+        var projDesc='';
+        // Find original description
+        if(currentModules){
+          for(var mi=0;mi<currentModules.length;mi++){
+            if(currentModules[mi].name===eModal._origModName){
+              for(var pi=0;pi<currentModules[mi].projects.length;pi++){
+                if(currentModules[mi].projects[pi].name===eModal._origProjName){
+                  projDesc=currentModules[mi].projects[pi].description||'';
+                }
+              }
+            }
+          }
+        }
+        
+        for(var ri=0;ri<taskRows.length;ri++){
+          var row=taskRows[ri];
+          if(row._deleted) continue;
+          var tName=row.querySelector('.et-name').value.trim();
+          var tStart=row.querySelector('.et-start').value;
+          var tEnd=row.querySelector('.et-end').value;
+          var tProg=row.querySelector('.et-prog').value;
+          var tMs=row.querySelector('.et-ms').checked;
+          if(!tName||!tStart) continue;
+          var sTxt=monthToText(tStart), eTxt=monthToText(tEnd);
+          var line;
+          if(tMs){
+            line='* '+tName+' | '+sTxt;
+          } else {
+            line=tName+' | '+sTxt;
+            if(eTxt&&eTxt!==sTxt) line+=' | '+eTxt;
+            if(tProg&&+tProg>0) line+=' | '+tProg;
+          }
+          newProjLines.push(line);
+        }
+        
+        // Replace in the textarea: find and replace the project block
+        var origMod=eModal._origModName, origProj=eModal._origProjName;
+        var tlines=$input.value.split(/\r?\n/);
+        var newLines=[];
+        var curMod='',inProj=false,modHeaderAdded=false,projReplaced=false;
+        
+        for(var i=0;i<tlines.length;i++){
+          var l=tlines[i].trim();
+          if(l.startsWith('# ')){
+            curMod=l.substring(2).trim();
+            inProj=false;
+            // If module was renamed
+            if(curMod===origMod&&newModName!==origMod){
+              newLines.push('# '+newModName);
+              modHeaderAdded=true;
+            } else {
+              newLines.push(tlines[i]);
+              modHeaderAdded=false;
+            }
+          } else if(l.startsWith('## ')){
+            var pn=l.substring(3).split('|')[0].trim();
+            if(curMod===origMod||curMod===newModName){
+              if(pn===origProj){
+                inProj=true;
+                projReplaced=true;
+                // Write new project header
+                var header=newProjName;
+                if(projDesc) header+=' | '+projDesc;
+                newLines.push('## '+header);
+                // Write new tasks
+                for(var ti=0;ti<newProjLines.length;ti++){
+                  newLines.push(newProjLines[ti]);
+                }
+              } else {
+                inProj=false;
+                newLines.push(tlines[i]);
+              }
+            } else {
+              newLines.push(tlines[i]);
+            }
+          } else {
+            if(!inProj) newLines.push(tlines[i]);
+          }
+        }
+        
+        // If project wasn't found (new), add it
+        if(!projReplaced){
+          // Find or add the module
+          var modIdx=-1;
+          for(var ni=0;ni<newLines.length;ni++){
+            if(newLines[ni].trim().startsWith('# ')&&newLines[ni].trim().substring(2).trim()===newModName){modIdx=ni;break;}
+          }
+          if(modIdx===-1){
+            newLines.push('# '+newModName);
+            modIdx=newLines.length-1;
+          }
+          var header=newProjName;
+          if(projDesc) header+=' | '+projDesc;
+          newLines.push('## '+header);
+          for(var ti=0;ti<newProjLines.length;ti++) newLines.push(newProjLines[ti]);
+        }
+        
+        $input.value=newLines.join('\n');
+        render();
+        saveToApi();
+        eModal.style.display='none';
+        formMsg('已保存：'+newProjName,false);
+      });
+    }
+
     // 项目名悬停 → 显示项目方向说明（仅在有说明时）
     document.querySelectorAll('.g-projname').forEach(function(el){
       var name=el.getAttribute('data-pname'), desc=el.getAttribute('data-pdesc');
@@ -1076,6 +1256,13 @@
     if(!v) return '';
     var p=v.split('-');
     return ((+p[0])%100)+'年'+(+p[1])+'月';
+  }
+
+  function monthFromText(txt){
+    if(!txt) return '';
+    var m=txt.match(/(\d{4})\s*[-/.年]\s*(\d{1,2})/);
+    if(m) return m[1]+'-'+(m[2].length<2?'0':'')+m[2];
+    return txt;
   }
   function lastHeader(re){
     var found='';
@@ -1303,19 +1490,23 @@ var timer=null;
   window.editProject = function(btn){
     var modName = btn.getAttribute('data-mod');
     var projName = btn.getAttribute('data-proj');
-    // Find the project in currentModules and populate the form
-    var modEl = document.getElementById('f-module');
-    var projEl = document.getElementById('f-project');
-    var pdescEl = document.getElementById('f-pdesc');
-    if(modEl) modEl.value = modName;
-    if(projEl) projEl.value = projName;
-    // Find description
+    var modal = document.getElementById('edit-modal');
+    
+    // Store original names for rename detection
+    modal._origModName = modName;
+    modal._origProjName = projName;
+    
+    document.getElementById('edit-module').value = modName;
+    document.getElementById('edit-project').value = projName;
+    
+    // Find all tasks for this project from currentModules
+    var tasks = [];
     if(currentModules){
       for(var mi=0;mi<currentModules.length;mi++){
         if(currentModules[mi].name===modName){
           for(var pi=0;pi<currentModules[mi].projects.length;pi++){
             if(currentModules[mi].projects[pi].name===projName){
-              if(pdescEl) pdescEl.value = currentModules[mi].projects[pi].description||'';
+              tasks = currentModules[mi].projects[pi].tasks;
               break;
             }
           }
@@ -1323,45 +1514,64 @@ var timer=null;
         }
       }
     }
-    // Focus on task field for adding new task to this project
-    var taskEl = document.getElementById('f-task');
-    if(taskEl) taskEl.focus();
-    formMsg('编辑模式：修改「'+projName+'」后重新添加即可',false);
+    
+    // Build task rows
+    var listEl = document.getElementById('edit-tasks-list');
+    listEl.innerHTML = '';
+    tasks.forEach(function(t, idx){
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;padding:6px 8px;background:#F6F8FB;border-radius:6px;';
+      row.innerHTML = '<input type="text" class="et-name" value="'+esc(t.name)+'" style="flex:2;height:30px;border:1px solid var(--line);border-radius:4px;padding:0 8px;font-size:12px;" placeholder="日程名称">'
+        + '<input type="month" class="et-start" value="'+monthFromText(t.start)+'" style="flex:1;height:30px;border:1px solid var(--line);border-radius:4px;padding:0 6px;font-size:12px;" title="开始">'
+        + '<input type="month" class="et-end" value="'+(t.milestone?'':monthFromText(t.end))+'" style="flex:1;height:30px;border:1px solid var(--line);border-radius:4px;padding:0 6px;font-size:12px;'+(t.milestone?'opacity:.4;':'')+'" title="结束">'
+        + '<input type="number" class="et-prog" value="'+t.progress+'" min="0" max="100" style="width:48px;height:30px;border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:12px;text-align:center;" title="进度%">'
+        + '<label style="font-size:11px;color:var(--ink-2);white-space:nowrap;"><input type="checkbox" class="et-ms" '+(t.milestone?'checked':'')+' style="margin-right:2px;">里程碑</label>'
+        + '<button class="et-del" style="background:none;border:none;cursor:pointer;color:#E0706A;font-size:13px;padding:2px 4px;" title="删除此日程"><i class="fa-solid fa-xmark"></i></button>';
+      // Delete button for this task row
+      row.querySelector('.et-del').addEventListener('click', function(){
+        row.style.background = '#FDE8E8';
+        row.style.opacity = '0.5';
+        row._deleted = true;
+      });
+      // Milestone toggle
+      row.querySelector('.et-ms').addEventListener('change', function(){
+        var endInput = row.querySelector('.et-end');
+        if(this.checked){ endInput.value=''; endInput.style.opacity='0.4'; }
+        else { endInput.style.opacity='1'; }
+      });
+      listEl.appendChild(row);
+    });
+    
+    modal.style.display = 'block';
   };
 
   window.deleteProject = function(btn){
     var modName = btn.getAttribute('data-mod');
     var projName = btn.getAttribute('data-proj');
-    if(!confirm('确定删除项目「'+projName+'」及其所有任务？')) return;
-    // Remove from text and re-render
+    if(!confirm('确定删除项目「'+projName+'」及其所有日程？')) return;
+    // Remove from text
     var lines = $input.value.split(/\r?\n/);
     var newLines = [];
-    var skipMod = false;
-    var skipProj = false;
+    var inTargetProj = false;
+    var currentMod = '';
     for(var i=0;i<lines.length;i++){
       var line = lines[i].trim();
       if(line.startsWith('# ')){
-        skipMod = (line.substring(2).trim() === modName);
-        skipProj = false;
-        if(!skipMod) newLines.push(lines[i]);
+        currentMod = line.substring(2).trim();
+        inTargetProj = false;
+        newLines.push(lines[i]);
       } else if(line.startsWith('## ')){
-        if(skipMod){
-          var pName = line.substring(3).split('|')[0].trim();
-          skipProj = (pName === projName);
-        } else {
-          var pName = line.substring(3).split('|')[0].trim();
-          skipProj = (pName === projName && line.substring(3).split('|')[0].trim() === projName);
-          // Check if we're in the right module
-          if(!skipProj) newLines.push(lines[i]);
-        }
+        var pName = line.substring(3).split('|')[0].trim();
+        inTargetProj = (currentMod === modName && pName === projName);
+        if(!inTargetProj) newLines.push(lines[i]);
       } else {
-        if(!skipProj) newLines.push(lines[i]);
+        if(!inTargetProj) newLines.push(lines[i]);
       }
     }
     $input.value = newLines.join('\n');
     render();
     saveToApi();
-    formMsg('已删除：'+projName,false);
+    formMsg('已删除：'+projName, false);
   };
 
 })();
