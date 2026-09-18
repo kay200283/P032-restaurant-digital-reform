@@ -168,7 +168,7 @@
     cursor:default;z-index:2;border:1px solid transparent;
   }
   .bar .bar-prog{position:absolute;left:0;top:0;bottom:0;border-radius:6px 0 0 6px;z-index:0;}
-  .bar .bar-txt{position:relative;z-index:1;display:inline-block;max-width:calc(100% - 22px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;}
+  .bar .bar-txt{position:relative;z-index:1;white-space:nowrap;vertical-align:middle;}
   .bar{transition:box-shadow .15s ease,border-color .15s ease;}
   .bar:hover{box-shadow:0 3px 10px rgba(21,32,51,.22);z-index:20;}
   body[data-theme="soft"] .bar:hover{border-color:var(--dk);}
@@ -1050,11 +1050,11 @@ xml+='</Row>\n';
       el.addEventListener('mouseenter',function(){
         var rows;
         if(t.milestone){
-          rows='<div class="t-date">&#9670; '+fmtMonth(t.start)+'</div>';
+          rows='<div class="t-pname">'+esc(t.name)+'</div><div class="t-date">&#9670; '+fmtMonth(t.start)+'</div>';
         }else{
           var n=mSpan(t.start,t.end);
           var dur=n<=1?'<span class="t-dur">单月完成</span>':'<span class="t-dur">共 '+n+' 个月</span>';
-          rows='<div class="t-date">'+fmtMonth(t.start)+' – '+fmtMonth(t.end)+' '+dur+'</div>';
+          rows='<div class="t-pname">'+esc(t.name)+'</div><div class="t-date">'+fmtMonth(t.start)+' – '+fmtMonth(t.end)+' '+dur+'</div>';
           if(t.progress!=null && !t.actual_completion_date){
             rows+='<div class="t-prog"><span style="width:'+t.progress+'%"></span></div>'+
               '<div class="t-prog-txt">已完成 '+t.progress+'%</div>';
@@ -1142,6 +1142,7 @@ xml+='</Row>\n';
       document.getElementById('edit-add-task').addEventListener('click',function(){
         var listEl=document.getElementById('edit-tasks-list');
         var row=document.createElement('div');
+        row.className='task-row';
         row.style.cssText='display:flex;gap:6px;align-items:center;margin-bottom:6px;padding:6px 8px;background:#F6F8FB;border-radius:6px;';
         row.innerHTML='<input type="text" class="et-name" value="" style="flex:2;height:30px;border:1px solid var(--line);border-radius:4px;padding:0 8px;font-size:12px;" placeholder="新日程名称">'
           +'<input type="month" class="et-start" value="" style="flex:1;height:30px;border:1px solid var(--line);border-radius:4px;padding:0 6px;font-size:12px;" title="开始">'
@@ -1162,11 +1163,12 @@ xml+='</Row>\n';
         if(!newModName||!newProjName){alert('模块和主题名称不能为空');return;}
         
         // Collect all task rows from the modal
-        var taskRows=document.getElementById('edit-tasks-list').children;
+        var taskRows=document.getElementById('edit-tasks-list').querySelectorAll('.task-row');
         var editedTasks=[];
         for(var ri=0;ri<taskRows.length;ri++){
           var row=taskRows[ri];
           if(row._deleted) continue;
+          if(!row.querySelector('.et-name')) continue;
           var tId=row._taskId||null;
           var tName=row.querySelector('.et-name').value.trim();
           var tStart=row.querySelector('.et-start').value;
@@ -1534,6 +1536,7 @@ var timer=null;
     }
     tasks.forEach(function(t, idx){
       var row = document.createElement('div');
+      row.className = 'task-row';
       row._taskId = t.id || null;
       row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;padding:6px 8px;background:#F6F8FB;border-radius:6px;';
       row.innerHTML = '<input type="text" class="et-name" value="'+esc(t.name)+'" style="flex:2;height:30px;border:1px solid var(--line);border-radius:4px;padding:0 8px;font-size:12px;" placeholder="日程名称">'
