@@ -1179,20 +1179,45 @@ xml+='</Row>\n';
           editedTasks.push({id:tId,name:tName,start_date:tStart,end_date:tMs?tStart:tEnd,is_milestone:tMs?1:0,progress:tProg});
         }
         
-        // Find the project's ID and module's ID from currentModules
+        // Find the project's ID and module's ID from API data (more reliable than currentModules)
         var projId=null,modId=null;
         var projDesc=document.getElementById('edit-desc').value.trim();
-        if(currentModules){
-          for(var mi=0;mi<currentModules.length;mi++){
-            if(currentModules[mi].name===eModal._origModName){
-              modId=currentModules[mi].id;
-              for(var pi=0;pi<currentModules[mi].projects.length;pi++){
-                if(currentModules[mi].projects[pi].name===eModal._origProjName){
-                  projId=currentModules[mi].projects[pi].id;
-                }
-              }
+        // Try API data first (has guaranteed IDs)
+        if(window.apiModulesData){
+          for(var mi=0;mi<window.apiModulesData.length;mi++){
+            if(window.apiModulesData[mi].name===eModal._origModName){
+              modId=window.apiModulesData[mi].id;
+              break;
             }
           }
+        }
+        if(window.apiProjectsData&&modId){
+          for(var pi=0;pi<window.apiProjectsData.length;pi++){
+            if(window.apiProjectsData[pi].name===eModal._origProjName&&window.apiProjectsData[pi].module_id===modId){
+              projId=window.apiProjectsData[pi].id;
+              break;
+            }
+          }
+        }
+        // Fallback to currentModules if API data not available
+        if(!projId&&currentModules){
+          for(var mi=0;mi<currentModules.length;mi++){
+            if(currentModules[mi].name===eModal._origModName){
+              modId=modId||currentModules[mi].id;
+              for(var pi=0;pi<currentModules[mi].projects.length;pi++){
+                if(currentModules[mi].projects[pi].name===eModal._origProjName){
+                  projId=projId||currentModules[mi].projects[pi].id;
+                  break;
+                }
+              }
+              break;
+            }
+          }
+        }
+        if(!projId){
+          alert('无法找到项目ID，请刷新页面后重试');
+          console.error('[edit-save] projId is null! origMod:', eModal._origModName, 'origProj:', eModal._origProjName);
+          return;
         }
         
         // Update module name if changed
@@ -1231,10 +1256,19 @@ xml+='</Row>\n';
           });
           
           // Wait for all updates, then reload
-          Promise.all(updates).then(function(){
+          Promise.all(updates).then(function(results){
+            // Check for any failures
+            var failed=results.filter(function(r){return r&&!r.success;});
+            if(failed.length>0){
+              console.error('[edit-save] Some operations failed:', failed);
+              alert('保存时部分操作失败，请刷新页面检查');
+            }
             loadFromApi().then(function(){render();});
             eModal.style.display='none';
             formMsg('已保存：'+newProjName,false);
+          }).catch(function(err){
+            console.error('[edit-save] Save error:', err);
+            alert('保存出错：'+err.message);
           });
         });
       });
