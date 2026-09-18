@@ -505,7 +505,7 @@
       apiGet('/work-mgmt/gantt/api/tasks')
     ]);
     if (modResp.success && projResp.success && taskResp.success) {
-      currentApiTasks = taskResp.data;
+      window.currentApiTasks = taskResp.data;
       const text = dataToText(modResp.data, projResp.data, taskResp.data);
       if (text) {
         document.getElementById('input').value = text;
@@ -578,7 +578,7 @@
       $formMsg=document.getElementById('form-msg');
   
   var currentModules=[]; // 存储当前解析的模块数据，用于导出
-  var currentApiTasks=[]; // 存储API返回的任务数据（含actual_completion_date）
+  var currentApiTasks=window.currentApiTasks||[]; // 存储API返回的任务数据（含actual_completion_date）
 
   function esc(s){
     return String(s).replace(/[&<>"']/g, function(c){
@@ -857,11 +857,12 @@
     var all=[];
     modules.forEach(function(m){m.projects.forEach(function(p){p.tasks.forEach(function(t){all.push(t);});});});
     // Merge actual_completion_date from API data
+    currentApiTasks=window.currentApiTasks||[];
     if(currentApiTasks&&currentApiTasks.length){
       all.forEach(function(t){
         for(var k=0;k<currentApiTasks.length;k++){
           var at=currentApiTasks[k];
-          if(at.name===t.name){
+          if(at.name===t.name && at.start_date===t.start){
             t.actual_completion_date=at.actual_completion_date;
             t.id=at.id;
             break;
