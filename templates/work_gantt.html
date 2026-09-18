@@ -6,9 +6,9 @@
 <style>
 /* Gantt-specific overrides - no sidebar padding needed */
 :root {
-  --brand: #9E1B34;
-  --brand-bg: #F5E6E9;
-  --brand-dk: #7A1529;
+  --brand: #2D4A3E;
+  --brand-bg: #E8F0ED;
+  --brand-dk: #1A2F27;
   --gantt-font: 'Noto Sans SC', 'Inter', sans-serif;
 }
   :root{
@@ -16,7 +16,7 @@
     --card:#FFFFFF;
     --ink:#152033;
     --ink-2:#637089;
-    --brand:#2F6BFF;
+    --brand:#2D4A3E;
     --line:#E6EAF2;
     --today:#E0706A;
     --ms:#EFA94E;
@@ -47,7 +47,7 @@
   button:hover{border-color:var(--brand);color:var(--brand);}
   button:focus-visible,summary:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--brand);outline-offset:1px;}
   button.primary{background:var(--brand);border-color:var(--brand);color:#fff;}
-  button.primary:hover{background:#1f5ae6;color:#fff;}
+  button.primary:hover{background:#1a3a2f;color:#fff;}
 
   .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
   .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;}
@@ -71,7 +71,7 @@
     padding:8px 10px;border:1px solid var(--line);border-radius:7px;
     font-size:13px;font-family:inherit;background:#fff;color:var(--ink);width:100%;height:36px;
   }
-  .form-grid input:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0 3px rgba(30,87,190,.1);}
+  .form-grid input:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0 3px rgba(45,74,62,.1);}
   .form-grid input::placeholder{color:#B4BCCB;}
   .form-grid input:disabled{background:#F2F4F8;color:#9AA5BA;cursor:not-allowed;}
   .radio-row{display:flex;gap:16px;align-items:center;min-height:36px;font-size:13px;color:var(--ink);}
@@ -255,29 +255,6 @@
     @page{margin:1cm;size:A4 landscape;}
   }
 </style>
-/* Print styles */
-    win.document.write('<style>');
-    win.document.write('@page{margin:0.5cm;size:A3 landscape;}');
-    win.document.write('body{background:#fff;padding:15px;margin:0;}');
-    win.document.write('.gantt-layout{border:1px solid #E5E9F2;border-radius:8px;overflow:visible;width:92%;}');
-    win.document.write('.gantt-scroll{overflow:visible !important;flex:1;}');
-    win.document.write('.gantt-timeline{width:100% !important;min-width:100% !important;}');
-    win.document.write('.gantt-inner{grid-template-columns:repeat(var(--n,1),1fr) !important;}');
-    win.document.write('.g-year-row,.g-month-row{grid-template-columns:repeat(var(--n,1),1fr) !important;}');
-    win.document.write('.bar{background:var(--c,#2F6BFF) !important;color:#fff !important;border-color:var(--c,#2F6BFF) !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
-    win.document.write('.bar .bar-prog{background:rgba(0,0,0,.22) !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
-    win.document.write('.g-modname{background:var(--fill,#2F6BFF33) !important;border-top-color:var(--c,#2F6BFF) !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
-    win.document.write('.mod-badge{background:var(--c,#2F6BFF) !important;color:#fff !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
-    win.document.write('.ms{background:#fff !important;border:2px solid #EFA94E !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
-    win.document.write('.ms-label{color:var(--dk,#152033) !important;white-space:nowrap !important;overflow:visible !important;position:relative !important;z-index:10 !important;}');
-    win.document.write('.today-line{border-color:#E0706A !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
-    win.document.write('.today-tag{background:#E0706A !important;color:#fff !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
-    win.document.write('.g-year{border-color:#E5E9F2 !important;}');
-    win.document.write('.g-month{border-color:#E5E9F2 !important;}');
-    win.document.write('.g-track{border-color:#E5E9F2 !important;}');
-    win.document.write('.g-projname{border-color:#E5E9F2 !important;}');
-    win.document.write('*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
-    win.document.write('</style>');
 </style>
 {% endblock %}
 
@@ -285,8 +262,7 @@
 <div class="app">
   <header class="top">
     <div>
-      <h1>系统开发日程</h1>
-      <p class="sub">填表单或写文字，自动出图。模块 → 项目 → 调研/测试/上线，层次分明。</p>
+      <p class="sub" style="font-size:14px;color:var(--ink-2);">模块 → 项目 → 调研/开发/测试/上线，层次分明</p>
     </div>
     <div class="actions">
       <button class="primary" id="btn-render"><i class="fa-solid fa-link"></i> 生成分享链接</button>
@@ -302,7 +278,7 @@
   <main class="main">
     <section class="card input-card">
       <div class="form-box">
-        <div class="form-title">➕ 按必填项填写，添加到甘特图</div>
+        <div class="form-title">按必填项填写，添加到甘特图</div>
         <div class="form-grid">
           <label>
             <span class="lbl">所属模块<span class="req">*</span></span>
@@ -332,7 +308,7 @@
             <span class="lbl">日程类型<span class="req">*</span></span>
             <div class="radio-row">
               <label><input type="radio" name="f-type" value="task" checked> 普通日程</label>
-              <label><input type="radio" name="f-type" value="ms"> 里程碑◆</label>
+              <label><input type="radio" name="f-type" value="ms"> 里程碑&#9670;</label>
             </div>
           </div>
           <label>
@@ -340,7 +316,7 @@
             <input type="number" id="f-prog" min="0" max="100" placeholder="0-100">
           </label>
           <div class="form-actions">
-            <button class="primary" id="btn-add" type="button">✔ 添加到甘特图</button>
+            <button class="primary" id="btn-add" type="button">添加到甘特图</button>
             <span class="form-msg" id="form-msg"></span>
           </div>
         </div>
@@ -361,7 +337,7 @@
           <p>· <code># </code> = 模块（左侧第一列，自动合并、自动编号）。<br>
           · <code>## </code> = 项目主题（左侧第二列）；后面用竖线可接一句「项目说明」，图上项目名旁会出现 ⓘ，鼠标放上去查看，不占版面。<br>
           · 普通行 = 色块，竖线 <code>|</code> 前的文字会显示在色块上（如 调研/测试/上线）。<br>
-          · <code>* </code> = 里程碑，显示为 ◆，只填一个月份。<br>
+          · <code>* </code> = 里程碑，显示为 &#9670;，只填一个月份。<br>
           · <code>//</code> 开头是备注。月份写法随意：<code>26年9月</code>、<code>2026-09</code>、<code>9月</code> 都认识。</p>
         </div>
       </details>
@@ -381,7 +357,7 @@
     </section>
   </main>
 
-  <footer>纯本地网页，数据不出你的电脑 · 打印时选择「另存为 PDF」即可保存图片版</footer>
+  <footer>打印时选择「另存为 PDF」即可保存图片版</footer>
 </div>
 
 <div id="tooltip" role="tooltip"></div>
@@ -663,8 +639,8 @@
         return;
       }
 
-      var isMs=/^[*◆◇★]/.test(line);
-      var body=line.replace(/^[*◆◇★]\s*/,'');
+      var isMs=/^[*&#9670;◇★]/.test(line);
+      var body=line.replace(/^[*&#9670;◇★]\s*/,'');
       var parts=body.split(/[|｜]/).map(function(p){return p.trim();}).filter(function(p){return p!=='';});
       if(parts.length<2){
         parts=body.split(/\t|\s{2,}|　{2,}/).map(function(p){return p.trim();}).filter(Boolean);
@@ -987,7 +963,7 @@
       el.addEventListener('mouseenter',function(){
         var rows;
         if(t.milestone){
-          rows='<div class="t-date">◆ '+fmtMonth(t.start)+'</div>';
+          rows='<div class="t-date">&#9670; '+fmtMonth(t.start)+'</div>';
         }else{
           var n=mSpan(t.start,t.end);
           var dur=n<=1?'<span class="t-dur">单月完成</span>':'<span class="t-dur">共 '+n+' 个月</span>';
@@ -1220,10 +1196,10 @@ var timer=null;
     win.document.write('.gantt-timeline{width:100% !important;min-width:100% !important;}');
     win.document.write('.gantt-inner{grid-template-columns:repeat(var(--n,1),1fr) !important;}');
     win.document.write('.g-year-row,.g-month-row{grid-template-columns:repeat(var(--n,1),1fr) !important;}');
-    win.document.write('.bar{background:var(--c,#2F6BFF) !important;color:#fff !important;border-color:var(--c,#2F6BFF) !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
+    win.document.write('.bar{background:var(--c,#2D4A3E) !important;color:#fff !important;border-color:var(--c,#2D4A3E) !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
     win.document.write('.bar .bar-prog{background:rgba(0,0,0,.22) !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
-    win.document.write('.g-modname{background:var(--fill,#2F6BFF33) !important;border-top-color:var(--c,#2F6BFF) !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
-    win.document.write('.mod-badge{background:var(--c,#2F6BFF) !important;color:#fff !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
+    win.document.write('.g-modname{background:var(--fill,#2D4A3E33) !important;border-top-color:var(--c,#2D4A3E) !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
+    win.document.write('.mod-badge{background:var(--c,#2D4A3E) !important;color:#fff !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
     win.document.write('.ms{background:#fff !important;border:2px solid #EFA94E !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
     win.document.write('.ms-label{color:var(--dk,#152033) !important;white-space:nowrap !important;overflow:visible !important;position:relative !important;z-index:10 !important;}');
     win.document.write('.today-line{border-color:#E0706A !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
@@ -1234,6 +1210,12 @@ var timer=null;
     win.document.write('.g-projname{border-color:#E5E9F2 !important;}');
     win.document.write('*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
     win.document.write('</style>');
+    win.document.write('</head><body>');
+    win.document.write(ganttLayout.outerHTML);
+    win.document.write('</body></html>');
+    win.document.close();
+    win.print();
+  }
 
   // --- Override: on render, also trigger save ---
   var origRender = typeof render !== 'undefined' ? render : null;
