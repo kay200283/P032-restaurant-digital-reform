@@ -254,6 +254,11 @@
     .bar,.g-track{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}
     @page{margin:1cm;size:A4 landscape;}
   }
+
+  .bar.completed{border-right:3px solid #2D4A3E;opacity:0.85;}
+  .bar .bar-check{position:absolute;right:4px;top:50%;transform:translateY(-50%);font-size:11px;color:#fff;opacity:0.9;pointer-events:none;}
+  .ms.completed{border:2px solid #2D4A3E;background:#fff !important;}
+  .ms .bar-check{position:absolute;right:-2px;top:50%;transform:translateY(-50%);font-size:10px;color:#2D4A3E;pointer-events:none;}
 </style>
 </style>
 {% endblock %}
@@ -1260,12 +1265,7 @@ var timer=null;
     win.document.write('.g-track{border-color:#E5E9F2 !important;}');
     win.document.write('.g-projname{border-color:#E5E9F2 !important;}');
     win.document.write('*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}');
-    win.document.write('
-  .bar.completed{border-right:3px solid #2D4A3E;opacity:0.85;}
-  .bar .bar-check{position:absolute;right:4px;top:50%;transform:translateY(-50%);font-size:11px;color:#fff;opacity:0.9;pointer-events:none;}
-  .ms.completed{border:2px solid #2D4A3E;background:#fff !important;}
-  .ms .bar-check{position:absolute;right:-2px;top:50%;transform:translateY(-50%);font-size:10px;color:#2D4A3E;pointer-events:none;}
-</style>');
+    win.document.write('</style>');
     win.document.write('</head><body>');
     win.document.write(ganttLayout.outerHTML);
     win.document.write('</body></html>');
