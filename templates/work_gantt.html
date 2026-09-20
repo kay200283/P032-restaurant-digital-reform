@@ -62,6 +62,13 @@
   /* 表单录入 */
   .form-box{border:1px solid var(--line);border-radius:10px;background:#FAFBFD;padding:12px;margin-bottom:14px;}
   .form-box .form-title{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+  details.input-card>summary.add-summary{list-style:none;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;user-select:none;}
+  details.input-card>summary.add-summary::-webkit-details-marker{display:none;}
+  details.input-card>summary.add-summary::before{content:'\25B8';font-size:13px;color:var(--ink-2);transition:transform .15s ease;}
+  details.input-card[open]>summary.add-summary::before{transform:rotate(90deg);}
+  details.input-card>summary.add-summary .fa-plus{color:var(--brand);}
+  details.input-card>summary.add-summary:hover{color:var(--brand);}
+  .add-hint{font-weight:400;font-size:12px;color:var(--ink-2);margin-left:auto;}
   .form-grid{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;}
   .form-grid label,.form-grid .field{font-size:12px;color:var(--ink-2);display:flex;flex-direction:column;gap:5px;min-width:200px;flex:1;}
   .form-grid .lbl{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:#3A4658;white-space:nowrap;}
@@ -98,9 +105,9 @@
   .gantt-layout{display:flex;border:1px solid var(--line);border-radius:8px;background:#fff;overflow:visible;padding-bottom:17px;}
   .gantt-fixed{flex-shrink:0;display:grid;grid-template-columns:var(--mod-w) var(--proj-w);background:#fff;z-index:10;position:relative;}
   .gantt-scroll{flex:1;overflow-x:auto;min-width:0;margin-bottom:-17px;}
-  .gantt-timeline{display:flex;flex-direction:column;min-width:calc(var(--n,1)*80px);}
+  .gantt-timeline{display:flex;flex-direction:column;min-width:calc(var(--n,1)*100px);}
   
-  .gantt-inner{display:grid;grid-template-columns:repeat(var(--n,1),minmax(80px,1fr));}
+  .gantt-inner{display:grid;grid-template-columns:repeat(var(--n,1),minmax(100px,1fr));}
   .g-corner{
     grid-column:1 / span 2;background:#F7F9FC;border-bottom:1px solid var(--line);
     display:flex;align-items:center;padding:0 12px;font-size:12px;color:var(--ink-2);font-weight:600;
@@ -112,8 +119,8 @@
     border-bottom:1px solid var(--line);border-left:1px solid #F0F3F8;
     white-space:nowrap;overflow:hidden;box-sizing:border-box;
   }
-  .g-year-row{display:grid;grid-template-columns:repeat(var(--n,1),minmax(80px,1fr));}
-  .g-month-row{display:grid;grid-template-columns:repeat(var(--n,1),minmax(80px,1fr));}
+  .g-year-row{display:grid;grid-template-columns:repeat(var(--n,1),minmax(100px,1fr));}
+  .g-month-row{display:grid;grid-template-columns:repeat(var(--n,1),minmax(100px,1fr));}
   .g-year{font-weight:700;color:var(--ink);height:28px;}
   .g-month{height:26px;font-variant-numeric:tabular-nums;}
 
@@ -285,7 +292,8 @@
   </header>
 
   <main class="main">
-    <section class="card input-card">
+    <details class="card input-card" id="add-card">
+      <summary class="add-summary"><i class="fa-solid fa-plus"></i> 添加新日程<span class="add-hint">点击展开表单</span></summary>
       <div class="form-box">
         <div class="form-title">按必填项填写，添加到甘特图</div>
         <div class="form-grid">
@@ -336,7 +344,7 @@
       <textarea id="input" style="display:none" spellcheck="false" aria-label="日程文字输入区"></textarea>
       <div class="errors" id="errors"></div>
 
-    </section>
+    </details>
 
     <section class="card">
       <h2><i class="fa-solid fa-chart-gantt"></i> 甘特图 <span class="hint">鼠标放到色块上看起止日期；图宽可左右拖动</span></h2>
@@ -1630,7 +1638,7 @@ var timer=null;
   var origAdd = document.getElementById('btn-add');
   if (origAdd) {
     origAdd.addEventListener('click', function() {
-      setTimeout(function() { saveToApi().then(loadFromApi).then(render).catch(function(e){console.error('[save-reload]',e);}); }, 100);
+      setTimeout(function() { saveToApi().then(loadFromApi).then(render).then(function(){var fm=document.getElementById('form-msg');var ac=document.getElementById('add-card');if(ac&&(!fm||!fm.classList.contains('err')))ac.open=false;}).catch(function(e){console.error('[save-reload]',e);}); }, 100);
     });
   }
   
