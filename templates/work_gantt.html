@@ -102,7 +102,12 @@
   .errors.show{display:block;}
 
   /* 甘特图 - 新布局：左侧固定 + 右侧可滚动 */
-  .gantt-layout{display:flex;border:1px solid var(--line);border-radius:8px;background:#fff;overflow:visible;padding-bottom:17px;}
+  .gantt-layout{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:8px;background:#fff;overflow:visible;padding-bottom:17px;}
+  .gantt-headwrap{display:flex;position:sticky;top:var(--gantt-top,0px);z-index:20;background:#fff;}
+  .gantt-headcorner{flex-shrink:0;width:calc(var(--mod-w) + var(--proj-w));box-sizing:border-box;background:#F7F9FC;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 12px;font-size:12px;color:var(--ink-2);font-weight:600;height:54px;}
+  .gantt-headscroll{flex:1;overflow:hidden;min-width:0;background:#F7F9FC;border-bottom:1px solid var(--line);}
+  .gantt-headinner{min-width:calc(var(--n,1)*100px);}
+  .gantt-bodywrap{display:flex;min-width:0;flex:1;}
   .gantt-fixed{flex-shrink:0;display:grid;grid-template-columns:var(--mod-w) var(--proj-w);background:#fff;z-index:10;position:relative;}
   .gantt-scroll{flex:1;overflow-x:auto;min-width:0;margin-bottom:-17px;}
   .gantt-timeline{display:flex;flex-direction:column;min-width:calc(var(--n,1)*100px);}
@@ -148,6 +153,13 @@
   .g-projname.drag-over-top{border-top:3px solid var(--brand);}
   .g-projname.drag-over-bottom{border-bottom:3px solid var(--brand);}
   .g-modname.drag-over-mod{border-bottom:3px solid var(--brand);opacity:0.8;}
+  .g-mod-toggle{cursor:pointer;}
+  .g-mod-toggle .mod-caret{margin-left:auto;flex:0 0 auto;font-size:10px;color:var(--ink-2);transition:transform .15s ease;}
+  .g-mod-toggle.collapsed .mod-caret{transform:rotate(-90deg);}
+  .g-corner-pad{height:34px;box-sizing:border-box;border-bottom:1px solid var(--line);}
+  .g-modrow{grid-column:1/-1;position:relative;height:34px;border-bottom:1px solid var(--line);box-sizing:border-box;overflow:hidden;cursor:pointer;}
+  .g-modrow .vline,.g-modrow .today-line{z-index:1;}
+  .mod-ovbar{position:absolute;top:4px;height:26px;background:var(--c);color:#fff;border-radius:4px;font-size:11px;font-weight:600;display:flex;align-items:center;padding:0 8px;white-space:nowrap;overflow:hidden;box-sizing:border-box;z-index:2;box-shadow:0 1px 2px rgba(0,0,0,.08);}
   .g-projname .p-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
   .g-projname .p-info{
     flex:0 0 auto;font-style:normal;font-size:11px;line-height:1;
@@ -348,11 +360,17 @@
 
     <section class="card">
       <h2><i class="fa-solid fa-chart-gantt"></i> 甘特图 <span class="hint">鼠标放到色块上看起止日期；图宽可左右拖动</span></h2>
-      <div class="gantt-layout">
-        <div class="gantt-fixed" id="gantt-fixed"></div>
-        <div class="gantt-scroll" id="gantt-scroll">
-          <div class="gantt-timeline" id="gantt-timeline">
-            <div class="gantt-inner" id="gantt"></div>
+      <div class="gantt-layout" id="gantt-layout">
+        <div class="gantt-headwrap" id="gantt-headwrap">
+          <div class="gantt-headcorner">模块 / 项目</div>
+          <div class="gantt-headscroll" id="gantt-headscroll"><div class="gantt-headinner" id="gantt-headinner"></div></div>
+        </div>
+        <div class="gantt-bodywrap">
+          <div class="gantt-fixed" id="gantt-fixed"></div>
+          <div class="gantt-scroll" id="gantt-scroll">
+            <div class="gantt-timeline" id="gantt-timeline">
+              <div class="gantt-inner" id="gantt"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -937,6 +955,7 @@ xml+='</Row>\n';
     if(!all.length){
       $gantt.style.removeProperty('--n');
       document.getElementById('gantt-fixed').innerHTML='';
+      document.getElementById('gantt-headinner').innerHTML='';
       $gantt.innerHTML='<div class="empty" style="grid-column:1/-1">用左上方表单添加第一条日程吧～<br>（模块、项目、日程内容、开始月份为必填）</div>';
       $legend.innerHTML='';
       return;
@@ -972,8 +991,8 @@ xml+='</Row>\n';
       vlines+='<div class="vline" style="left:'+pct(bd)+'%"></div>';
     }
 
-    // 左侧固定列 HTML
-    var fixedHtml='<div class="g-corner">模块 / 项目</div>';
+    // 左侧固定列 HTML（表头已独立为吸顶行）
+    var fixedHtml='';
     // 右侧时间轴 HTML
     var headerHtml='';
     headerHtml+='<div class="g-year-row">';
@@ -990,22 +1009,38 @@ xml+='</Row>\n';
     var tracksHtml='';
     var tagPlaced=false;
 
+    var r0=1; // 当前模块起始行（左右两侧同步；所有行显式行号，杜绝自动放置错位）
     modules.forEach(function(mod,mi){
       var color=PALETTE[mi%PALETTE.length];
       var cv='--c:'+color.c+';--fill:'+color.fill+';--dk:'+color.dk+';';
       var nRows=mod.projects.length;
+      var collapsed=!!(window.__ganttCollapsed&&window.__ganttCollapsed[mod.name]);
 
-      // 一级模块（跨多行）
-      fixedHtml+='<div class="g-modname" data-mod="'+esc(mod.name)+'" data-mod-id="'+(mod.id||'')+'" style="grid-row:span '+nRows+';background:'+color.fill+'33;border-top-color:'+color.c+';">'+
-        '<span class="mod-badge" style="--c:'+color.c+'">'+(mi+1)+'</span><span>'+esc(mod.name)+'</span></div>';
+      // 一级模块名（展开=横跨全部项目行，与原版一致；收起=占1行）
+      fixedHtml+='<div class="g-modname g-mod-toggle'+(collapsed?' collapsed':'')+'" data-mod="'+esc(mod.name)+'" data-mod-id="'+(mod.id||'')+'" style="grid-column:1;grid-row:'+r0+' / span '+(collapsed?1:nRows)+';background:'+color.fill+'33;border-top-color:'+color.c+';" onclick="toggleMod(this)">'+
+        '<span class="mod-badge" style="--c:'+color.c+'">'+(mi+1)+'</span><span>'+esc(mod.name)+'</span><i class="fa-solid fa-chevron-down mod-caret"></i></div>';
 
-      mod.projects.forEach(function(p,pi){
+      if(collapsed){
+        // 收起：项目行折叠为一行概览条，横贯模块起止月份
+        var mAll=[];
+        mod.projects.forEach(function(p){p.tasks.forEach(function(t){mAll.push(t);});});
+        var mS=new Date(Math.min.apply(null,mAll.map(function(t){return +t.start;})));
+        var mE=new Date(Math.max.apply(null,mAll.map(function(t){return +t.end;})));
+        var ovL=pct(mS), ovW=dayDiff(mS,new Date(+mE+86400000))/totalDays*100;
+        var modInner=vlines+todayLine;
+        if(!tagPlaced&&showToday){modInner+=todayTag;tagPlaced=true;}
+        modInner+='<div class="mod-ovbar" style="left:'+ovL+'%;width:'+ovW+'%">'+mod.projects.length+'项目 · '+mAll.length+'日程</div>';
+        tracksHtml+='<div class="g-modrow" title="点击展开模块" data-mod="'+esc(mod.name)+'" style="background:'+color.fill+'2E;'+cv+'" onclick="toggleMod(this)">'+modInner+'</div>';
+        r0+=1;
+      }
+
+      if(!collapsed) mod.projects.forEach(function(p,pi){
         var startCls=pi===0?' mod-start':'';
         // 二级项目名
         var infoIcon = p.desc ? '<i class="p-info" data-proj-info="1">ⓘ</i>' : '';
         // 添加编辑和删除按钮（直接绑定 onclick）
         var actionBtns = '<span class="p-actions"><button class="p-edit" data-mod="'+esc(mod.name)+'" data-proj="'+esc(p.name)+'" data-mod-id="'+(mod.id||'')+'" data-proj-id="'+(p.id||'')+'" title="编辑" onclick="editProject(this)"><i class="fa-solid fa-pen-to-square"></i></button><button class="p-del" data-mod="'+esc(mod.name)+'" data-proj="'+esc(p.name)+'" title="删除" onclick="deleteProject(this)"><i class="fa-solid fa-trash-can"></i></button></span>';
-        fixedHtml+='<div class="g-projname'+startCls+'" draggable="true" data-pname="'+esc(p.name)+'" data-pdesc="'+esc(p.desc||'')+'" data-mod="'+esc(mod.name)+'" data-mod-id="'+(mod.id||'')+'" data-proj-id="'+(p.id||'')+'">'+
+        fixedHtml+='<div class="g-projname'+startCls+'" draggable="true" style="grid-column:2;grid-row:'+(r0+pi)+';" data-pname="'+esc(p.name)+'" data-pdesc="'+esc(p.desc||'')+'" data-mod="'+esc(mod.name)+'" data-mod-id="'+(mod.id||'')+'" data-proj-id="'+(p.id||'')+'">'+
           '<span class="p-name" title="'+esc(p.name)+'">'+esc(p.name)+'</span>'+infoIcon+actionBtns+'</div>';
 
         var inner=vlines+todayLine;
@@ -1026,17 +1061,22 @@ xml+='</Row>\n';
               '<span class="bar-txt">'+esc(t.name)+'</span>'+barChk+'</div>';
           }
         });
-        tracksHtml+='<div class="g-track'+startCls+'" style="background:'+color.fill+'2E">'+inner+'</div>';
+        tracksHtml+='<div class="g-track'+startCls+'" style="grid-column:1/-1;grid-row:'+(r0+pi)+';background:'+color.fill+'2E">'+inner+'</div>';
       });
+      r0+=nRows;
     });
 
     $gantt.style.setProperty('--n',months.length);
     document.getElementById('gantt-fixed').innerHTML=fixedHtml;
     document.getElementById('gantt-scroll').style.setProperty('--n',months.length);
-    // 重新构建 timeline：年份行 + 月份行 + 色块行
+    // 表头（年份行+月份行）写入吸顶行
+    var $headInner=document.getElementById('gantt-headinner');
+    $headInner.style.setProperty('--n',months.length);
+    $headInner.innerHTML=headerHtml;
+    // 重新构建 timeline：色块行
     var $timeline=document.getElementById('gantt-timeline');
     $timeline.style.setProperty('--n',months.length);
-    $timeline.innerHTML=headerHtml+'<div class="gantt-inner" id="gantt"></div>';
+    $timeline.innerHTML='<div class="gantt-inner" id="gantt"></div>';
     $gantt=document.getElementById('gantt');
     $gantt.innerHTML=tracksHtml;
 
@@ -1063,7 +1103,7 @@ xml+='</Row>\n';
           idx=(cm>months[months.length-1])?months.length-1:0;
         }
         if(idx>0&&gs){
-          var mh=document.querySelectorAll('#gantt-timeline .g-month')[idx];
+          var mh=document.querySelectorAll('#gantt-headinner .g-month')[idx];
           if(mh){
             var sr=gs.getBoundingClientRect();
             gs.scrollLeft=mh.getBoundingClientRect().left - sr.left + gs.scrollLeft;
@@ -1071,6 +1111,8 @@ xml+='</Row>\n';
         }
       }catch(e){}
     }
+    var ghs=document.getElementById('gantt-headscroll');
+    if(ghs) ghs.scrollLeft=gs.scrollLeft;
 
     $gantt.querySelectorAll('.bar,.ms').forEach(function(el){
       var t=all[+el.getAttribute('data-i')];
@@ -1635,6 +1677,45 @@ var timer=null;
   });
 
   // Override the add button to also save
+  // 模块折叠状态恢复
+  try{
+    var _cl=JSON.parse(localStorage.getItem('gantt_collapsed_mods')||'[]');
+    window.__ganttCollapsed={};
+    _cl.forEach(function(n){window.__ganttCollapsed[n]=1;});
+  }catch(e){window.__ganttCollapsed={};}
+
+  // 表头横向滚动同步 + 吸顶偏移计算（避开 fixed/sticky 顶栏）
+  (function(){
+    var gs=document.getElementById('gantt-scroll');
+    var hs=document.getElementById('gantt-headscroll');
+    if(gs&&hs){gs.addEventListener('scroll',function(){hs.scrollLeft=gs.scrollLeft;},{passive:true});}
+    function calcTop(){
+      try{
+        var top=0;
+        document.querySelectorAll('header,.top-header,.navbar,.app-header,.main-header,.site-header').forEach(function(el){
+          var p=getComputedStyle(el).position;
+          if(p==='fixed'||p==='sticky'){
+            var r=el.getBoundingClientRect();
+            if(r.height>0&&r.height<160&&r.bottom>top)top=r.bottom;
+          }
+        });
+        var ly=document.getElementById('gantt-layout');
+        if(ly)ly.style.setProperty('--gantt-top',top+'px');
+      }catch(e){}
+    }
+    calcTop();
+    window.addEventListener('resize',calcTop);
+  })();
+
+  // 模块展开/收起
+  window.toggleMod=function(el){
+    var name=el.getAttribute('data-mod');
+    var map=window.__ganttCollapsed||(window.__ganttCollapsed={});
+    if(map[name])delete map[name];else map[name]=1;
+    try{localStorage.setItem('gantt_collapsed_mods',JSON.stringify(Object.keys(map)));}catch(e){}
+    render();
+  };
+
   var origAdd = document.getElementById('btn-add');
   if (origAdd) {
     origAdd.addEventListener('click', function() {
