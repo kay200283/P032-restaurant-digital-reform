@@ -22,7 +22,7 @@
     --ms:#EFA94E;
     --radius:12px;
     --mod-w:150px;
-    --proj-w:230px;
+    --proj-w:180px;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -98,7 +98,7 @@
   .gantt-layout{display:flex;border:1px solid var(--line);border-radius:8px;background:#fff;overflow:visible;padding-bottom:17px;}
   .gantt-fixed{flex-shrink:0;display:grid;grid-template-columns:var(--mod-w) var(--proj-w);background:#fff;z-index:10;position:relative;}
   .gantt-scroll{flex:1;overflow-x:auto;min-width:0;margin-bottom:-17px;}
-  .gantt-timeline{display:flex;flex-direction:column;min-width:calc(var(--n,1)*65px);}
+  .gantt-timeline{display:flex;flex-direction:column;min-width:calc(var(--n,1)*80px);}
   
   .gantt-inner{display:grid;grid-template-columns:repeat(var(--n,1),minmax(80px,1fr));}
   .g-corner{
