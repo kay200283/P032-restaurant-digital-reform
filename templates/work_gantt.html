@@ -688,8 +688,8 @@
         return;
       }
 
-      var isMs=/^[*&#9670;◇★]/.test(line);
-      var body=line.replace(/^[*&#9670;◇★]\s*/,'');
+      var isMs=/^[*◆◇★]/.test(line);
+      var body=line.replace(/^[*◆◇★]\s*/,'');
       var parts=body.split(/[|｜]/).map(function(p){return p.trim();}).filter(function(p){return p!=='';});
       if(parts.length<2){
         parts=body.split(/\t|\s{2,}|　{2,}/).map(function(p){return p.trim();}).filter(Boolean);
@@ -893,7 +893,8 @@ xml+='</Row>\n';
     if(window.apiModulesData){
       modules.forEach(function(m){
         var am=window.apiModulesData.find(function(x){return x.name===m.name;});
-        if(am) m.id=am.id;
+        if(!am) return;
+        m.id=am.id;
         m.projects.forEach(function(p){
           var ap=window.apiProjectsData?window.apiProjectsData.find(function(x){return x.name===p.name&&x.module_id===am.id;}):null;
           if(ap) p.id=ap.id;
@@ -1341,11 +1342,13 @@ xml+='</Row>\n';
           editedTasks.forEach(function(t){
             if(t.id&&existingIds.indexOf(t.id)>-1){
               // Update existing task
-              var tAcd=row._actualCompletionDate||null;updates.push(apiPut('/work-mgmt/gantt/api/tasks/'+t.id,{project_id:projId,name:t.name,start_date:t.start_date,end_date:t.end_date,is_milestone:t.is_milestone,progress:t.progress,sort_order:0,actual_completion_date:tAcd}));
+              var tAcd=row._actualCompletionDate||null;var tPayload={project_id:projId,name:t.name,start_date:monthToText(t.start_date),end_date:monthToText(t.end_date),is_milestone:t.is_milestone,progress:t.progress,sort_order:0};
+              if(tAcd)tPayload.actual_completion_date=tAcd;
+              updates.push(apiPut('/work-mgmt/gantt/api/tasks/'+t.id,tPayload));
               newIds.push(t.id);
             } else {
               // Create new task
-              updates.push(apiPost('/work-mgmt/gantt/api/tasks',{project_id:projId,name:t.name,start_date:t.start_date,end_date:t.end_date,is_milestone:t.is_milestone,progress:t.progress,sort_order:0}));
+              updates.push(apiPost('/work-mgmt/gantt/api/tasks',{project_id:projId,name:t.name,start_date:monthToText(t.start_date),end_date:monthToText(t.end_date),is_milestone:t.is_milestone,progress:t.progress,sort_order:0}));
             }
           });
           
@@ -1603,7 +1606,7 @@ var timer=null;
   var origAdd = document.getElementById('btn-add');
   if (origAdd) {
     origAdd.addEventListener('click', function() {
-      setTimeout(function() { saveToApi(); }, 100);
+      setTimeout(function() { saveToApi().then(loadFromApi).then(render).catch(function(e){console.error('[save-reload]',e);}); }, 100);
     });
   }
   

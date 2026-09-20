@@ -126,11 +126,19 @@ def api_tasks_create():
 def api_tasks_update(task_id):
     data = request.get_json()
     conn = get_db()
-    conn.execute('''UPDATE gantt_tasks SET project_id=?, name=?, start_date=?, end_date=?, 
-                    is_milestone=?, progress=?, sort_order=?, actual_completion_date=?, updated_at=datetime("now","localtime") WHERE id=?''',
-                 (data.get('project_id'), data.get('name', ''), data.get('start_date', ''), data.get('end_date', ''),
-                  data.get('is_milestone', 0), data.get('progress', 0), data.get('sort_order', 0), 
-                  data.get('actual_completion_date'), task_id))
+    # actual_completion_date 仅在 payload 显式提供时才更新，
+    # 避免编辑保存时因前端匹配失败把已填的实际完成日期误清空
+    if 'actual_completion_date' in data:
+        conn.execute('''UPDATE gantt_tasks SET project_id=?, name=?, start_date=?, end_date=?, 
+                        is_milestone=?, progress=?, sort_order=?, actual_completion_date=?, updated_at=datetime("now","localtime") WHERE id=?''',
+                     (data.get('project_id'), data.get('name', ''), data.get('start_date', ''), data.get('end_date', ''),
+                      data.get('is_milestone', 0), data.get('progress', 0), data.get('sort_order', 0), 
+                      data.get('actual_completion_date'), task_id))
+    else:
+        conn.execute('''UPDATE gantt_tasks SET project_id=?, name=?, start_date=?, end_date=?, 
+                        is_milestone=?, progress=?, sort_order=?, updated_at=datetime("now","localtime") WHERE id=?''',
+                     (data.get('project_id'), data.get('name', ''), data.get('start_date', ''), data.get('end_date', ''),
+                      data.get('is_milestone', 0), data.get('progress', 0), data.get('sort_order', 0), task_id))
     conn.commit()
     conn.close()
     return jsonify({'success': True})
@@ -158,48 +166,80 @@ def api_tasks_complete(task_id):
 # ========== Batch save (for text format parsing) ==========
 @gantt_bp.route('/api/batch-save', methods=['POST'])
 def api_batch_save():
-    """Save the entire gantt data structure from the text format"""
+    """Save the entire gantt data structure from the text format.
+
+    Diff-by-name strategy: existing rows are matched by (name [+ parent]) and
+    UPDATED in place so primary keys stay stable across saves; only genuinely
+    new rows are INSERTed and rows missing from the text are DELETEd.
+    actual_completion_date is never touched here, keeping completion checks safe.
+    """
     data = request.get_json()
     conn = get_db()
     cursor = conn.cursor()
-    
-    # Save actual_completion_date before clearing (use project_name as key to survive renames)
-    completion_map = {}
-    for row in cursor.execute('''SELECT p.name, t.name, t.start_date, t.actual_completion_date 
-                                 FROM gantt_tasks t JOIN gantt_projects p ON t.project_id=p.id 
-                                 WHERE t.actual_completion_date IS NOT NULL'''):
-        completion_map[(row[0], row[1], row[2])] = row[3]
-    
-    # Clear all existing data
-    cursor.execute('DELETE FROM gantt_tasks')
-    cursor.execute('DELETE FROM gantt_projects')
-    cursor.execute('DELETE FROM gantt_modules')
-    
-    modules = data.get('modules', [])
-    module_id_map = {}  # temp id -> real id
-    
-    for mod in modules:
-        cursor.execute('INSERT INTO gantt_modules (name, color_index, sort_order) VALUES (?, ?, ?)',
-                       (mod.get('name', ''), mod.get('color_index', 0), mod.get('sort_order', 0)))
-        real_mod_id = cursor.lastrowid
-        module_id_map[mod.get('id')] = real_mod_id
-        
-        for proj in mod.get('projects', []):
-            cursor.execute('INSERT INTO gantt_projects (module_id, name, description, sort_order) VALUES (?, ?, ?, ?)',
-                           (real_mod_id, proj.get('name', ''), proj.get('description', ''), proj.get('sort_order', 0)))
-            real_proj_id = cursor.lastrowid
-            
-            for task in proj.get('tasks', []):
-                cursor.execute('INSERT INTO gantt_tasks (project_id, name, start_date, end_date, is_milestone, progress, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                               (real_proj_id, task.get('name', ''), task.get('start_date', ''), task.get('end_date', ''),
-                                task.get('is_milestone', 0), task.get('progress', 0), task.get('sort_order', 0)))
-                # Restore completion date if exists (match by project_name + task_name + start_date)
-                task_key = (proj.get('name', ''), task.get('name', ''), task.get('start_date', ''))
-                if task_key in completion_map:
-                    new_task_id = cursor.lastrowid
-                    cursor.execute('UPDATE gantt_tasks SET actual_completion_date=? WHERE id=?',
-                                   (completion_map[task_key], new_task_id))
-    
+
+    existing_modules = {r['name']: r['id'] for r in
+                        cursor.execute('SELECT id, name FROM gantt_modules').fetchall()}
+    existing_projects = {(r['module_id'], r['name']): r['id'] for r in
+                         cursor.execute('SELECT id, module_id, name FROM gantt_projects').fetchall()}
+    existing_tasks = {}
+    for r in cursor.execute('SELECT id, project_id, name, start_date FROM gantt_tasks').fetchall():
+        existing_tasks.setdefault(r['project_id'], {})[(r['name'], r['start_date'])] = r['id']
+
+    seen_mod_ids, seen_proj_ids, seen_task_ids = set(), set(), set()
+
+    for order_m, mod in enumerate(data.get('modules', [])):
+        m_name = mod.get('name', '')
+        if m_name in existing_modules:
+            m_id = existing_modules[m_name]
+            cursor.execute('UPDATE gantt_modules SET color_index=?, sort_order=? WHERE id=?',
+                           (mod.get('color_index', 0), order_m, m_id))
+        else:
+            cursor.execute('INSERT INTO gantt_modules (name, color_index, sort_order) VALUES (?, ?, ?)',
+                           (m_name, mod.get('color_index', 0), order_m))
+            m_id = cursor.lastrowid
+            existing_modules[m_name] = m_id
+        seen_mod_ids.add(m_id)
+
+        for order_p, proj in enumerate(mod.get('projects', [])):
+            p_key = (m_id, proj.get('name', ''))
+            if p_key in existing_projects:
+                p_id = existing_projects[p_key]
+                cursor.execute('UPDATE gantt_projects SET description=?, sort_order=? WHERE id=?',
+                               (proj.get('description', ''), order_p, p_id))
+            else:
+                cursor.execute('INSERT INTO gantt_projects (module_id, name, description, sort_order) VALUES (?, ?, ?, ?)',
+                               (m_id, proj.get('name', ''), proj.get('description', ''), order_p))
+                p_id = cursor.lastrowid
+                existing_projects[p_key] = p_id
+            seen_proj_ids.add(p_id)
+
+            ptasks = existing_tasks.setdefault(p_id, {})
+            for order_t, task in enumerate(proj.get('tasks', [])):
+                t_key = (task.get('name', ''), task.get('start_date', ''))
+                if t_key in ptasks:
+                    t_id = ptasks[t_key]
+                    cursor.execute('UPDATE gantt_tasks SET end_date=?, is_milestone=?, progress=?, sort_order=? WHERE id=?',
+                                   (task.get('end_date', ''), task.get('is_milestone', 0),
+                                    task.get('progress', 0), order_t, t_id))
+                else:
+                    cursor.execute('INSERT INTO gantt_tasks (project_id, name, start_date, end_date, is_milestone, progress, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                                   (p_id, task.get('name', ''), task.get('start_date', ''), task.get('end_date', ''),
+                                    task.get('is_milestone', 0), task.get('progress', 0), order_t))
+                    t_id = cursor.lastrowid
+                    ptasks[t_key] = t_id
+                seen_task_ids.add(t_id)
+
+    # Delete rows that no longer exist in the text (tasks first, then projects, then modules)
+    all_task_ids = {r['id'] for r in cursor.execute('SELECT id FROM gantt_tasks').fetchall()}
+    cursor.executemany('DELETE FROM gantt_tasks WHERE id=?',
+                       [(i,) for i in all_task_ids - seen_task_ids])
+    all_proj_ids = {r['id'] for r in cursor.execute('SELECT id FROM gantt_projects').fetchall()}
+    cursor.executemany('DELETE FROM gantt_projects WHERE id=?',
+                       [(i,) for i in all_proj_ids - seen_proj_ids])
+    all_mod_ids = {r['id'] for r in cursor.execute('SELECT id FROM gantt_modules').fetchall()}
+    cursor.executemany('DELETE FROM gantt_modules WHERE id=?',
+                       [(i,) for i in all_mod_ids - seen_mod_ids])
+
     conn.commit()
     conn.close()
     return jsonify({'success': True})
