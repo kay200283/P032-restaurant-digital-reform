@@ -1040,6 +1040,30 @@ xml+='</Row>\n';
     if(showToday) lh.push('<span class="item"><span class="dash"></span>今天</span>');
     $legend.innerHTML=lh.join('');
 
+    // 打开页面时默认定位到当前月（历史月份向左滑动查看；动态取系统当前月，非写死）
+    if(!window.__ganttLocated){
+      window.__ganttLocated=true;
+      try{
+        var gs=document.getElementById('gantt-scroll');
+        var now=new Date(), ny=now.getFullYear(), nm=now.getMonth();
+        var idx=-1;
+        for(var li=0;li<months.length;li++){
+          if(months[li].getFullYear()===ny&&months[li].getMonth()===nm){idx=li;break;}
+        }
+        if(idx<0){
+          var cm=new Date(ny,nm,1);
+          idx=(cm>months[months.length-1])?months.length-1:0;
+        }
+        if(idx>0&&gs){
+          var mh=document.querySelectorAll('#gantt-timeline .g-month')[idx];
+          if(mh){
+            var sr=gs.getBoundingClientRect();
+            gs.scrollLeft=mh.getBoundingClientRect().left - sr.left + gs.scrollLeft;
+          }
+        }
+      }catch(e){}
+    }
+
     $gantt.querySelectorAll('.bar,.ms').forEach(function(el){
       var t=all[+el.getAttribute('data-i')];
       el.style.cursor='pointer';
