@@ -72,6 +72,10 @@
 .ver-item .ver-no{font-weight:600;color:#2D4A3E;font-size:0.75rem;}
 .ver-item .ver-meta{font-size:0.68rem;color:#8C8C8C;}
 .ver-item .ver-note{font-size:0.72rem;color:#333;margin-top:2px;}
+.att-img-wrap{position:relative;display:inline-block;margin:0 6px 6px 0;}
+.att-del-btn{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:1px solid #ddd;border-radius:50%;background:#f7f7f7;color:#8a8a8a;cursor:pointer;font-size:10px;padding:0;}
+.att-del-btn:hover{background:#b03a2e;border-color:#b03a2e;color:#fff;}
+.file-item .att-del-btn{position:static;margin-left:8px;}
 </style>
 {% endblock %}
 
@@ -307,11 +311,23 @@ function renderExistingAttachments(){
   _currentAttachments.forEach(a => {
     const url = '/uploads/'+a.filepath;
     if(a.is_image){
-      imgDiv.innerHTML += `<img src="${url}" data-img="${url}" class="snap-attach-img" title="${esc(a.filename)}" onclick="previewImg('${url}')">`;
+      imgDiv.innerHTML += `<span class="att-img-wrap"><img src="${url}" data-img="${url}" class="snap-attach-img" title="${esc(a.filename)}" onclick="previewImg('${url}')"><button type="button" class="att-del-btn" title="删除附件" onclick="deleteAttachment(${a.id})"><i class="fa-solid fa-trash-can"></i></button></span>`;
     } else {
-      attDiv.innerHTML += `<div class="file-item"><a href="${url}" download="${esc(a.filename)}"><i class="fa-solid fa-file" style="margin-right:3px;"></i>${esc(a.filename)}</a></div>`;
+      attDiv.innerHTML += `<div class="file-item"><a href="${url}" download="${esc(a.filename)}"><i class="fa-solid fa-file" style="margin-right:3px;"></i>${esc(a.filename)}</a><button type="button" class="att-del-btn" title="删除附件" onclick="deleteAttachment(${a.id})"><i class="fa-solid fa-trash-can"></i></button></div>`;
     }
   });
+}
+
+async function deleteAttachment(attId){
+  if(!confirm('确认删除此附件？删除后不可恢复。')) return;
+  const res = await fetch(API+'/attachments/'+attId, {method:'DELETE'});
+  const d = await res.json();
+  if(d.success){
+    _currentAttachments = _currentAttachments.filter(a => a.id !== attId);
+    renderExistingAttachments();
+  } else {
+    alert(d.message || '删除失败');
+  }
 }
 
 function closeEditModal(){
