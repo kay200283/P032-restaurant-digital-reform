@@ -313,14 +313,14 @@ function renderExistingAttachments(){
     if(a.is_image){
       imgDiv.innerHTML += `<span class="att-img-wrap"><img src="${url}" data-img="${url}" class="snap-attach-img" title="${esc(a.filename)}" onclick="previewImg('${url}')"><button type="button" class="att-del-btn" title="删除附件" onclick="deleteAttachment(${a.id})"><i class="fa-solid fa-trash-can"></i></button></span>`;
     } else {
-      attDiv.innerHTML += `<div class="file-item"><a href="${url}" download="${esc(a.filename)}"><i class="fa-solid fa-file" style="margin-right:3px;"></i>${esc(a.filename)}</a><button type="button" class="att-del-btn" title="删除附件" onclick="deleteAttachment(${a.id})"><i class="fa-solid fa-trash-can"></i></button></div>`;
+      attDiv.innerHTML += `<div class="file-item"><a href="javascript:void(0)" onclick="openAttPreview('${url}')" title="点击预览" style="cursor:zoom-in;"><i class="fa-solid fa-file" style="margin-right:3px;"></i>${esc(a.filename)}</a><button type="button" class="att-del-btn" title="删除附件" onclick="deleteAttachment(${a.id})"><i class="fa-solid fa-trash-can"></i></button></div>`;
     }
   });
   _pendingImgs.forEach((p, idx) => {
     imgDiv.innerHTML += `<span class="att-img-wrap"><img src="${p.url}" data-img="${p.url}" class="snap-attach-img" title="${esc(p.filename)}" onclick="previewImg('${p.url}')"><button type="button" class="att-del-btn" title="移除（尚未保存）" onclick="removePendingImg(${idx})"><i class="fa-solid fa-trash-can"></i></button></span>`;
   });
   _pendingAtts.forEach((p, idx) => {
-    attDiv.innerHTML += `<div class="file-item"><a href="${p.url}" download="${esc(p.filename)}"><i class="fa-solid fa-file" style="margin-right:3px;"></i>${esc(p.filename)}</a><button type="button" class="att-del-btn" title="移除（尚未保存）" onclick="removePendingAtt(${idx})"><i class="fa-solid fa-trash-can"></i></button></div>`;
+    attDiv.innerHTML += `<div class="file-item"><a href="javascript:void(0)" onclick="openAttPreview('${p.url}')" title="点击预览" style="cursor:zoom-in;"><i class="fa-solid fa-file" style="margin-right:3px;"></i>${esc(p.filename)}</a><button type="button" class="att-del-btn" title="移除（尚未保存）" onclick="removePendingAtt(${idx})"><i class="fa-solid fa-trash-can"></i></button></div>`;
   });
 }
 
@@ -445,6 +445,11 @@ async function saveQA(){
 }
 
 // ====== 图片大图 ======
+function openAttPreview(url){
+  const name=(url.split('/').pop()||'').toLowerCase();
+  if(/\.(png|jpe?g|gif|webp|bmp)$/.test(name)){ previewImg(url); }
+  else { window.open(url,'_blank'); }
+}
 function previewImg(src){
   document.getElementById('imgPreviewSrc').src = src;
   document.getElementById('imgPreviewOverlay').classList.add('active');
