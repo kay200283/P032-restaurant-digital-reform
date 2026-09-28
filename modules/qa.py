@@ -30,10 +30,69 @@ def _gen_qa_no(conn):
     return f"{prefix}{seq:04d}"
 
 
+def _get_deepseek_key():
+    """优先环境变量, 取不到则读项目根.env(部署环境未注入时兜底)"""
+    k = os.environ.get('DEEPSEEK_API_KEY', '')
+    if k:
+        return k
+    try:
+        env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+        with open(env_path, encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith('DEEPSEEK_API_KEY='):
+                    return line.split('=', 1)[1].strip()
+    except Exception:
+        pass
+    return ''
+
+
+def _ai_extract_keywords(text):
+    """DeepSeek AI提取关键词, 失败返回None(由调用方降级jieba)"""
+    try:
+        api_key = _get_deepseek_key()
+        if not api_key or not text:
+            return None
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key, base_url='https://api.deepseek.com', timeout=12)
+        prompt = (
+            "# 任务\n"
+            "从一条QA知识条目中提取检索关键词。用途: 员工在知识库搜索时, 用这些词快速命中本条QA。\n\n"
+            "# 提取标准\n"
+            "1. 数量: 3-6个, 按与主题相关度从高到低排序\n"
+            "2. 优先级: ①业务专有名词(设备名/系统名/功能名, 如: Flipos、互动屏、沽清、碰一碰) "
+            "②核心动作或问题点(如: 绑定、开票、连接异常) ③限定范围词(如: 外卖、门店)\n"
+            "3. 词形: 与原文保持一致, 不翻译不改写; 中英文均可, 每个词2-8个字\n"
+            "4. 禁止: 泛化无用词(系统、解决、方法、如何、问题、使用、功能、操作、处理、原因、情况); "
+            "照抄分类名; 编造原文没有的词; 输出完整句子\n\n"
+            "# 输出格式\n"
+            "只输出一行, 关键词之间用英文逗号分隔, 不要编号、不要引号、不要任何解释。\n\n"
+            "# 示例\n"
+            "输入QA: Q:互动屏如何绑定 A:打开电视上LIPOS App查看二维码, 用iPad打开fliposApp-侧边栏-进入通用设置-设备管理-互动屏管理页面-点击添加按钮, iPad扫描电视机上的二维码绑定设备 分类:系统与设备/POS-IT设备/设备连接/互动屏连接\n"
+            "输出: 互动屏,绑定,二维码,Flipos,iPad,设备管理\n\n"
+            f"输入QA: {text}\n"
+            "输出:"
+        )
+        resp = client.chat.completions.create(
+            model='deepseek-chat',
+            messages=[{'role': 'user', 'content': prompt}],
+            stream=False, temperature=0.2, max_tokens=512)
+        kw = (resp.choices[0].message.content or '').strip()
+        parts = [re.sub(r'^[0-9①-⑩]+[\.、\)）]*\s*', '', x) for x in kw.replace('\n', ',').split(',')]
+        parts = [re.sub(r'^[\s“”‘’、,，;；.。!！?？]+|[\s“”‘’、,，;；.。!！?？]+$', '', x) for x in parts]
+        parts = [x for x in parts if x and len(x) <= 20][:6]
+        return ','.join(parts) if parts else None
+    except Exception:
+        return None
+
+
 def _extract_keywords(text):
-    """从文本提取关键词(简单实现: jieba不可用时用正则分词)"""
+    """从文本提取关键词(优先DeepSeek AI, 降级jieba, 再降级正则兜底)"""
     if not text:
         return ''
+    ai_kw = _ai_extract_keywords(text)
+    if ai_kw:
+        return ai_kw
     try:
         import jieba
         import jieba.analyse
