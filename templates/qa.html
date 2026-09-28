@@ -316,6 +316,22 @@ function renderExistingAttachments(){
       attDiv.innerHTML += `<div class="file-item"><a href="${url}" download="${esc(a.filename)}"><i class="fa-solid fa-file" style="margin-right:3px;"></i>${esc(a.filename)}</a><button type="button" class="att-del-btn" title="删除附件" onclick="deleteAttachment(${a.id})"><i class="fa-solid fa-trash-can"></i></button></div>`;
     }
   });
+  _pendingImgs.forEach((p, idx) => {
+    imgDiv.innerHTML += `<span class="att-img-wrap"><img src="${p.url}" data-img="${p.url}" class="snap-attach-img" title="${esc(p.filename)}" onclick="previewImg('${p.url}')"><button type="button" class="att-del-btn" title="移除（尚未保存）" onclick="removePendingImg(${idx})"><i class="fa-solid fa-trash-can"></i></button></span>`;
+  });
+  _pendingAtts.forEach((p, idx) => {
+    attDiv.innerHTML += `<div class="file-item"><a href="${p.url}" download="${esc(p.filename)}"><i class="fa-solid fa-file" style="margin-right:3px;"></i>${esc(p.filename)}</a><button type="button" class="att-del-btn" title="移除（尚未保存）" onclick="removePendingAtt(${idx})"><i class="fa-solid fa-trash-can"></i></button></div>`;
+  });
+}
+
+function removePendingImg(idx){
+  _pendingImgs.splice(idx, 1);
+  renderExistingAttachments();
+}
+
+function removePendingAtt(idx){
+  _pendingAtts.splice(idx, 1);
+  renderExistingAttachments();
 }
 
 async function deleteAttachment(attId){
@@ -347,8 +363,7 @@ async function handleImgFileSelect(input){
     const d = await uploadFile(file);
     if(d.success){
       _pendingImgs.push({url:d.url, filename:d.filename, is_image:true});
-      const div = document.getElementById('fImgPreviews');
-      div.innerHTML += `<img src="${d.url}" data-img="${d.url}" class="snap-attach-img" title="${esc(d.filename)}" onclick="previewImg('${d.url}')">`;
+      renderExistingAttachments();
     }
   }
   input.value='';
@@ -359,8 +374,7 @@ async function handleAttFileSelect(input){
     const d = await uploadFile(file);
     if(d.success){
       _pendingAtts.push({url:d.url, filename:d.filename, is_image:false});
-      const div = document.getElementById('fAttList');
-      div.innerHTML += `<div class="file-item"><a href="${d.url}" download="${esc(d.filename)}"><i class="fa-solid fa-file" style="margin-right:3px;"></i>${esc(d.filename)}</a></div>`;
+      renderExistingAttachments();
     }
   }
   input.value='';
