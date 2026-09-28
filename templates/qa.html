@@ -76,6 +76,9 @@
 .att-del-btn{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:1px solid #ddd;border-radius:50%;background:#f7f7f7;color:#8a8a8a;cursor:pointer;font-size:10px;padding:0;}
 .att-del-btn:hover{background:#b03a2e;border-color:#b03a2e;color:#fff;}
 .file-item .att-del-btn{position:static;margin-left:8px;}
+.list-att-thumb{height:32px;max-width:52px;object-fit:cover;border-radius:4px;border:1px solid #e2e2e2;cursor:zoom-in;margin-right:4px;vertical-align:middle;}
+.list-att-thumb:hover{border-color:#2D4A3E;}
+.att-more{font-size:11px;color:#8C8C8C;}
 </style>
 {% endblock %}
 
@@ -113,6 +116,7 @@
         <th>版本</th>
         <th>状态</th>
         <th>关键词</th>
+        <th>附件</th>
         <th style="width:140px;">操作</th>
       </tr>
     </thead>
@@ -214,10 +218,14 @@ async function loadList(){
 
 function renderList(){
   const tb = document.getElementById('listBody');
-  if(!_all.length){ tb.innerHTML='<tr><td colspan="11" style="text-align:center;color:#8C8C8C;padding:24px;">暂无数据</td></tr>'; return; }
+  if(!_all.length){ tb.innerHTML='<tr><td colspan="12" style="text-align:center;color:#8C8C8C;padding:24px;">暂无数据</td></tr>'; return; }
   tb.innerHTML = _all.map(i => {
     const kwHtml = (i.all_keywords||[]).map(k=>`<span class="kw-tag">${esc(k)}</span>`).join('');
     const stTag = `<span class="status-tag st-${i.status}">${i.status}</span>`;
+    const imgs = i.images || [];
+    const attHtml = imgs.length
+      ? imgs.slice(0, 3).map(img => `<img src="${img.url}" class="list-att-thumb" title="${esc(img.filename)}（点击查看）" onclick="previewImg('${img.url}')">`).join('') + (imgs.length > 3 ? `<span class="att-more">+${imgs.length - 3}</span>` : '')
+      : '<span style="color:#C4C4C4;">—</span>';
     let acts = '';
     if(i.status==='草稿') acts=`<button class="act-btn btn-edit" onclick="openEditModal(${i.id})">编辑</button><button class="act-btn btn-submit" onclick="doAction(${i.id},'submit')">提交审核</button><button class="act-btn btn-del" onclick="doDelete(${i.id})">删除</button>`;
     else if(i.status==='待审核') acts=`<button class="act-btn btn-reject" onclick="doAction(${i.id},'reject')">退回</button><button class="act-btn btn-approve" onclick="doAction(${i.id},'approve')">通过</button>`;
@@ -231,6 +239,7 @@ function renderList(){
       <td style="font-family:'Space Grotesk',monospace;">V${i.version}</td>
       <td>${stTag}</td>
       <td>${kwHtml}</td>
+      <td>${attHtml}</td>
       <td>${acts}</td>
     </tr>`;
   }).join('');

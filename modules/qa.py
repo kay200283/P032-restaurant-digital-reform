@@ -80,6 +80,18 @@ def api_qa_list():
     sql += ' ORDER BY id DESC'
 
     rows = conn.execute(sql, params).fetchall()
+    # 批量取图片附件（列表缩略图）
+    img_map = {}
+    ids = [r['id'] for r in rows]
+    if ids:
+        ph = ','.join('?' * len(ids))
+        atts = conn.execute(
+            '''SELECT qa_id, filename, filepath FROM qa_attachments
+               WHERE qa_id IN ({ph}) AND is_image=1 AND filepath != ''
+               ORDER BY id'''.format(ph=ph), ids).fetchall()
+        for a in atts:
+            img_map.setdefault(a['qa_id'], []).append(
+                {'filename': a['filename'], 'url': '/uploads/' + a['filepath']})
     result = []
     for r in rows:
         d = dict(r)
@@ -87,6 +99,7 @@ def api_qa_list():
         auto_kw = d.get('keywords', '').split(',') if d.get('keywords') else []
         manual_kw = d.get('manual_keywords', '').split(',') if d.get('manual_keywords') else []
         d['all_keywords'] = list(dict.fromkeys([k.strip() for k in auto_kw + manual_kw if k.strip()]))
+        d['images'] = img_map.get(d['id'], [])
         result.append(d)
     conn.close()
     return jsonify(result)
