@@ -1,6 +1,4 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
+<html lang="zh-CN"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>盘点管理模块 v3 方案 · 库位商品管理 ＋ 半成品应产率体系</title>
@@ -160,6 +158,7 @@ a{color:var(--blue)}
   <a href="#s4">④ 原料库默认应产率</a>
   <a href="#s5">⑤ 实施清单</a>
   <a href="#s6">⑥ 待确认项</a>
+  <a href="#s7">⑦ 实施完成记录</a>
 </nav>
 
 <!-- ============ S1 总览 ============ -->
@@ -381,14 +380,39 @@ a{color:var(--blue)}
     <caption class="lead">表 6-1　仅剩两处小确认，其余均已在讨论中拍板</caption>
     <thead><tr><th></th><th>事项</th><th>默认做法（未回复则按此执行）</th></tr></thead>
     <tbody>
-      <tr><td>☐</td><td>库位商品候选范围严格按「该店商品链路」取数</td><td>按已拍板规则执行；如需放宽到全部 622 项盘点原料请说明</td></tr>
-      <tr><td>☐</td><td>库位列表新增「商品数」列</td><td>默认加（列表＋导出同步）</td></tr>
+      <tr><td>✅</td><td>库位商品候选范围严格按「该店商品链路」取数</td><td>已按默认做法执行（2026-10-18 上线，见第 07 节）</td></tr>
+      <tr><td>✅</td><td>库位列表新增「商品数」列</td><td>已加（PC 表格＋手机卡片＋接口同步）</td></tr>
     </tbody>
   </table></div>
   <div class="note info"><b>已拍板要点回顾：</b>盘点换算按投入/产出比例还原（不盘亏）；应产率↔产出量双向联动、计算链恒等；制备卡进门店端；外部 BOM 复核先展示＋导出、自动比对后置；原料库默认应产率可选配、行上可覆盖、导入导出同步。</div>
 </section>
 
-<footer>P027 商品管理系统 · 盘点管理模块 v3 方案 · 2026-10-18 · 确认后进入开发</footer>
+<section id="s7">
+  <h2><span class="no">07</span>实施完成记录（2026-10-18）</h2>
+  <div class="tbl-scroll"><table class="check">
+    <caption class="lead">表 7-1　v3 三个功能包已全部实施上线并通过验证</caption>
+    <thead><tr><th style="width:130px">功能包</th><th>交付内容</th><th style="width:90px">提交</th></tr></thead>
+    <tbody>
+      <tr><td>✅ 原料库默认应产率</td><td>ingredient_library.yield_rate 字段；表单可选配、行上可覆盖、清空即停用；CSV 导出 / 模板 / 批量修改 / 导入全链路同步（22 列）</td><td class="mono">c0b2e97</td></tr>
+      <tr><td>✅ 半成品应产率体系</td><td>基准模式（按份 / 按g）；应产率↔产出量双向联动（改产出量等比缩放各行应产率，产出＞总投入拦截）；明细净用量＋总投入汇总；展开行制备卡（总投入→产出＋每g含量）；导出 Sheet1 加基准模式 / 一份产出量 / 总投入 / 产出量、Sheet2 加应产率 / 净用量 / 每g含量；导入模板与导入可选列向后兼容；盘点任务详情半成品行附 semi_basis 换算基准（消耗＝盘点差×用量÷产出量）</td><td class="mono">6799a4a</td></tr>
+      <tr><td>✅ 库位商品编辑弹窗</td><td>候选范围＝该店启用条码商品＋BOM 启用盘点原料聚合；原料品类（11 类）＋温层（1 常温 / 2 冷藏 / 3 冷冻）chips 多重筛选可组合；搜索；覆盖式保存（服务端过滤非法条码）；列表与手机卡片加商品数列</td><td class="mono">3df9156</td></tr>
+    </tbody>
+  </table></div>
+  <div class="tbl-scroll"><table class="check">
+    <caption class="lead">表 7-2　数据库变更（执行前已备份，备份文件 database.db.bak_v3_after_20261018）</caption>
+    <thead><tr><th style="width:220px">对象</th><th>变更</th></tr></thead>
+    <tbody>
+      <tr><td>ingredient_library</td><td>+ yield_rate REAL（默认应产率 %，空＝不启用按 100 计）</td></tr>
+      <tr><td>semi_products</td><td>+ base_mode TEXT DEFAULT 'batch'、batch_output_g REAL（按g模式存 0）</td></tr>
+      <tr><td>semi_product_items</td><td>+ yield_rate REAL（行级覆盖，空＝100）</td></tr>
+      <tr><td>inventory_location_items</td><td>新建表（location_id＋barcode 唯一，库位商品覆盖式关联）</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note info"><b>验证方式：</b>Flask test client 断言全 PASS——原料库应产率（创建 90 / 清空 NULL / 85.5 / CSV 表头 / 模板对齐 / 导入回环 88.8）、半成品（按份缺产出量拦截 / 按g存 0 / PUT 部分更新保留原值与明细 / 导出数值总投入 510・每g含量 0.51 / 导入回环 80）、库位商品（保存回读 / 覆盖式 / 假条码过滤 / 原状还原 / 页面渲染 22 项）。</div>
+  <div class="note info"><b>后续衔接：</b>门店执行端开发时按 semi_basis 基准实现「消耗＝盘点差(成品g)×用量÷产出量」的原料还原；外部 BOM 复核的自动比对按拍板后置，当前先展示＋导出。</div>
+</section>
+
+<footer>P027 商品管理系统 · 盘点管理模块 v3 方案（终版） · 2026-10-18 · v3 已实施上线，实施记录见第 07 节</footer>
 </div>
 
 <script>
@@ -404,5 +428,6 @@ a{color:var(--blue)}
   }catch(err){}
 })();
 </script>
-</body>
-</html>
+
+
+</body></html>
