@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>盘点管理模块 v3 方案 · 库位商品管理 ＋ 半成品应产率体系</title>
+<style>
+:root{
+  --brand:#2D4A3E; --brand-soft:#E7EBE4; --canvas:#F1F0EA; --card:#FBFAF6;
+  --ink:#26302B; --line:#D8D8CF; --ok:#4A7A5A; --ok-bg:#E4EEE7;
+  --red:#8C3B2E; --red-bg:#F3E2DE; --blue:#3A5570; --blue-bg:#E3EAF0;
+  --amber:#8A6D3B; --amber-bg:#F4EDDD; --muted:#6B7268;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--canvas);color:var(--ink);
+  font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+  font-size:16px;line-height:1.75}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 64px}
+header.top{background:var(--brand);color:#F3F2EC;border-radius:0 0 8px 8px;padding:34px 20px 26px}
+header.top .inner{max-width:1080px;margin:0 auto}
+header.top h1{margin:0 0 6px;font-size:1.5em;line-height:1.4;font-weight:700}
+header.top .meta{font-size:.85em;opacity:.85;display:flex;flex-wrap:wrap;gap:6px 18px}
+header.top .meta b{font-weight:600}
+header.top .abstract{margin-top:12px;font-size:.92em;max-width:52em;color:#E4E9E2}
+nav.toc{background:var(--card);border:1px solid var(--line);border-radius:8px;margin:18px 0 26px;padding:10px 16px;display:flex;flex-wrap:wrap;gap:4px 4px;position:sticky;top:0;z-index:9;box-shadow:0 1px 0 rgba(0,0,0,.04)}
+nav.toc a{color:var(--brand);text-decoration:none;font-size:.88em;padding:4px 10px;border-radius:6px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--brand-soft)}
+section{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:22px 24px;margin-bottom:22px}
+h2{margin:0 0 4px;font-size:1.25em;color:var(--brand);line-height:1.4}
+h2 .no{display:inline-block;background:var(--brand);color:#fff;font-size:.62em;border-radius:4px;padding:2px 8px;vertical-align:3px;margin-right:8px;letter-spacing:1px}
+h3{margin:22px 0 8px;font-size:1.02em;color:var(--ink);border-left:4px solid var(--brand);padding-left:10px;line-height:1.4}
+p{margin:8px 0}
+.lead{color:var(--muted);font-size:.9em;margin-top:0}
+ul,ol{margin:8px 0;padding-left:1.4em}
+li{margin:3px 0}
+table{width:100%;border-collapse:collapse;font-size:.9em;margin:10px 0}
+th{background:var(--brand-soft);color:var(--brand);text-align:left;font-weight:600}
+th,td{border:1px solid var(--line);padding:7px 10px;vertical-align:top}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl-scroll{overflow-x:auto}
+.tag{display:inline-block;border-radius:4px;padding:1px 8px;font-size:.82em;white-space:nowrap}
+.tag.green{background:var(--ok-bg);color:var(--ok)}
+.tag.red{background:var(--red-bg);color:var(--red)}
+.tag.blue{background:var(--blue-bg);color:var(--blue)}
+.tag.amber{background:var(--amber-bg);color:var(--amber)}
+.note{border-radius:6px;padding:10px 14px;margin:10px 0;font-size:.92em}
+.note b{font-weight:600}
+.note.info{background:var(--blue-bg);color:var(--blue)}
+.note.warn{background:var(--amber-bg);color:var(--amber)}
+.note.ok{background:var(--ok-bg);color:var(--ok)}
+.note.red{background:var(--red-bg);color:var(--red)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.grid2{grid-template-columns:1fr}}
+figure{margin:14px 0}
+figcaption{font-size:.85em;color:var(--muted);margin-top:6px}
+.flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+.flow .node{flex:1;min-width:120px;background:#fff;border:1.5px solid var(--brand);border-radius:6px;padding:8px 10px;text-align:center}
+.flow .node .t{font-weight:600;font-size:.9em;color:var(--brand)}
+.flow .node .d{font-size:.78em;color:var(--muted);line-height:1.5}
+.flow .arr{align-self:center;padding:0 6px;color:var(--brand);font-size:1.1em;flex:none}
+.formula{background:#fff;border:1px dashed var(--brand);border-radius:6px;padding:10px 14px;margin:10px 0;font-size:.95em}
+.formula code,.inline-code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;background:var(--brand-soft);border-radius:4px;padding:1px 6px;color:var(--brand)}
+/* mockup 外框 */
+.mock{background:#EDECE5;border:1px solid var(--line);border-radius:8px;padding:16px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.mock .frame{background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 2px 8px rgba(38,48,43,.08);overflow:hidden}
+.mock .frame .bar{background:var(--brand);color:#fff;padding:7px 12px;font-size:.82em;font-weight:600;display:flex;justify-content:space-between}
+/* PC 弹窗示意 */
+.pc-modal{width:520px;max-width:100%}
+.pc-modal .mbody{padding:12px}
+.f-row{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.f-box{flex:1;min-width:130px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:.8em}
+.f-box .lab{color:var(--muted);font-size:.92em;margin-bottom:3px}
+.tree{font-size:.86em;line-height:1.9}
+.tree .cat{color:var(--ink)}
+.tree .sub{padding-left:16px;color:var(--muted)}
+.cbx{display:inline-block;width:13px;height:13px;border:1.5px solid var(--brand);border-radius:3px;vertical-align:-2px;margin-right:5px;background:#fff}
+.cbx.on{background:var(--brand);position:relative}
+.cbx.on::after{content:"";position:absolute;left:3px;top:0px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.chip{display:inline-block;border:1.5px solid var(--line);border-radius:99px;padding:2px 12px;font-size:.8em;margin:0 6px 6px 0;background:#fff;color:var(--muted)}
+.chip.on{border-color:var(--brand);background:var(--brand);color:#fff}
+.sr{border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:.82em;color:var(--muted);margin-bottom:8px}
+.cand{border:1px solid var(--line);border-radius:6px;max-height:190px;overflow:hidden;font-size:.84em}
+.cand .it{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line);background:#fff}
+.cand .it:last-child{border-bottom:none}
+.cand .it.sel{background:var(--brand-soft)}
+.cand .it .nm{flex:1}
+.zone{font-size:.72em;border-radius:3px;padding:0 6px}
+.zone.z1{background:var(--amber-bg);color:var(--amber)}
+.zone.z2{background:var(--blue-bg);color:var(--blue)}
+.zone.z3{background:#E8E3EE;color:#5B4A73}
+.foot-bar{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:8px 12px;font-size:.84em;background:#F7F6F1}
+.btn-mock{background:var(--brand);color:#fff;border-radius:5px;padding:4px 14px;font-size:.9em}
+.btn-ghost{border:1px solid var(--brand);color:var(--brand);border-radius:5px;padding:3px 10px;font-size:.9em;background:#fff}
+/* 手机示意 */
+.m-frame{width:250px;max-width:100%;border-radius:14px 14px 0 0;border:1px solid var(--line);border-bottom:none}
+.m-frame .sheet{padding:12px 12px 6px}
+.m-frame .grip{width:42px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 10px}
+.m-card{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:.8em;margin-bottom:8px;background:#fff;display:flex;gap:8px;align-items:center}
+.m-card .nm{flex:1}
+.m-card.sel{background:var(--brand-soft);border-color:var(--brand)}
+.m-foot{display:flex;justify-content:space-between;align-items:center;background:var(--brand);color:#fff;margin:0 -12px;padding:9px 14px 18px;font-size:.82em}
+/* 制备卡示意 */
+.recipe{width:460px;max-width:100%}
+.recipe .rbody{padding:12px}
+.r-item{display:flex;align-items:center;gap:8px;font-size:.85em;padding:6px 8px;border-bottom:1px dashed var(--line)}
+.r-item:last-of-type{border-bottom:none}
+.r-item .nm{flex:1}
+.r-item .muted{color:var(--muted);font-size:.9em}
+.r-sum{margin-top:8px;border-radius:6px;background:var(--brand-soft);padding:8px 12px;font-size:.88em;color:var(--brand);font-weight:600}
+.r-warn{margin-top:8px;font-size:.8em;color:var(--red);background:var(--red-bg);border-radius:6px;padding:6px 10px}
+/* 联动示意 */
+.loop{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.loop .pill{border:1.5px solid var(--brand);border-radius:99px;padding:6px 18px;font-size:.88em;background:#fff;color:var(--brand);font-weight:600}
+.loop .larr{align-self:center;color:var(--amber);font-weight:700;font-size:.9em}
+.steps{counter-reset:st;list-style:none;padding:0;margin:10px 0}
+.steps li{counter-increment:st;position:relative;padding:4px 0 4px 34px;margin:6px 0}
+.steps li::before{content:counter(st);position:absolute;left:0;top:5px;width:22px;height:22px;border-radius:50%;background:var(--brand);color:#fff;font-size:.72em;display:flex;align-items:center;justify-content:center;font-weight:600}
+.check td:first-child{width:34px;text-align:center;color:var(--ok);font-weight:700}
+footer{color:var(--muted);font-size:.82em;text-align:center;padding:10px 0 30px}
+a{color:var(--blue)}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+@media (max-width:760px){
+  .wrap{padding:16px 12px 48px}
+  section{padding:16px 14px}
+  header.top{padding:24px 14px 20px}
+  header.top h1{font-size:1.2em}
+  nav.toc{position:static}
+  table{font-size:.84em}
+}
+@media print{
+  body{background:#fff;font-size:12px}
+  nav.toc{display:none}
+  header.top{border-radius:0;color:#000;background:#fff;border-bottom:2px solid #000}
+  header.top .abstract,header.top .meta{color:#333}
+  section{break-inside:avoid;border:1px solid #999;box-shadow:none}
+  .mock .frame{box-shadow:none}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="inner">
+    <h1>盘点管理模块 v3 方案 · 库位商品管理 ＋ 半成品应产率体系</h1>
+    <div class="meta">
+      <span>版本 <b>v3.0</b></span><span>日期 <b>2026-10-18</b></span>
+      <span>系统 <b>P027 商品管理系统</b></span><span>状态 <b>待确认</b></span>
+    </div>
+    <p class="abstract">本方案覆盖三块内容：<b>①库位管理新增「编辑库位商品」</b>，支持分类树＋未拆封温层多重筛选，方便把商品快速聚合到对应库位；<b>②半成品管理新增「应产率体系」</b>，建立投入－净用量－产出的完整计算链，支撑门店按成品称重盘点后的原料还原；<b>③原料库新增「默认应产率」</b>，配一次全局带出、行上可覆盖。三块均含 PC／手机双端设计与导入导出同步。</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+<nav class="toc" aria-label="页内目录">
+  <a href="#s1">① 方案总览</a>
+  <a href="#s2">② 库位商品管理</a>
+  <a href="#s3">③ 半成品应产率体系</a>
+  <a href="#s4">④ 原料库默认应产率</a>
+  <a href="#s5">⑤ 实施清单</a>
+  <a href="#s6">⑥ 待确认项</a>
+</nav>
+
+<!-- ============ S1 总览 ============ -->
+<section id="s1">
+  <h2><span class="no">01</span>方案总览</h2>
+  <p class="lead">三个功能包的关系：库位商品是「盘点落位」的前置数据，应产率是「盘点口径」的换算基础。</p>
+  <div class="grid2">
+    <div>
+      <h3 style="margin-top:6px">A · 库位管理｜编辑库位商品 ＋ 温层多重筛选</h3>
+      <ul>
+        <li>库位列表每行新增「商品」入口，弹窗内勾选该库位存放的原料；</li>
+        <li>候选范围按已拍板规则：该店商品 → 商品 BOM 原料 → 原料库（启用 ∧ 盘点=是）；</li>
+        <li>筛选支持<b>分类树（大类→中类）∩ 温层多选</b>：勾「奶类＋冷冻」直接聚合出冷冻奶类；</li>
+        <li>手机端底部抽屉大触点操作；新表 <span class="inline-code">inventory_location_items</span> 存储关联。</li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="margin-top:6px">B · 半成品｜应产率体系 ＋ C · 原料库默认应产率</h3>
+      <ul>
+        <li>BOM 每行加「应产率」，自动算净用量；半成品加「基准模式（按份/按g）」与「一份产出量」；</li>
+        <li>应产率 ↔ 产出量<b>双向联动</b>，计算链恒等自洽；</li>
+        <li>BOM 明细与导出新增「每 g 含量」列，用于与外部系统 BOM 逐行人工复核（自动比对后置）；</li>
+        <li>门店端呈现「制备卡」：需要哪些原料各多少、成品应为多少，做错一眼看出；</li>
+        <li>盘点换算公式保证含损耗口径还原，<b>不会假性盘亏</b>；</li>
+        <li>原料库可选配默认应产率，BOM 加行自动带出、行上可覆盖；导入导出同步支持。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ S2 库位商品 ============ -->
+<section id="s2">
+  <h2><span class="no">02</span>库位管理 · 编辑库位商品 ＋ 温层多重筛选</h2>
+
+  <h3>2.1 候选原料的数据范围（已拍板规则）</h3>
+  <p>库位是店级资产（编号＝店编-序号），候选原料按「该店卖什么」反推「该店要盘什么」：</p>
+  <figure>
+    <div class="flow">
+      <div class="node"><div class="t">门店</div><div class="d">stores<br>选定库位所属店</div></div>
+      <div class="arr">→</div>
+      <div class="node"><div class="t">该店商品</div><div class="d">product_barcode_stores<br>店-条码关联</div></div>
+      <div class="arr">→</div>
+      <div class="node"><div class="t">商品 BOM 原料</div><div class="d">product_barcode_bom<br>商品用到的原料</div></div>
+      <div class="arr">→</div>
+      <div class="node"><div class="t">原料库过滤</div><div class="d">ingredient_library<br>启用 ∧ 是否盘点=是</div></div>
+    </div>
+    <figcaption>图 2-1　候选原料链路：四步取交集，is_inventory=「否」的原料不进候选。</figcaption>
+  </figure>
+  <div class="note info"><b>口径说明：</b>多个商品共用同一原料时自动去重；该店未绑定任何商品时弹窗给出「该店暂无关联商品」的空态提示，而不是空列表无解释。</div>
+
+  <h3>2.2 交互设计（PC 弹窗）</h3>
+  <p>筛选区＝分类树 ∩ 温层多选 ∩ 关键词，三者同时生效（AND）；温层内部多选为 OR（勾「冷藏＋冷冻」＝冷藏或冷冻的原料）。分类与温层全不选＝不限。</p>
+  <figure>
+    <div class="mock">
+      <div class="frame pc-modal">
+        <div class="bar"><span>编辑库位商品 — L0131-001 冷藏区 · 徐汇日月光店</span><span>✕</span></div>
+        <div class="mbody">
+          <div class="f-row">
+            <div class="f-box"><div class="lab">分类（大类→中类，可多选）</div>
+              <div class="tree">
+                <span class="cat"><span class="cbx on"></span>奶类</span><br>
+                <span class="sub"><span class="cbx on"></span>鲜奶　<span class="cbx"></span>奶油芝士</span><br>
+                <span class="cat"><span class="cbx"></span>蔬果类</span>
+              </div>
+            </div>
+            <div class="f-box"><div class="lab">未拆封温层（可多选）</div>
+              <span class="chip">常温</span><span class="chip on">冷藏</span><span class="chip">冷冻</span>
+              <div class="lab" style="margin-top:8px">关键词</div>
+              <div class="sr" style="margin-bottom:0">搜索名称 / 编码</div>
+            </div>
+          </div>
+          <div class="cand">
+            <div class="it sel"><span class="cbx on"></span><span class="nm">鲜牛奶 ING2024…012</span><span class="zone z2">冷藏</span></div>
+            <div class="it sel"><span class="cbx on"></span><span class="nm">淡奶油 ING2024…036</span><span class="zone z2">冷藏</span></div>
+            <div class="it"><span class="cbx"></span><span class="nm">酸奶饮品 ING2024…041</span><span class="zone z2">冷藏</span></div>
+            <div class="it"><span class="cbx"></span><span class="nm">奶油芝士 ING2024…044</span><span class="zone z2">冷藏</span></div>
+          </div>
+        </div>
+        <div class="foot-bar"><span>已选 <b>2</b> 项 · <span style="color:var(--blue);text-decoration:underline">全选当前结果</span> · <span style="color:var(--blue);text-decoration:underline">清空</span></span><span class="btn-mock">保存</span></div>
+      </div>
+    </div>
+    <figcaption>图 2-2　PC 弹窗示意：左分类树、右温层＋关键词，候选行整行可点勾选；底部常驻已选计数与保存。</figcaption>
+  </figure>
+  <ul>
+    <li><b>快捷聚合</b>：「全选当前结果」把当前筛选命中的原料一次性勾进该库位——例如筛「奶类＋冷冻」→ 全选 → 保存，冷冻奶类即全部聚合到冷冻库位；</li>
+    <li><b>保存</b>为覆盖式提交：以弹窗内最终勾选为准整体写入；</li>
+    <li><b>列表呈现</b>：库位列表新增「商品数」列，直观看到每个库位已聚合多少项。</li>
+  </ul>
+
+  <h3>2.3 手机端（底部抽屉 · 大触点）</h3>
+  <figure>
+    <div class="mock">
+      <div class="frame m-frame">
+        <div class="bar" style="border-radius:14px 14px 0 0"><span>库位商品 · L0131-001</span><span>✕</span></div>
+        <div class="sheet">
+          <div class="grip"></div>
+          <div style="margin-bottom:8px"><span class="chip on">冷藏</span><span class="chip">冷冻</span><span class="chip">常温</span></div>
+          <div class="sr">搜索名称 / 编码</div>
+          <div class="m-card sel"><span class="cbx on"></span><span class="nm">鲜牛奶<br><span style="color:var(--muted)">ING2024…012 · 冷藏</span></span></div>
+          <div class="m-card sel"><span class="cbx on"></span><span class="nm">淡奶油<br><span style="color:var(--muted)">ING2024…036 · 冷藏</span></span></div>
+          <div class="m-card"><span class="cbx"></span><span class="nm">酸奶饮品<br><span style="color:var(--muted)">ING2024…041 · 冷藏</span></span></div>
+          <div class="m-foot"><span>已选 2 项</span><span class="btn-mock" style="background:#fff;color:var(--brand)">保存</span></div>
+        </div>
+      </div>
+    </div>
+    <figcaption>图 2-3　手机端示意：底部抽屉升起，温层 chips 横向点选，整行卡片勾选，保存条常驻底部（拇指区）。</figcaption>
+  </figure>
+  <div class="note ok"><b>手机端细节：</b>整行均为点击热区（≥44px 触点高度）、勾选状态即时高亮、抽屉内部滚动不带动页面，沿用 <span class="inline-code">mobile_modal_form_standards</span> 弹窗规范（正确 media 位置、内部滚动、sticky 操作条）。</div>
+
+  <h3>2.4 数据变更</h3>
+  <div class="tbl-scroll"><table>
+    <caption class="lead">表 2-1　库位商品相关数据变更</caption>
+    <thead><tr><th>对象</th><th>变更</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>新表 <span class="inline-code">inventory_location_items</span></td><td>location_id ＋ ingredient_id（UNIQUE 联合）＋ created_at</td><td>库位↔原料多对多关联；库位删除时级联清理，编号仍走「永不复用」墓碑规则</td></tr>
+      <tr><td>库位列表</td><td>新增「商品数」列</td><td>列表与导出同步加列，导出可追溯每个库位聚合的商品</td></tr>
+      <tr><td>后端接口</td><td>GET 候选原料 / GET 已选清单 / POST 覆盖保存</td><td>候选接口按图 2-1 链路查询；保存接口校验库位归属店与登录权限</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============ S3 半成品应产率 ============ -->
+<section id="s3">
+  <h2><span class="no">03</span>半成品管理 · 应产率体系</h2>
+
+  <h3>3.1 两种录入基准（按份 / 按 g）</h3>
+  <div class="tbl-scroll"><table>
+    <caption class="lead">表 3-1　基准模式与字段口径</caption>
+    <thead><tr><th>基准</th><th>典型场景</th><th>BOM 用量的含义</th><th>一份产出量</th></tr></thead>
+    <tbody>
+      <tr><td><span class="tag green">按份 batch</span></td><td>奶浆等有最少制备量的半成品</td><td>做 <b>1 份</b>各原料的投入 g</td><td>必填，如 2000g；默认自动算，可手改为实测</td></tr>
+      <tr><td><span class="tag blue">按 g gram</span></td><td>每 1g 直接录（如 1g 含黄瓜 0.5g＋香油 0.5g）</td><td>每 <b>1g 成品</b>各原料的含量 g</td><td>固定 1g，不显示该格</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>3.2 计算链与双向联动</h3>
+  <figure>
+    <div class="flow">
+      <div class="node"><div class="t">投入 用量</div><div class="d">BOM 行 quantity<br>含损耗的投料 g</div></div>
+      <div class="arr">→</div>
+      <div class="node"><div class="t">应产率</div><div class="d">行级 yield_rate<br>默认 100%</div></div>
+      <div class="arr">→</div>
+      <div class="node"><div class="t">净用量</div><div class="d">quantity × 应产率<br>只读展示</div></div>
+      <div class="arr">→</div>
+      <div class="node"><div class="t">一份产出量</div><div class="d">Σ净用量（按份）<br>可手改实测值</div></div>
+      <div class="arr">→</div>
+      <div class="node"><div class="t">每 g 含量</div><div class="d">净用量 ÷ 产出量<br>复核外部 BOM</div></div>
+    </div>
+    <figcaption>图 3-1　计算链：从投料到每 g 成品含量，任何一处改动全链自动重算。</figcaption>
+  </figure>
+  <div class="loop">
+    <span class="pill">改某行应产率</span><span class="larr">⟶ 产出量自动重算</span>
+  </div>
+  <div class="loop" style="margin-top:8px">
+    <span class="larr">⟵ 所有行应产率等比缩放（×新产出÷当前产出）</span><span class="pill">改一份产出量</span>
+  </div>
+  <div class="note ok"><b>联动保证（已确认）：</b>两个入口都能改；无论从哪边改，恒满足 <span class="inline-code">Σ(用量×应产率) = 产出量</span>，计算链不存在中间不一致态。产出量手改后以手改值为该半成品的标准成品重量存档。</div>
+
+  <h3>3.3 制备卡（门店可见）</h3>
+  <p>半成品详情新增制备卡，门店直观看到「要备什么料、成品应为多少」——制作防错基准：</p>
+  <figure>
+    <div class="mock">
+      <div class="frame recipe">
+        <div class="bar"><span>制备说明 — 开心果奶酱 SP2026…001</span></div>
+        <div class="rbody">
+          <div class="r-item"><span class="nm">开心果酱</span><span class="muted">投入 600g · 应产率 90%</span><span class="muted">→ 净 540g</span></div>
+          <div class="r-item"><span class="nm">奶基底</span><span class="muted">投入 500g · 应产率 92%</span><span class="muted">→ 净 460g</span></div>
+          <div class="r-sum">投入共 1100g → 成品应为 <u>1000g</u></div>
+          <div class="r-warn">实际产出明显偏离 1000g（如 800g / 1200g）即为制作错误，请核对投料与工艺。</div>
+        </div>
+      </div>
+    </div>
+    <figcaption>图 3-2　按份基准的制备卡示意；按 g 基准则显示「每 1g 含：黄瓜 0.5g ＋ 香油 0.5g」。门店现有只读权限即可查看，无需调整权限。</figcaption>
+  </figure>
+
+  <h3>3.4 盘点换算（防假性盘亏）</h3>
+  <p>门店按<b>成品</b>称重盘点，BOM 记的是<b>含损耗的投入量</b>，因此门店执行端记账时按比例还原：</p>
+  <div class="formula">某原料消耗 ＝ 盘点差(成品 g) × <span class="inline-code">该原料投入用量 ÷ 一份产出量</span></div>
+  <p class="lead">例：投入 1100g → 产出 1000g/份，门店盘了 500g 成品 → 消耗 ＝ 500 × 1100/1000 ＝ <b>550g</b>（按 BOM 占比拆到各原料，各自行内再按自身应产率还原投入口径）。与 BOM 记录口径一致，损耗已计入，不会因损耗缺失而盘亏。按 g 基准的半成品产出＝1g，公式同样成立。</p>
+
+  <h3>3.5 导入导出与复核</h3>
+  <ul>
+    <li><b>每 g 含量列</b>：BOM 明细新增「每g含量」，与外部系统按每 g 配的 BOM 逐行人工核对；</li>
+    <li><b>导出同步</b>：半成品导出加「基准模式 / 应产率 / 净用量 / 每 g 含量」列，Excel 可直接与外部系统对照；</li>
+    <li><b>导入同步</b>：半成品导入模板同步增加上述列（空值兼容旧行，应产率空＝100%）；</li>
+    <li><b>自动比对差异</b>：按你的决定<b>后置</b>，本期只做展示＋导出，后续再设计导入外部 BOM 自动比对。</li>
+  </ul>
+</section>
+
+<!-- ============ S4 原料库默认应产率 ============ -->
+<section id="s4">
+  <h2><span class="no">04</span>原料库 · 默认应产率（可选配）</h2>
+  <ul>
+    <li><span class="inline-code">ingredient_library</span> 新增 <span class="inline-code">yield_rate</span>（%），<b>可空</b>——不配按 100% 处理；</li>
+    <li>原料库新建/编辑表单加「默认应产率(%)」格子（选填，1–100）；</li>
+    <li>半成品 BOM <b>加行时自动带出</b>：原料配了默认值用默认值，没配用 100%；<b>行上可覆盖</b>，覆盖只影响当前半成品，不回写原料库；</li>
+    <li>半成品内改了行应产率后，原料库默认值再变化也<b>不会</b>联动改已保存的行（半成品 BOM 行为准）。</li>
+  </ul>
+  <div class="note warn"><b>导入导出同步（你特别叮嘱的点）：</b>原料库导入模板增加「默认应产率(%)」列——留空＝不改原值，填值＝更新；导出同步加该列，保证字段上了系统、导入导出两处就位，不出现「能看不能导」的断档。</div>
+</section>
+
+<!-- ============ S5 实施清单 ============ -->
+<section id="s5">
+  <h2><span class="no">05</span>实施清单与顺序</h2>
+  <ol class="steps">
+    <li><b>数据库变更</b>（服务器一次执行）：semi_products 加 base_mode / batch_output_g；semi_product_items 加 yield_rate；ingredient_library 加 yield_rate；新建 inventory_location_items。旧数据全部带默认值，存量不受影响。</li>
+    <li><b>原料库</b>：表单格子＋导入导出加「默认应产率」列。</li>
+    <li><b>半成品管理</b>：基准模式选择、BOM 行应产率＋净用量、双向联动、一份产出量、每 g 含量列、制备卡（门店可见）、导出列扩展。</li>
+    <li><b>库位管理</b>：候选/已选/保存三接口＋PC 弹窗＋手机抽屉＋列表商品数＋导出列。</li>
+    <li><b>验证</b>：静态断言＋浏览器端到端（弹窗筛选与勾选、双向联动计算链恒等、导入导出新列、手机端抽屉），按 B 级验证标准执行（接口断言＋核心路径实测）。</li>
+    <li><b>部署</b>：备份 → ALTER → 上传 → md5 校验 → 重启探活 → commit 推 GitHub（沿用现有流程）。</li>
+  </ol>
+</section>
+
+<!-- ============ S6 待确认 ============ -->
+<section id="s6">
+  <h2><span class="no">06</span>待确认项</h2>
+  <div class="tbl-scroll"><table class="check">
+    <caption class="lead">表 6-1　仅剩两处小确认，其余均已在讨论中拍板</caption>
+    <thead><tr><th></th><th>事项</th><th>默认做法（未回复则按此执行）</th></tr></thead>
+    <tbody>
+      <tr><td>☐</td><td>库位商品候选范围严格按「该店商品链路」取数</td><td>按已拍板规则执行；如需放宽到全部 622 项盘点原料请说明</td></tr>
+      <tr><td>☐</td><td>库位列表新增「商品数」列</td><td>默认加（列表＋导出同步）</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note info"><b>已拍板要点回顾：</b>盘点换算按投入/产出比例还原（不盘亏）；应产率↔产出量双向联动、计算链恒等；制备卡进门店端；外部 BOM 复核先展示＋导出、自动比对后置；原料库默认应产率可选配、行上可覆盖、导入导出同步。</div>
+</section>
+
+<footer>P027 商品管理系统 · 盘点管理模块 v3 方案 · 2026-10-18 · 确认后进入开发</footer>
+</div>
+
+<script>
+(function(){
+  try{
+    document.querySelectorAll('nav.toc a').forEach(function(a){
+      a.addEventListener('click', function(e){
+        var id = a.getAttribute('href').slice(1);
+        var t = document.getElementById(id);
+        if(t){ e.preventDefault(); t.scrollIntoView({behavior:'smooth', block:'start'}); }
+      });
+    });
+  }catch(err){}
+})();
+</script>
+</body>
+</html>

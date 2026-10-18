@@ -69,6 +69,7 @@ from modules.dim_date import dim_date_bp
 from modules.issues import issues_bp
 from modules.qa import qa_bp
 from modules.gantt import gantt_bp
+from modules.topic_report import topic_report_bp
 app.register_blueprint(auth_bp)
 app.register_blueprint(system_bp)
 app.register_blueprint(work_mgmt_bp)
@@ -76,6 +77,7 @@ app.register_blueprint(dim_date_bp)
 app.register_blueprint(issues_bp)
 app.register_blueprint(qa_bp)
 app.register_blueprint(gantt_bp)
+app.register_blueprint(topic_report_bp)
 
 @app.context_processor
 def inject_user():

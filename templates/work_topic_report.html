@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}课题报告 - 餐厅数字化改革{% endblock %}
+{% block page_title %}课题报告{% endblock %}
+{% block content %}
+<style>
+.tr-wrap { max-width: 1400px; margin: 0 auto; }
+.tr-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.tr-table th, .tr-table td { padding: 0.5em 0.625em; text-align: left; font-size: 0.875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tr-table th { color: var(--brand-gray); font-weight: 600; border-bottom: 1px solid var(--brand-border); font-size: 0.8125rem; }
+.tr-table tbody tr { border-bottom: 1px solid var(--brand-border); cursor: pointer; }
+.tr-table tbody tr:hover { background: rgba(45,74,62,0.04); }
+.tr-title { font-weight: 600; color: var(--brand-primary); }
+.tr-desc { color: #999; white-space: normal; word-break: break-all; line-height: 1.5; }
+.tr-muted { color: #999; }
+.tr-op button { margin-right: 0.375em; }
+.tr-empty { text-align: center; padding: 3em 1em; color: #bbb; font-size: 0.875rem; }
+.tr-hint { text-align: center; margin-top: 1.25em; color: #ccc; font-size: 0.6875rem; }
+.tr-form-item { margin-bottom: 0.875em; }
+.tr-form-item label { display: block; font-size: 0.8125rem; color: var(--brand-primary); font-weight: 600; margin-bottom: 0.3125em; }
+.tr-form-item input, .tr-form-item textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--brand-border); border-radius: 6px; padding: 0.5em 0.625em; font-size: 0.875rem; font-family: inherit; outline: none; background: #fff; }
+.tr-form-item input:focus, .tr-form-item textarea:focus { border-color: var(--brand-primary); }
+.tr-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0 0.875em; }
+.tr-form-tip { font-size: 0.75rem; color: #bbb; margin-top: 0.25em; }
+@media (max-width:768px){
+  .tr-table, .tr-table tbody, .tr-table tr, .tr-table td { display:block; width:100% }
+  .tr-table thead { display:none }
+  .tr-table tr { padding: 0.75em 0.875em; }
+  .tr-table td { padding: 0.125em 0; white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.5 }
+  .tr-table td.tr-id, .tr-table td:nth-child(5), .tr-table td:nth-child(6) { display:none }
+  .tr-title { font-size: 0.9375rem }
+  .tr-desc { font-size: 0.78125rem; color: #999 }
+  .tr-op button { padding: 0.25em 0.75em; }
+}
+</style>
+<div class="tr-wrap" style="padding:1.25em">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25em;gap:0.75em;flex-wrap:wrap;">
+        <h2 style="font-size:1.125rem;margin:0;color:var(--brand-primary)">
+            <i class="fa-solid fa-book-open" style="margin-right:0.375em"></i>课题报告
+        </h2>
+        {% if is_admin %}
+        <button class="btn btn-primary" onclick="openReportModal()"><i class="fa-solid fa-plus" style="margin-right:0.3em"></i>新增报告</button>
+        {% endif %}
+    </div>
+
+    <div style="overflow-x:auto;">
+        <table class="tr-table">
+            <thead>
+                <tr>
+                    <th style="width:3em">ID</th>
+                    <th style="width:21em">报告名称</th>
+                    <th>报告简述</th>
+                    <th style="width:8.75em">报告范围</th>
+                    <th style="width:6.25em">上传日期</th>
+                    <th style="width:6.25em">最终修订</th>
+                    <th style="width:5.5em">编制人</th>
+                    {% if is_admin %}<th style="width:7.5em">操作</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for report in report_list %}
+                <tr onclick="window.open('/work-mgmt/topic-report/{{ report.id }}', '_blank')">
+                    <td class="tr-id" style="color:#bbb">{{ report.id }}</td>
+                    <td class="tr-title" title="{{ report.title }}">{{ report.title }}</td>
+                    <td class="tr-desc">{{ report.description }}</td>
+                    <td style="color:#54585A">{{ report.scope }}</td>
+                    <td class="tr-muted">{% if report.created_at %}{{ report.created_at[:10]|replace('-','/') }}{% endif %}</td>
+                    <td class="tr-muted">{% if report.updated_at %}{{ report.updated_at[:10]|replace('-','/') }}{% endif %}</td>
+                    <td style="color:#54585A">{{ report.created_by }}</td>
+                    {% if is_admin %}
+                    <td class="tr-op" onclick="event.stopPropagation()">
+                        <button class="btn btn-secondary" style="padding:0.25em 0.625em;font-size:0.75rem;" onclick="openReportModal({{ report|tojson }})"><i class="fa-solid fa-pen"></i> 编辑</button>
+                        <button class="btn btn-secondary" style="padding:0.25em 0.625em;font-size:0.75rem;color:var(--brand-danger);border-color:var(--brand-danger);" onclick="delReport({{ report.id }}, '{{ report.title }}')"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if not report_list %}
+        <div class="tr-empty"><i class="fa-regular fa-folder-open" style="font-size:1.75em;display:block;margin-bottom:0.4em"></i>暂无课题报告</div>
+        {% endif %}
+    </div>
+
+    <div class="tr-hint"><i class="fa-solid fa-circle-info"></i> 点击报告行可在新标签页中查看{% if is_admin %}，管理员可就地编辑报告内容{% endif %}</div>
+</div>
+
+<!-- 新增/编辑登记弹窗 -->
+<div class="modal-overlay" id="reportModal">
+    <div class="modal" id="reportModalContent" style="width:min(560px,92vw);">
+        <div class="modal-header">
+            <h3 class="modal-title" id="reportModalTitle">新增报告</h3>
+            <button class="modal-close" onclick="closeModal('reportModal')"><i class="fa-solid fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="rf_id" value="">
+            <div class="tr-form-item">
+                <label>报告名称 *</label>
+                <input id="rf_title" maxlength="100" placeholder="如：盘点管理模块 · 基建期方案">
+            </div>
+            <div class="tr-form-item">
+                <label>报告简述</label>
+                <textarea id="rf_desc" rows="3" maxlength="200" placeholder="100 字内概述报告内容"></textarea>
+            </div>
+            <div class="tr-form-row">
+                <div class="tr-form-item">
+                    <label>报告范围</label>
+                    <input id="rf_scope" maxlength="50" placeholder="如：餐厅盘点">
+                </div>
+                <div class="tr-form-item">
+                    <label>编制人</label>
+                    <input id="rf_by" maxlength="30" placeholder="如：Kay">
+                </div>
+            </div>
+            <div class="tr-form-row">
+                <div class="tr-form-item">
+                    <label>上传日期</label>
+                    <input id="rf_created" type="date">
+                </div>
+                <div class="tr-form-item">
+                    <label>最终修订日期</label>
+                    <input id="rf_updated" type="date">
+                </div>
+            </div>
+            <div class="tr-form-row">
+                <div class="tr-form-item">
+                    <label>模板文件名</label>
+                    <input id="rf_tpl" placeholder="report_topic_03.html">
+                    <div class="tr-form-tip">须为 templates/ 目录下已存在的 HTML 文件</div>
+                </div>
+                <div class="tr-form-item">
+                    <label>排序</label>
+                    <input id="rf_sort" type="number" value="0">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('reportModal')">取消</button>
+            <button class="btn btn-primary" onclick="saveReport()"><i class="fa-solid fa-floppy-disk" style="margin-right:0.3em"></i>保存</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+var TR_IS_ADMIN = {{ 'true' if is_admin else 'false' }};
+function openReportModal(report) {
+    if (!TR_IS_ADMIN) return;
+    var r = report || {};
+    document.getElementById('reportModalTitle').textContent = r.id ? '编辑报告登记' : '新增报告';
+    document.getElementById('rf_id').value = r.id || '';
+    document.getElementById('rf_title').value = r.title || '';
+    document.getElementById('rf_desc').value = r.description || '';
+    document.getElementById('rf_scope').value = r.scope || '';
+    document.getElementById('rf_by').value = r.created_by || '';
+    document.getElementById('rf_created').value = (r.created_at || '').slice(0, 10);
+    document.getElementById('rf_updated').value = (r.updated_at || '').slice(0, 10);
+    document.getElementById('rf_tpl').value = r.template_name || '';
+    document.getElementById('rf_sort').value = (r.sort_order === undefined || r.sort_order === null) ? 0 : r.sort_order;
+    showModal('reportModal');
+}
+function payloadFromModal() {
+    return {
+        title: document.getElementById('rf_title').value.trim(),
+        description: document.getElementById('rf_desc').value.trim(),
+        scope: document.getElementById('rf_scope').value.trim(),
+        created_by: document.getElementById('rf_by').value.trim(),
+        created_at: document.getElementById('rf_created').value,
+        updated_at: document.getElementById('rf_updated').value,
+        template_name: document.getElementById('rf_tpl').value.trim(),
+        sort_order: parseInt(document.getElementById('rf_sort').value || '0', 10) || 0
+    };
+}
+async function saveReport() {
+    var id = document.getElementById('rf_id').value;
+    var p = payloadFromModal();
+    if (!p.title) { showToast('请填写报告名称', 'error'); return; }
+    var j = await api(id ? '/work-mgmt/topic-report/api/report/' + id : '/work-mgmt/topic-report/api/report', {
+        method: id ? 'PUT' : 'POST', body: JSON.stringify(p)
+    });
+    if (j.success) {
+        showToast(j.message || '保存成功');
+        closeModal('reportModal');
+        setTimeout(function(){ location.reload(); }, 600);
+    } else {
+        showToast(j.message || '保存失败', 'error');
+    }
+}
+function delReport(id, title) {
+    if (!TR_IS_ADMIN) return;
+    confirmAction('确认删除课题报告【' + title + '】的登记？报告模板文件将保留，仅从列表移除。', async function () {
+        var j = await api('/work-mgmt/topic-report/api/report/' + id, { method: 'DELETE' });
+        if (j.success) {
+            showToast(j.message || '删除成功');
+            setTimeout(function(){ location.reload(); }, 600);
+        } else {
+            showToast(j.message || '删除失败', 'error');
+        }
+    });
+}
+</script>
+{% endblock %}

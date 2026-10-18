@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P027 盘点管理模块 · 基建期方案（盘点发起 + 库位管理）</title>
+<style>
+:root{
+  --brand:#2D4A3E; --brand-2:#3E6653; --brand-soft:#E7EBE4; --canvas:#F1F0EA;
+  --ink:#26302B; --ink-2:#5A655E; --line:#D8D8CF; --card:#FBFAF6;
+  --amber:#8A6D3B; --amber-bg:#F4EDDD; --red:#8C3B2E; --red-bg:#F3E2DE;
+  --blue:#3A5570; --blue-bg:#E3EAF0; --ok:#4A7A5A;
+  --radius:6px; --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+body{font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;background:var(--canvas);color:var(--ink);line-height:1.75;font-size:16px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+.hero{background:var(--brand);color:#F4F3EC;padding:44px 0 36px}
+.hero .kicker{font-size:.85em;letter-spacing:.2em;opacity:.75;margin-bottom:10px}
+.hero h1{font-size:1.8em;line-height:1.3;font-weight:700}
+.hero .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.hero .meta span{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:4px;padding:3px 12px;font-size:.82em}
+.hero p.sub{margin-top:16px;opacity:.88;max-width:46em}
+nav.sticky{position:sticky;top:0;z-index:50;background:rgba(241,240,234,.96);border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+nav.sticky .wrap{display:flex;gap:2px;overflow-x:auto;padding:0 12px;scrollbar-width:none}
+nav.sticky .wrap::-webkit-scrollbar{display:none}
+nav.sticky a{white-space:nowrap;padding:11px 12px;font-size:.88em;color:var(--ink-2);text-decoration:none;border-bottom:2px solid transparent}
+nav.sticky a:hover{color:var(--brand);border-bottom-color:var(--brand)}
+section{padding:40px 0 8px}
+section>h2{font-size:1.32em;color:var(--brand);padding-bottom:8px;border-bottom:2px solid var(--brand);margin-bottom:8px}
+section>h2 .no{font-family:var(--mono);font-size:.8em;opacity:.6;margin-right:10px}
+section>p.lead{color:var(--ink-2);margin-bottom:18px;max-width:50em}
+h3{font-size:1.08em;color:var(--brand-2);margin:26px 0 10px}
+h3 .tag{font-size:.72em;background:var(--brand-soft);color:var(--brand);border-radius:4px;padding:2px 8px;vertical-align:2px;margin-left:8px;font-weight:400}
+h4{font-size:.98em;margin:18px 0 6px;color:var(--ink)}
+p{margin-bottom:10px}
+ul,ol{padding-left:1.4em;margin-bottom:12px}
+li{margin-bottom:5px}
+b{font-weight:700}
+code{font-family:var(--mono);font-size:.86em;background:var(--brand-soft);border-radius:3px;padding:1px 5px;color:var(--brand)}
+pre{font-family:var(--mono);font-size:.8em;line-height:1.65;background:#2C3630;color:#DDE7DF;border-radius:var(--radius);padding:16px 18px;overflow-x:auto;margin:12px 0 16px}
+pre .c{color:#8FA898}
+.grid{display:grid;gap:14px;margin:16px 0}
+.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+.card h4{margin:0 0 8px;font-size:.95em;color:var(--brand)}
+.card p,.card ul{font-size:.9em;color:var(--ink-2)}
+.card ul{padding-left:1.2em;margin:6px 0 0}
+.callout{border-left:4px solid var(--brand);background:var(--card);border-radius:0 var(--radius) var(--radius) 0;padding:14px 18px;margin:14px 0;font-size:.93em}
+.callout.warn{border-left-color:var(--amber);background:var(--amber-bg)}
+.callout.decide{border-left-color:var(--ok);background:#EDF3EC}
+.callout .t{font-weight:700;color:var(--brand);display:block;margin-bottom:4px}
+.callout.warn .t{color:var(--amber)}
+.callout.decide .t{color:var(--ok)}
+.tbl{width:100%;border-collapse:collapse;font-size:.87em;margin:12px 0 18px;background:var(--card)}
+.tbl th{background:var(--brand);color:#F4F3EC;text-align:left;padding:8px 10px;font-weight:600;white-space:nowrap}
+.tbl td{border-bottom:1px solid var(--line);padding:7px 10px;vertical-align:top}
+.tbl tr:nth-child(even) td{background:#F5F4EE}
+.tbl td code,.tbl th code{white-space:nowrap}
+.tblwrap{overflow-x:auto;margin:12px 0 18px}
+.pill{display:inline-block;font-size:.75em;border-radius:99px;padding:1px 10px;vertical-align:1px;white-space:nowrap}
+.pill.fixed{background:#EDF3EC;color:var(--ok);border:1px solid #C4D6C4}
+.pill.ask{background:var(--amber-bg);color:var(--amber);border:1px solid #E0D3B0}
+.pill.p0{background:var(--brand);color:#fff}
+.pill.p1{background:var(--brand-2);color:#fff}
+.pill.p2{background:#7A9E8F;color:#fff}
+.pill.new{background:var(--blue-bg);color:var(--blue);border:1px solid #C3D2DE}
+.pill.st-pend{background:var(--amber-bg);color:var(--amber);border:1px solid #E0D3B0}
+.pill.st-sub{background:var(--blue-bg);color:var(--blue);border:1px solid #C3D2DE}
+.pill.st-aud{background:#EDF3EC;color:var(--ok);border:1px solid #C4D6C4}
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:0;margin:14px 0}
+.flow .step{flex:1 1 130px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;font-size:.85em;position:relative}
+.flow .step b{display:block;color:var(--brand);font-size:.95em;margin-bottom:2px}
+.flow .arr{align-self:center;padding:0 6px;color:var(--brand-2);font-weight:700;flex:0 0 auto}
+.formula{background:var(--brand-soft);border:1px dashed var(--brand-2);border-radius:var(--radius);padding:12px 16px;font-family:var(--mono);font-size:.88em;margin:12px 0;overflow-x:auto}
+.top{position:fixed;right:18px;bottom:18px;background:var(--brand);color:#fff;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:1.1em;box-shadow:0 2px 8px rgba(0,0,0,.18);opacity:.85}
+.top:hover{opacity:1}
+/* 线框示意 */
+.frame{background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;font-size:.8em;margin:12px 0}
+.frame .fbar{background:var(--brand);color:#F4F3EC;padding:6px 12px;font-size:.9em;display:flex;gap:8px;align-items:center}
+.frame .fbody{padding:10px 12px}
+.frow{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.fchip{border:1px solid var(--line);border-radius:4px;padding:2px 8px;font-size:.88em;color:var(--ink-2);background:#F7F6F1}
+.fchip.on{background:var(--brand-soft);border-color:var(--brand-2);color:var(--brand);font-weight:600}
+.ftable{width:100%;border-collapse:collapse;font-size:.92em;margin:6px 0}
+.ftable th{background:#EDEDE6;border:1px solid var(--line);padding:4px 6px;text-align:left;white-space:nowrap}
+.ftable td{border:1px solid var(--line);padding:4px 6px;color:var(--ink-2)}
+.ftable .mono{font-family:var(--mono);white-space:nowrap}
+.fbtn{display:inline-block;border:1px solid var(--brand-2);color:var(--brand);border-radius:4px;padding:2px 10px;font-size:.88em;margin-right:4px}
+/* 手机卡片线框 */
+.phones{display:flex;gap:16px;flex-wrap:wrap;margin:14px 0}
+.phone{width:280px;max-width:100%;background:#fff;border:2px solid var(--brand);border-radius:18px;padding:12px 10px;font-size:.78em}
+.phone .ptitle{text-align:center;font-weight:700;color:var(--brand);margin-bottom:8px;font-size:1.05em}
+.phone .psearch{background:#F1F0EA;border-radius:99px;padding:5px 12px;color:var(--ink-2);margin-bottom:8px}
+.mini-card{border:1px solid var(--line);border-left:3px solid var(--brand);border-radius:6px;padding:7px 10px;margin-bottom:8px;background:var(--card)}
+.mini-card .mhead{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:3px}
+.mini-card .mcode{font-family:var(--mono);font-weight:700;color:var(--brand)}
+.mini-card .mrow{display:flex;justify-content:space-between;color:var(--ink-2);font-size:.94em;padding:1px 0}
+.mini-card .mbtns{display:flex;gap:6px;margin-top:6px;padding-top:6px;border-top:1px dashed var(--line)}
+.mini-card .mbtns span{flex:1;text-align:center;border:1px solid var(--brand-2);color:var(--brand);border-radius:4px;padding:4px 0;font-weight:600}
+.mini-card .mbtns span.danger{border-color:var(--red);color:var(--red)}
+.progress{display:flex;height:8px;border-radius:99px;overflow:hidden;margin:5px 0 3px;background:#E8E7E0}
+.progress i{display:block;height:100%}
+@media (max-width:640px){
+  .hero h1{font-size:1.45em}
+  body{font-size:15px}
+  .flow{flex-direction:column}
+  .flow .arr{transform:rotate(90deg);align-self:center;padding:2px 0}
+  pre{font-size:.72em}
+}
+@media print{
+  nav.sticky,.top{display:none}
+  body{background:#fff;font-size:12px}
+  section{padding:16px 0 4px;page-break-inside:avoid}
+  pre{background:#F0F0EA;color:#222;border:1px solid #ccc}
+  .card,.tbl td{background:#fff}
+  a{text-decoration:none;color:inherit}
+}
+</style>
+</head>
+<body id="top">
+
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker">GOODS.COPYKK.COM · P027 商品管理系统 · 内部开发文档</div>
+    <h1>盘点管理模块 · 基建期方案（盘点发起 ＋ 库位管理）</h1>
+    <div class="meta">
+      <span>版本 v2.1 · 需求已拍板</span><span>2026-10-18</span><span>前承 v1.0（2026-10-15 拍板）</span><span>本期交付 2 模块</span><span>手机端卡片式</span>
+    </div>
+    <p class="sub">本方案承接《盘点模块设计方案 v1.0（开发版）》已拍板决策，按最新需求将"一店一期"模型演进为<b>任务派发</b>模型，新增<b>库位管理</b>承载门店储存位置。本期交付【盘点发起】【库位管理】两个基建模块；【盘点任务】（门店执行端）为下期重头戏，本期把桩打好。</p>
+  </div>
+</header>
+
+<nav class="sticky">
+  <div class="wrap">
+    <a href="#s1">01 v1 承接与演进</a>
+    <a href="#s2">02 总体架构与权限</a>
+    <a href="#s3">03 数据模型</a>
+    <a href="#s4">04 编号规则</a>
+    <a href="#s5">05 盘点发起</a>
+    <a href="#s6">06 库位管理</a>
+    <a href="#s7">07 手机端卡片式</a>
+    <a href="#s8">下期衔接</a>
+    <a href="#s9">实施清单</a>
+    <a href="#s10">待确认项</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<!-- ============ 01 ============ -->
+<section id="s1">
+  <h2><span class="no">01</span>v1 承接与演进</h2>
+  <p class="lead">v1.0（2026-10-15）已拍板的 7 项决策全部继续有效；本次需求在其之上调整了组织方式——从"系统自动按期生成"改为"总部创建任务派发门店"，分区从"全局枚举+推导"改为"门店自建库位"。</p>
+
+  <h3>1.1 沿用 v1 已拍板决策<span class="tag">不重复论证</span></h3>
+  <div class="grid g2">
+    <div class="card"><h4>业务定位</h4><ul>
+      <li>纯实物记录 ＋ 期间对比，不做库存账、不涉及进货登记</li>
+      <li>默认<b>盲盘</b>：盘点过程不显示参照数，对比只在报告呈现</li>
+      <li><b>差异驱动复核</b>：差异在阈值内提交即归档，超阈值强制归因转总部复核（±15% 初始值）</li>
+    </ul></div>
+    <div class="card"><h4>录入与数据</h4><ul>
+      <li><b>双计量全开放</b>：整件数 × 单位容量 ＋ 拆零量(g/ml)，终值折算最小单位</li>
+      <li>盘点清单<b>快照固化</b>：生成后档案变更不回写已建单据</li>
+      <li>语音"按住说一批"（DeepSeek 封闭集合解析）为下期 P2 能力</li>
+      <li><code>is_inventory='是'</code> 作为参与盘点的原料开关</li>
+    </ul></div>
+  </div>
+
+  <h3>1.2 模型演进对照<span class="tag">本次变化</span></h3>
+  <div class="tblwrap"><table class="tbl">
+    <tr><th style="width:150px">维度</th><th>v1.0（10-15）</th><th>v2.0（本次）</th><th>演进原因</th></tr>
+    <tr><td><b>单据组织</b></td><td>一店一期一张，系统按月自动生成</td><td><span class="pill new">新</span>总部创建<b>盘点任务</b>，选门店范围派发，任务×门店展开为门店盘点单</td><td>支持月盘/周盘/特殊盘多类型与定向盘点</td></tr>
+    <tr><td><b>盘点品范围</b></td><td>按门店在售条码 BOM 自动推导</td><td><span class="pill new">新</span>任务指定：全部原料 或 批量勾选特定原料（创建时快照）</td><td>总部可控范围；包材耗材等类型预留</td></tr>
+    <tr><td><b>分区/库位</b></td><td>全局 zone_type 枚举 ＋ 分类映射推导 ＋ 门店例外</td><td><span class="pill new">新</span><b>库位管理</b>：门店自建储存位置（店编-序号），盘点执行时按库位落位</td><td>门店最了解自己店内布局；免去映射维护</td></tr>
+    <tr><td><b>任务类型</b></td><td>仅月度盘期 period</td><td><span class="pill new">新</span>月盘 / 周盘 / 特殊盘；盘点类型：原物料 / 包材耗材 / 其他</td><td>本次需求</td></tr>
+    <tr><td><b>完成状态</b></td><td>draft→counting→review→done</td><td>列表呈现 <span class="pill st-pend">待盘点</span> <span class="pill st-sub">已提交</span> <span class="pill st-aud">已审核</span> 三态；门店单内部状态机沿用 v1（下期实现）</td><td>本期列表先立三态口径</td></tr>
+  </table></div>
+
+  <div class="callout decide"><span class="t">本期范围</span>
+    <b>做</b>：盘点发起（任务 CRUD ＋ 清单/门店展开 ＋ 完成情况统计 ＋ 导出）、库位管理（门店库位 CRUD ＋ 店别隔离 ＋ 导出）、编号墓碑机制、手机端卡片式适配、权限与导航。<b>不做</b>：门店执行端录入、审核流、报告与对比、语音/扫码（均属下期【盘点任务】）。
+  </div>
+</section>
+
+<!-- ============ 02 ============ -->
+<section id="s2">
+  <h2><span class="no">02</span>总体架构与权限</h2>
+  <p class="lead">完全复刻 P027 现有模块模式（semi_product 模板）：蓝图 ＋ 页面路由 ＋ API ＋ role_permissions ＋ 双防线。导航新增一级分组【盘点管理】，位于【商品管理】分组之后、【策略决算】之前。</p>
+
+  <h3>2.1 导航结构<span class="tag">base.html</span></h3>
+  <div class="frame">
+    <div class="fbar"><span>侧边导航（示意）</span></div>
+    <div class="fbody">
+      <div class="frow"><span class="fchip">原料管理</span><span class="fchip">产品发展</span><span class="fchip">商品管理</span><span class="fchip on">盘点管理 ← 新增</span><span class="fchip">策略决算</span><span class="fchip">系统管理</span></div>
+      <div class="frow" style="padding-left:14px">
+        <span class="fchip on">盘点发起 <i>/inventory_launch</i></span>
+        <span class="fchip on">库位管理 <i>/inventory_location</i></span>
+        <span class="fchip" style="opacity:.55">盘点任务（下期）</span>
+      </div>
+    </div>
+  </div>
+  <ul>
+    <li>分组可见性沿用 Jinja 变量模式：<code>{% set _inv = permissions.get('inventory_launch') != 'none' or permissions.get('inventory_location') != 'none' %}</code>，图标 <code>fa-solid fa-clipboard-check</code>。</li>
+    <li>【盘点任务】下期随开发一并注册 MODULES，本期不注册（避免出现全角色 403 的空菜单）。</li>
+  </ul>
+
+  <h3>2.2 权限矩阵<span class="tag">role_permissions 预置</span></h3>
+  <div class="tblwrap"><table class="tbl">
+    <tr><th>模块 key</th><th>名称/分组</th><th>admin</th><th>企划</th><th>门店</th><th>采购料理</th><th>总部运营</th><th>TP</th><th>大区管理</th></tr>
+    <tr><td><code>inventory_launch</code></td><td>盘点发起 / 盘点管理</td><td><b>full</b></td><td>—</td><td>—</td><td><b>full</b></td><td><b>full</b></td><td>—</td><td>—</td></tr>
+    <tr><td><code>inventory_location</code></td><td>库位管理 / 盘点管理</td><td><b>full</b></td><td>—</td><td><b>full</b></td><td><b>full</b></td><td><b>full</b></td><td>—</td><td><b>full</b></td></tr>
+  </table></div>
+  <ul>
+    <li>"—"= 不写入 role_permissions（LEVEL_ORDER 判 none）：菜单不可见、URL 直达重定向、写接口 403，双防线＋write_guard 全套复刻。</li>
+    <li>盘点发起三方全开（<b>full</b>，含删除）：管理员/采购料理/总部运营均可增删改（10-18 拍板）。</li>
+    <li>库位管理五角色 full：门店/大区管理本店自管，但受<b>店别数据隔离</b>约束（见 6.1）。</li>
+  </ul>
+</section>
+
+<!-- ============ 03 ============ -->
+<section id="s3">
+  <h2><span class="no">03</span>数据模型</h2>
+  <p class="lead">新增 5 表，SQLite 沿用 P027 风格。核心关系：一个任务（inventory_tasks）展开为 N 张门店盘点单（inventory_task_stores），并固化一份盘点品清单（inventory_task_items）；库位（inventory_locations）独立于任务存在，下期盘点执行时引用。</p>
+
+  <h3>3.1 inventory_tasks — 盘点任务主表</h3>
+  <pre>CREATE TABLE IF NOT EXISTS inventory_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_code TEXT UNIQUE NOT NULL,        -- 盘点编号 PD261018001（04 节）
+    task_name TEXT NOT NULL,               -- 自动生成或特殊盘手输
+    task_type TEXT NOT NULL,               -- monthly 月盘 / weekly 周盘 / special 特殊盘
+    count_type TEXT NOT NULL DEFAULT 'material',  -- material 原物料 / packaging 包材耗材 / other 其他
+    start_date TEXT NOT NULL,              -- 盘点开始日期 YYYY-MM-DD
+    end_date TEXT NOT NULL,                -- 盘点结束日期
+    ingredient_scope TEXT NOT NULL,        -- all 全部原料 / specific 指定原料
+    store_scope TEXT NOT NULL,             -- all 全部门店 / specific 指定门店
+    created_by INTEGER REFERENCES users(id),
+    created_at TEXT DEFAULT (datetime('now','localtime')),
+    updated_at TEXT DEFAULT (datetime('now','localtime'))
+);</pre>
+
+  <h3>3.2 inventory_task_items — 盘点品清单（快照固化）</h3>
+  <pre>CREATE TABLE IF NOT EXISTS inventory_task_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES inventory_tasks(id) ON DELETE CASCADE,
+    ingredient_id INTEGER NOT NULL REFERENCES ingredient_library(id),
+    ingredient_code TEXT DEFAULT '',       -- 快照：防原料档案后续变更/删除导致清单不可读
+    ingredient_name TEXT DEFAULT '',       -- 快照
+    created_at TEXT DEFAULT (datetime('now','localtime')),
+    UNIQUE(task_id, ingredient_id)
+);</pre>
+  <div class="callout decide"><span class="t">设计决策：创建时快照固化（沿用 v1 原则）</span>
+    无论 all / specific，创建任务时统一落明细：all = 当日全部 <code>status='启用' AND is_inventory='是'</code> 原料写入清单。此后原料库增删改不影响本任务清单——门店盘的东西从创建那一刻就定死，报告口径稳定。名称/编码同步快照，原料档案被删也不产生孤儿显示。
+  </div>
+
+  <h3>3.3 inventory_task_stores — 门店盘点单（任务×门店展开）</h3>
+  <pre>CREATE TABLE IF NOT EXISTS inventory_task_stores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES inventory_tasks(id) ON DELETE CASCADE,
+    store_id INTEGER NOT NULL REFERENCES stores(id),
+    count_code TEXT UNIQUE NOT NULL,     -- 门店盘点单编号 PD261018001-500715（任务编号-店编，by店独立唯一）
+    status TEXT DEFAULT 'pending',         -- pending 待盘点 / submitted 已提交 / audited 已审核
+    submitted_at TEXT, submitted_by INTEGER REFERENCES users(id),
+    audited_at TEXT,   audited_by INTEGER REFERENCES users(id),
+    created_at TEXT DEFAULT (datetime('now','localtime')),
+    UNIQUE(task_id, store_id)              -- 复刻 product_barcode_stores 展开表模式
+);</pre>
+  <ul>
+    <li>创建任务时按门店范围立即展开：all = 全部<b>启用</b>门店；specific = 勾选门店。</li>
+    <li>该表即下期门店执行端的工作队列：门店登录只看到自己 <code>pending/submitted</code> 的任务。</li>
+    <li><b>门店盘点单独立编号</b>（10-18 拍板）：<code>任务编号-店编</code>（PD261018001-500715），创建展开时自动落库，UNIQUE 保证 by 店唯一、数据不混。</li>
+  </ul>
+
+  <h3>3.4 inventory_locations — 库位表</h3>
+  <pre>CREATE TABLE IF NOT EXISTS inventory_locations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    location_code TEXT UNIQUE NOT NULL,    -- 库位编号 500715-001（04 节）
+    store_id INTEGER NOT NULL REFERENCES stores(id),
+    area_name TEXT NOT NULL,               -- 区域名称（单行文本）
+    status TEXT DEFAULT '启用',            -- 启用/停用（预留，下期盘点落位用）
+    created_by INTEGER REFERENCES users(id),
+    created_at TEXT DEFAULT (datetime('now','localtime')),
+    updated_at TEXT DEFAULT (datetime('now','localtime')),
+    UNIQUE(store_id, area_name)            -- 同店区域名称防重
+);</pre>
+
+  <h3>3.5 inventory_used_codes — 编号墓碑（删除不复用）</h3>
+  <pre>CREATE TABLE IF NOT EXISTS inventory_used_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    scope TEXT NOT NULL,                   -- task 任务编号 / location 库位序号
+    code TEXT NOT NULL,                    -- 完整编号或 店编+序号
+    created_at TEXT DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX idx_iuc ON inventory_used_codes(scope, code);</pre>
+  <div class="callout"><span class="t">复刻先例</span>
+    与 P029 道具/广告编码治理同款方案（<code>display_used_codes</code> 墓碑表）：删除时登记，生成时"现存最大值 vs 墓碑最大值"取大 ＋1。业务编码永不复用。
+  </div>
+</section>
+
+<!-- ============ 04 ============ -->
+<section id="s4">
+  <h2><span class="no">04</span>编号规则</h2>
+  <p class="lead">两类编号均为创建时服务端自动生成、全局唯一、删除永不复用。生成模式复刻现有 <code>generate_ingredient_code</code>（前缀＋日期＋当日流水取最大 ＋1）。</p>
+
+  <h3>4.1 盘点任务编号</h3>
+  <div class="formula">PD + YYMMDD + 3位当日流水　→　例：PD261018001、PD261018002 …</div>
+  <ul>
+    <li><b>PD</b>＝盘点（PanDian）业务前缀，与现有 ING（原料）/ SP（半成品）风格一致，5＋3＝10 位，列表/导出可读性好。</li>
+    <li>流水按<b>当日</b>独立：同日第 1 单 001、第 2 单 002；跨日重新从 001 起（日期段不同天然不冲突）。</li>
+    <li>唯一约束 <code>task_code UNIQUE</code> ＋ 生成时事务内取号，并发安全。</li>
+  </ul>
+
+  <h3>4.2 库位编号</h3>
+  <div class="formula">店铺编号 + "-" + 3位店内流水　→　例：500715-001、500715-002 …；500716-001（独立序列）</div>
+  <ul>
+    <li>按用户要求"<b>店铺编号+001 开始排序</b>"：每店独立流水，跨店编号天然不混（店编唯一）。</li>
+    <li>序号取号范围 = 该店现存库位 ∪ 该店墓碑序号，最大值 ＋1 → <b>删除的序号永不复用</b>。</li>
+    <li>UNIQUE(location_code) 兜底唯一。</li>
+  </ul>
+
+  <h3>4.4 门店盘点单编号（by 店独立）</h3>
+  <div class="formula">门店盘点单编号 = 任务编号 + "-" + 门店编码　→　例：PD261018001-500715、PD261018001-500716 …</div>
+  <ul>
+    <li>任务展开派发时自动生成并<b>落库</b>（inventory_task_stores.count_code，UNIQUE），后续盘点录入、审核、报告全部按此编号定位，by 店数据永不混。</li>
+    <li>派生编号不进墓碑（随任务删除一并消失；任务编号墓碑已保证同号不复用，派生号天然唯一）。</li>
+  </ul>
+
+  <h3>4.3 墓碑机制流程<span class="tag">两类编号通用</span></h3>
+  <div class="flow">
+    <div class="step"><b>① 创建</b>取号：MAX(现存流水, MAX(墓碑流水)) + 1</div><div class="arr">→</div>
+    <div class="step"><b>② 写入</b>业务表（UNIQUE 兜底）</div><div class="arr">→</div>
+    <div class="step"><b>③ 删除</b>业务行 → 编号写入 inventory_used_codes</div><div class="arr">→</div>
+    <div class="step"><b>④ 再创建</b>取号跳过墓碑值，永不复用</div>
+  </div>
+  <p class="src">示例：500715 建过 3 个库位后全删 → 墓碑记 001/002/003 → 再建新库位得到 <code>500715-004</code>。</p>
+</section>
+
+<!-- ============ 05 ============ -->
+<section id="s5">
+  <h2><span class="no">05</span>盘点发起（/inventory_launch）</h2>
+  <p class="lead">总部视角：创建盘点任务派发门店、跟踪各店完成情况。角色：管理员、采购料理、总部运营可进；企划/门店/TP/大区管理不可见。</p>
+
+  <h3>5.1 创建表单与联动</h3>
+  <div class="tblwrap"><table class="tbl">
+    <tr><th style="width:130px">字段</th><th>规范</th></tr>
+    <tr><td>任务类型</td><td>单选：月盘 / 周盘 / 特殊盘（必填）</td></tr>
+    <tr><td>盘点类型</td><td>单选：原物料 / 包材耗材 / 其他。包材耗材、其他本期<b>预留选项置灰</b>（选中提示"暂未开放"），本次仅开放原物料</td></tr>
+    <tr><td>起止日期</td><td>date 输入，年月日；校验 end ≥ start</td></tr>
+    <tr><td>任务名称</td><td>月盘/周盘<b>自动生成只读</b>；特殊盘必选手输（查重防重名仅提示不拦截）</td></tr>
+    <tr><td>盘点品范围</td><td>单选：<b>全部原料</b> 或 <b>勾选原料</b>（弹窗多选：分类树筛选＋名称/编码模糊搜索＋已选计数）。候选范围＝<code>status=&#39;启用&#39; AND is_inventory=&#39;是&#39;</code>——即原料条码库"是否盘点"开关天然圈定可选范围（10-18 拍板确认）</td></tr>
+    <tr><td>门店范围</td><td>单选：<b>全部门店</b>（启用 23 家按 store_code 排序）或 <b>勾选门店</b>（<b>树状分组勾选</b>：按业务类型 Café MUJI / Café&amp;Meal / MUJI Diner 三组分组，支持整组全选、组内勾选、搜索过滤，实时显示已选计数）</td></tr>
+  </table></div>
+
+  <h3>5.2 任务名称自动生成规则</h3>
+  <div class="tblwrap"><table class="tbl">
+    <tr><th>任务类型</th><th>生成公式</th><th>示例（2026-10 第 2 周创建，原物料）</th></tr>
+    <tr><td>月盘</td><td><code>YYMM-餐厅{盘点类型}月盘</code></td><td><code>2610-餐厅原物料月盘</code></td></tr>
+    <tr><td>周盘</td><td><code>YYMMX周-餐厅{盘点类型}周盘</code></td><td><code>26102周-餐厅原物料周盘</code></td></tr>
+    <tr><td>特殊盘</td><td>手动输入（如 <code>十一前全店食材安全盘</code>）</td><td>—</td></tr>
+  </table></div>
+  <ul>
+    <li>YYMM 取<b>盘点开始日期</b>所属年月；X＝开始日期在当月的周序（默认按 1–7 日＝第 1 周、8–14 日＝第 2 周…切分，<span class="pill ask">待确认</span>）。</li>
+    <li>盘点类型文案映射：原物料/包材耗材/其他，直接嵌入名称。</li>
+    <li>表单内实时预览：切换任务类型/盘点类型/开始日期时名称即时刷新。</li>
+  </ul>
+
+  <h3>5.3 创建动作（事务）</h3>
+  <div class="flow">
+    <div class="step"><b>① 校验</b>日期/范围非空；specific 时明细 ≥1 条、门店 ≥1 家</div><div class="arr">→</div>
+    <div class="step"><b>② 取号</b>生成 task_code（墓碑取大＋1）</div><div class="arr">→</div>
+    <div class="step"><b>③ 落主表＋清单快照</b>all 即时取启用原料全量落 items</div><div class="arr">→</div>
+    <div class="step"><b>④ 门店展开</b>按范围写 task_stores（status=pending）</div><div class="arr">→</div>
+    <div class="step"><b>⑤ 返回</b>提示"任务已派发 N 家门店 / M 项原料"</div>
+  </div>
+
+  <h3>5.4 列表页（PC）</h3>
+  <div class="frame">
+    <div class="fbar">盘点发起 · 任务列表（PC 线框）</div>
+    <div class="fbody">
+      <div class="frow">
+        <span class="fchip on">🔍 编号/名称模糊搜索</span><span class="fchip">开始日期 起~止</span><span class="fchip">门店筛选 ▾</span><span class="fchip">任务类型 ▾</span>
+        <span style="flex:1"></span><span class="fbtn">＋ 新建盘点任务</span><span class="fbtn">导出</span>
+      </div>
+      <table class="ftable">
+        <tr><th>盘点编号</th><th>任务名称</th><th>类型</th><th>起止日期</th><th>品范围</th><th>门店数</th><th>完成情况</th><th>操作</th></tr>
+        <tr><td class="mono">PD261018001</td><td>2610-餐厅原物料月盘</td><td>月盘·原物料</td><td class="mono">10-01 ~ 10-31</td><td>全部原料</td><td>26</td><td><span class="pill st-pend">待盘点 8</span> <span class="pill st-sub">已提交 3</span> <span class="pill st-aud">已审核 15</span></td><td><span class="fbtn">查看</span><span class="fbtn">修改</span><span class="fbtn">导出</span><span class="fbtn">删除</span></td></tr>
+        <tr><td class="mono">PD261015003</td><td>26102周-餐厅原物料周盘</td><td>周盘·原物料</td><td class="mono">10-08 ~ 10-14</td><td>勾选 45 项</td><td>5</td><td><span class="pill st-pend">待盘点 1</span> <span class="pill st-sub">已提交 2</span> <span class="pill st-aud">已审核 2</span></td><td><span class="fbtn">查看</span><span class="fbtn">修改</span><span class="fbtn">导出</span><span class="fbtn">删除</span></td></tr>
+      </table>
+    </div>
+  </div>
+  <ul>
+    <li><b>完成情况列</b>：三态计数徽标（对 task_stores GROUP BY 聚合），点击徽标弹出该任务门店明细（店名/状态/提交时间）——总部门店进度一眼可见。</li>
+    <li><b>查看</b>：详情抽屉＝任务全字段 ＋ 盘点品清单（可搜索）＋ 门店完成情况表。</li>
+    <li><b>筛选口径</b>：时间范围＝盘点开始日期；门店筛选＝勾选门店的任务（specific 匹配该店 或 all）。</li>
+  </ul>
+
+  <h3>5.5 修改与删除边界<span class="tag">保护已产生数据</span></h3>
+  <div class="tblwrap"><table class="tbl">
+    <tr><th>任务状态</th><th>允许修改</th><th>允许删除</th></tr>
+    <tr><td>全部门店均待盘点</td><td>全部字段（范围变更同步重建 items/task_stores，重开确认提示）</td><td>✓（编号入墓碑，连带清空 items/task_stores）</td></tr>
+    <tr><td>已有门店提交</td><td>仅结束日期（延期）；名称/范围锁定</td><td>需二次强确认（含已提交数据将被清除）</td></tr>
+    <tr><td>已有门店审核</td><td>仅结束日期</td><td>✕ 拦截，提示"已有审核数据，不可删除"</td></tr>
+  </table></div>
+</section>
+
+<!-- ============ 06 ============ -->
+<section id="s6">
+  <h2><span class="no">06</span>库位管理（/inventory_location）</h2>
+  <p class="lead">门店自管储存位置：一店多库位（常温货架/冷藏柜/冷冻库…），下期盘点按库位落位。角色：管理员、采购料理、总部运营、区域管理、门店全开；TP 不可见。<b>门店与区域管理做店别内容隔离</b>。</p>
+
+  <h3>6.1 店别数据隔离矩阵<span class="tag">复用 bind_store_code / bind_region</span></h3>
+  <div class="tblwrap"><table class="tbl">
+    <tr><th>角色</th><th>数据可见范围</th><th>创建时门店选择</th><th>实现</th></tr>
+    <tr><td>管理员/采购料理/总部运营</td><td>全部 26 店库位</td><td>门店下拉全量可选</td><td>无附加过滤</td></tr>
+    <tr><td>门店</td><td><b>仅本店</b>库位</td><td>锁定为本店（只读展示，不可改）</td><td>session <code>bind_store_code</code> → 强制 WHERE store_id=本店；后端强制，前端同时锁定</td></tr>
+    <tr><td>大区管理</td><td>大区内门店库位</td><td>下拉仅大区门店</td><td>session <code>bind_region</code> → <code>WHERE stores.region=bind_region</code></td></tr>
+  </table></div>
+  <div class="callout warn"><span class="t">现状依赖与降级策略</span>
+    <code>stores.region</code> 当前 26 家店<b>全部为空</b>，系统也无真实大区管理账号。方案按 region 字段隔离实现；region 未维护期间，大区管理登录将看到<b>空列表并提示"所属大区未配置门店"</b>，不会误见全量数据。大区归属数据的维护（stores.region 赋值）需要单独安排（<span class="pill ask">待确认</span>）。
+  </div>
+
+  <h3>6.2 创建与列表</h3>
+  <ul>
+    <li><b>创建</b>：选择门店（按 6.1 矩阵受限）＋ 区域名称（单行文本，同店防重校验）。编号自动生成 <code>店编-001</code> 起流水，成功后 toast 展示新编号。</li>
+    <li><b>列表</b>：库位编号 / 门店 / 区域名称 / 状态 / 创建人 / 创建时间；模糊搜索（编号+区域名称）、门店筛选（管理员侧）、导出。</li>
+    <li><b>修改</b>：区域名称可改（防重校验）；门店与编号<b>不可改</b>（编号含店编，挪店＝编号失效）。</li>
+    <li><b>删除</b>：二次确认 → 入墓碑，序号永不复用；下期若已被盘点明细引用则拦截删除（本期预留校验位）。</li>
+    <li><b>门店手机场景</b>：建库位是门店高频操作——手机端单列卡片＋右下角悬浮"＋"大按钮（见 07 节）。</li>
+  </ul>
+</section>
+
+<!-- ============ 07 ============ -->
+<section id="s7">
+  <h2><span class="no">07</span>手机端卡片式适配</h2>
+  <p class="lead">手机端整体采用卡片式呈现，交互基准复刻罗森批发系统「废止换品工作台·批量换品」已验证的模式：<code>rp-card</code> 三段卡片（头/体/脚）＋ 桌面/手机双渲染 ＋ 760px 断点切换 ＋ 状态徽章。</p>
+
+  <h3>7.1 双布局机制<span class="tag">与批量换品同构</span></h3>
+  <ul>
+    <li>同一份数据两套渲染：<code>dt-only</code>（PC 表格）与 <code>m-only</code>（手机卡片）互斥显示，断点 <code>@media (max-width:760px)</code> 切换——列表数据只需一次拉取。</li>
+    <li>卡片结构：头＝编号＋状态徽章；体＝键值行（名称/类型/日期/进度）；脚＝操作按钮横排。</li>
+    <li>触控规范：可点区域 ≥ 44px；按钮整块可点；弹窗手机端全屏化（100dvh）；筛选栏折叠为"筛选"按钮展开面板。</li>
+  </ul>
+
+  <h3>7.2 手机线框示意</h3>
+  <div class="phones">
+    <div class="phone">
+      <div class="ptitle">盘点发起 · 任务列表</div>
+      <div class="psearch">🔍 搜索编号 / 任务名称</div>
+      <div class="mini-card">
+        <div class="mhead"><span class="mcode">PD261018001</span><span class="pill st-pend">进行中</span></div>
+        <div class="mrow"><b style="color:var(--ink)">2610-餐厅原物料月盘</b></div>
+        <div class="mrow"><span>月盘 · 原物料</span><span>10-01 ~ 10-31</span></div>
+        <div class="mrow"><span>门店 26 家</span><span>全部原料</span></div>
+        <div class="progress"><i style="width:58%;background:var(--ok)"></i><i style="width:11%;background:var(--blue)"></i></div>
+        <div class="mrow"><span class="pill st-aud">已审核 15</span><span class="pill st-sub">已提交 3</span><span class="pill st-pend">待盘点 8</span></div>
+        <div class="mbtns"><span>查看</span><span>修改</span><span class="danger">删除</span></div>
+      </div>
+      <div class="mini-card" style="opacity:.75">
+        <div class="mhead"><span class="mcode">PD261015003</span><span class="pill st-aud">已审核 4/5</span></div>
+        <div class="mrow"><b style="color:var(--ink)">26102周-餐厅原物料周盘</b></div>
+        <div class="mrow"><span>周盘 · 原物料</span><span>10-08 ~ 10-14</span></div>
+        <div class="mbtns"><span>查看</span><span>导出</span></div>
+      </div>
+      <div class="psearch" style="text-align:center;background:var(--brand);color:#fff;border-radius:6px">＋ 新建盘点任务</div>
+    </div>
+    <div class="phone">
+      <div class="ptitle">库位管理 · 本店库位</div>
+      <div class="psearch">🔍 搜索库位编号 / 区域名称</div>
+      <div class="mini-card">
+        <div class="mhead"><span class="mcode">500715-001</span><span class="pill st-aud">启用</span></div>
+        <div class="mrow"><b style="color:var(--ink)">常温干货货架</b></div>
+        <div class="mrow"><span>广州万菱汇店</span><span>10-18 建</span></div>
+        <div class="mbtns"><span>编辑</span><span class="danger">删除</span></div>
+      </div>
+      <div class="mini-card">
+        <div class="mhead"><span class="mcode">500715-002</span><span class="pill st-aud">启用</span></div>
+        <div class="mrow"><b style="color:var(--ink)">吧台冷藏柜</b></div>
+        <div class="mbtns"><span>编辑</span><span class="danger">删除</span></div>
+      </div>
+      <div class="mini-card" style="border-left-color:var(--amber)">
+        <div class="mhead"><span class="mcode">500715-003</span><span class="pill st-pend">停用</span></div>
+        <div class="mrow"><b style="color:var(--ink)">旧冷冻库（已拆除）</b></div>
+        <div class="mbtns"><span>启用</span><span class="danger">删除</span></div>
+      </div>
+      <div class="psearch" style="text-align:center;background:var(--brand);color:#fff;border-radius:99px;font-weight:700">＋ 新建库位</div>
+    </div>
+  </div>
+
+  <h3>7.3 本期覆盖范围</h3>
+  <div class="tblwrap"><table class="tbl">
+    <tr><th>页面</th><th>PC</th><th>手机端</th></tr>
+    <tr><td>盘点发起 · 列表</td><td>表格 ＋ 筛选行</td><td>卡片列表 ＋ 进度条 ＋ 三态徽标；新建/导出固定底部操作区</td></tr>
+    <tr><td>盘点发起 · 创建/编辑弹窗</td><td>模态弹窗</td><td>全屏化；原料/门店勾选器全屏多选，已选计数常显</td></tr>
+    <tr><td>库位管理 · 列表</td><td>表格</td><td>单列卡片；悬浮"＋"大按钮（门店高频）</td></tr>
+    <tr><td>库位管理 · 创建弹窗</td><td>模态弹窗</td><td>全屏化；门店字段锁定为只读徽章（门店角色）</td></tr>
+  </table></div>
+</section>
+
+<!-- ============ 08 ============ -->
+<section id="s8">
+  <h2><span class="no">08</span>下期衔接【盘点任务】的桩</h2>
+  <p class="lead">基建期把下期门店执行端依赖的数据与接口基础全部备齐，届时零迁移。</p>
+  <div class="grid g2">
+    <div class="card"><h4>本期已备好</h4><ul>
+      <li><code>inventory_task_stores</code>：门店工作队列（pending/submitted/audited ＋ 时间与操作人字段），门店登录即取自己队列</li>
+      <li><code>inventory_task_items</code>：固化的盘点品清单（含编码/名称快照）</li>
+      <li><code>inventory_locations</code>：盘点落位目标（执行时按库位分行）</li>
+      <li>卡片式双渲染基建：下期盘点录入页直接复用 760px 断点与组件</li>
+    </ul></div>
+    <div class="card"><h4>下期实现（v1 决策沿用）</h4><ul>
+      <li>手机盘点录入：双计量（整件×容量＋拆零）、扫码连盘、语音按住说一批</li>
+      <li>盲盘 ＋ 漏盘清单 ＋ 差异驱动复核（阈值 ±15% 起步）</li>
+      <li>状态机：pending → 盘点中 → submitted → audited（差异驱动）</li>
+      <li>期间对比报告、温区双字段（temp_zone_opened）届时按需启用</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ============ 09 ============ -->
+<section id="s9">
+  <h2><span class="no">09</span>实施清单</h2>
+  <div class="tblwrap"><table class="tbl">
+    <tr><th style="width:240px">文件</th><th>变更</th></tr>
+    <tr><td><code>init_db.py</code></td><td>新增 5 表（逐表独立 cursor.execute，复刻 semi 模式）</td></tr>
+    <tr><td><code>modules/inventory_launch.py</code></td><td>盘点发起蓝图：页面路由 ＋ 列表(含三态计数) ＋ check_code ＋ 创建(事务：取号/快照/展开) ＋ 修改 ＋ 删除(墓碑) ＋ 详情 ＋ 导出，约 8 接口</td></tr>
+    <tr><td><code>modules/inventory_location.py</code></td><td>库位蓝图：页面路由 ＋ 列表(店别隔离) ＋ 创建(取号/防重) ＋ 修改 ＋ 删除(墓碑) ＋ 状态切换 ＋ 导出，约 7 接口</td></tr>
+    <tr><td><code>templates/inventory_launch.html</code> / <code>inventory_location.html</code></td><td>PC 表格 ＋ 760px 卡片双渲染 ＋ 全屏弹窗 ＋ 原料/门店勾选器</td></tr>
+    <tr><td><code>templates/base.html</code></td><td>商品管理分组后新增【盘点管理】分组（_inv 变量 ＋ 2 菜单项）</td></tr>
+    <tr><td><code>modules/system_mgmt.py</code></td><td>MODULES 注册 2 模块（group='盘点管理'）</td></tr>
+    <tr><td><code>app.py</code></td><td>注册 2 蓝图</td></tr>
+    <tr><td><code>DB 预置</code></td><td>role_permissions 7 条（launch×3 ＋ location×5）；服务器执行，备份先行</td></tr>
+  </table></div>
+  <ul>
+    <li><b>验证口径</b>（按任务分级规则＝A 级）：test_client 全接口断言 ＋ 四角色可见性/隔离实测（admin 全量、store 仅本店、region 空大区提示、TP 403）＋ 编号墓碑用例（建删建不复用）＋ 手机断点抽查 ＋ 线上冒烟。</li>
+    <li><b>部署</b>：commit 推 GitHub master → 服务器同步 → DB 备份 → 预置 SQL → restart p027-goods → curl 冒烟。</li>
+  </ul>
+</section>
+
+<!-- ============ 10 ============ -->
+<section id="s10">
+  <h2><span class="no">10</span>待确认项</h2>
+  <p class="lead">以下各项均给出推荐默认，方案获批后按推荐执行，不改不影响开工。</p>
+  <div class="tblwrap"><table class="tbl">
+    <tr><th style="width:60px">状态</th><th style="width:230px">事项</th><th>推荐默认</th></tr>
+    <tr><td><span class="pill fixed">已定 10-18</span></td><td>盘点任务编号格式</td><td><code>PD+YYMMDD+3位流水</code>（PD261018001）</td></tr>
+    <tr><td><span class="pill fixed">已定 10-18</span></td><td>库位编号分隔符</td><td><code>店编-001</code>（500715-001）</td></tr>
+    <tr><td><span class="pill fixed">已定 10-18</span></td><td>周盘"X周"切分规则</td><td>按 1–7 日＝第 1 周自然切分（26102周）</td></tr>
+    <tr><td><span class="pill fixed">已定 10-18</span></td><td>盘点发起删除权限</td><td>管理员/采购料理/总部运营三方全开（full）</td></tr>
+    <tr><td><span class="pill fixed">已定 10-18</span></td><td>by 店独立编号</td><td>门店盘点单编号＝任务编号-店编（PD261018001-500715），落库唯一</td></tr>
+    <tr><td><span class="pill fixed">已定 10-18</span></td><td>门店范围树状勾选</td><td>按业务类型三组树状分组（Café MUJI / Café&amp;Meal / MUJI Diner），整组全选＋搜索</td></tr>
+    <tr><td><span class="pill ask">待确认</span></td><td>大区管理隔离数据</td><td>按 stores.region 隔离实现；region 全空期间大区管理见空列表提示，26 店大区归属数据维护另行安排</td></tr>
+    <tr><td><span class="pill ask">待确认</span></td><td>库位"停用"操作</td><td>预留 status 字段＋启停切换（拆除/装修场景）</td></tr>
+  </table></div>
+</section>
+
+<footer style="padding:36px 0 48px;color:var(--ink-2);font-size:.85em">
+  <p>P027 盘点管理模块 · 基建期方案 v2.1（需求拍板版）· 2026-10-18 · 前承《盘点模块设计方案v1_P027开发版.html》（10-15 拍板决策沿用）· 数据基础：stores 26 店/users 店别绑定字段/原料 622 项均为生产库实测</p>
+</footer>
+
+</div>
+<a class="top" href="#top" aria-label="回到顶部">↑</a>
+<script>
+(function(){
+  try{
+    document.querySelectorAll('nav.sticky a').forEach(function(a){
+      a.addEventListener('click', function(ev){
+        var id = a.getAttribute('href').slice(1);
+        var t = document.getElementById(id);
+        if(t){ ev.preventDefault(); t.scrollIntoView({behavior:'smooth', block:'start'}); }
+      });
+    });
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

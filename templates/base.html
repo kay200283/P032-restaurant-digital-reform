@@ -51,6 +51,9 @@
                     <a href="/work-mgmt/tasks" class="nav-item {% if request.path == '/work-mgmt/tasks' %}active{% endif %}">
                         <i class="fa-solid fa-list-check"></i><span>任务管理</span>
                     </a>
+                    <a href="/work-mgmt/topic-report" class="nav-item {% if request.path == '/work-mgmt/topic-report' or request.path.startswith('/work-mgmt/topic-report/') %}active{% endif %}">
+                        <i class="fa-solid fa-book-open"></i><span>课题报告</span>
+                    </a>
                     <a href="/issues" class="nav-item {% if request.path == '/issues' %}active{% endif %}">
                         <i class="fa-solid fa-bug"></i><span>系统问题管理</span>
                     </a>
