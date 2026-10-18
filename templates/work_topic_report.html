@@ -6,11 +6,11 @@
 .tr-wrap { max-width: 1400px; margin: 0 auto; }
 .tr-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .tr-table th, .tr-table td { padding: 0.5em 0.625em; text-align: left; font-size: 0.875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tr-table th { color: var(--brand-gray); font-weight: 600; border-bottom: 1px solid var(--brand-border); font-size: 0.8125rem; }
+.tr-table th { color: rgba(255,255,255,0.92); font-weight: 600; border-bottom: 1px solid var(--brand-border); font-size: 0.8125rem; }
 .tr-table tbody tr { border-bottom: 1px solid var(--brand-border); cursor: pointer; }
 .tr-table tbody tr:hover { background: rgba(45,74,62,0.04); }
-.tr-title { font-weight: 600; color: var(--brand-primary); }
-.tr-desc { color: #999; white-space: normal; word-break: break-all; line-height: 1.5; }
+.tr-table td.tr-title { font-weight: 600; color: var(--brand-primary); white-space: normal; word-break: break-all; line-height: 1.5; }
+.tr-table td.tr-desc { color: #999; white-space: normal; word-break: break-all; line-height: 1.5; }
 .tr-muted { color: #999; }
 .tr-op button { margin-right: 0.375em; }
 .tr-empty { text-align: center; padding: 3em 1em; color: #bbb; font-size: 0.875rem; }
@@ -53,7 +53,7 @@
                     <th style="width:6.25em">上传日期</th>
                     <th style="width:6.25em">最终修订</th>
                     <th style="width:5.5em">编制人</th>
-                    {% if is_admin %}<th style="width:7.5em">操作</th>{% endif %}
+                    {% if is_admin %}<th style="width:4em">操作</th>{% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -68,7 +68,6 @@
                     <td style="color:#54585A">{{ report.created_by }}</td>
                     {% if is_admin %}
                     <td class="tr-op" onclick="event.stopPropagation()">
-                        <button class="btn btn-secondary" style="padding:0.25em 0.625em;font-size:0.75rem;" onclick="openReportModal({{ report|tojson }})"><i class="fa-solid fa-pen"></i> 编辑</button>
                         <button class="btn btn-secondary" style="padding:0.25em 0.625em;font-size:0.75rem;color:var(--brand-danger);border-color:var(--brand-danger);" onclick="delReport({{ report.id }}, '{{ report.title }}')"><i class="fa-solid fa-trash-can"></i></button>
                     </td>
                     {% endif %}
