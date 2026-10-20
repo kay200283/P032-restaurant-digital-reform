@@ -1336,6 +1336,57 @@ def _auto_save_split_pattern(inst, conn):
         pass
 
 
+
+def _book_long_task(executor_id, recurring_id, d0, total_minutes, conn):
+    """长工时(>570分钟=单日容量)周期任务自动跨天拆排: 均分>=3天(每天<=480分钟), 从d0起逐工作日找空位.
+    实例带split_index/split_total并锁time_locked=1(防regeneration误删); 排满后写回split_pattern供后续复刻 (kay 2026-10-20)."""
+    try:
+        dur = int(total_minutes or 0)
+        if dur <= 570:
+            return 0
+        n = max(3, -(-dur // 480))
+        per = -(-dur // n)
+        d = d0
+        placed = []
+        tries = 0
+        while len(placed) < n and tries < n * 4:
+            tries += 1
+            seg = per if len(placed) < n - 1 else max(per, dur - per * (n - 1))
+            slot = _next_available_slot(executor_id, d, seg, conn)
+            if slot:
+                st, et, ot = slot
+                conn.execute(
+                    "INSERT INTO calendar_instances (source_type, source_id, executor_id, date, start_time, end_time, status, is_overtime, split_index, split_total, time_locked) VALUES (?, ?, ?, ?, ?, ?, 'normal', ?, ?, ?, 1)",
+                    ('recurring', recurring_id, executor_id, d, st, et, ot, len(placed) + 1, n))
+                placed.append({'date': d, 'start': st, 'end': et})
+                d = _next_workday(d)
+                if not d:
+                    break
+            else:
+                nd = _next_workday(d)
+                if not nd:
+                    break
+                d = nd
+        if len(placed) == n:
+            import json as _json
+            off_map = {}
+            cur = d0
+            idx = 0
+            while cur and idx < 60:
+                off_map[cur] = idx
+                nxt = _next_workday(cur)
+                if not nxt:
+                    break
+                cur = nxt
+                idx += 1
+            pat = [{'day_offset': off_map.get(x['date'], 0), 'start': x['start'], 'end': x['end']} for x in placed]
+            conn.execute("UPDATE recurring_tasks SET split_pattern=?, updated_at=datetime('now','localtime') WHERE id=?",
+                         (_json.dumps(pat), recurring_id))
+        return len(placed)
+    except Exception:
+        return 0
+
+
 def _regenerate_split_instances(recurring_id, conn):
     """Delete unlocked instances and regenerate from split_pattern."""
     try:
@@ -1965,6 +2016,9 @@ def _generate_instances(start_date, end_date, executor_id=None):
                             ('recurring', tid, eid, d, lst, let, is_ot))
                         created += 1
                         continue
+                if dur > 570 and _book_long_task(eid, tid, d, dur, conn) > 0:
+                    created += 1
+                    continue
                 slot = _next_available_slot(eid, d, dur, conn)
                 if slot:
                     st, et, is_ot = slot
@@ -2159,6 +2213,9 @@ def _book_recurring_instance(recurring_id, conn):
                         ('recurring', task['id'], task['executor_id'], d, fst, fet, is_ot_f))
                     continue
             # No fixed time or conflict: auto-find slot
+            if dur > 570:
+                _book_long_task(task['executor_id'], task['id'], d, dur, conn)
+                continue
             max_overflow = 3
             for _ in range(max_overflow):
                 slot = _next_available_slot(task['executor_id'], d, dur, conn)
