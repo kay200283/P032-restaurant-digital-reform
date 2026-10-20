@@ -1457,6 +1457,13 @@ def _parse_day_range(day_str, year, month):
                 days.extend(range(lo, hi + 1))
         elif part.isdigit():
             days.append(min(int(part), max_day))
+        elif '-' in part:
+            _b = part.split('-')
+            if len(_b) == 2 and _b[0].strip().isdigit() and _b[1].strip().isdigit():
+                _lo = max(int(_b[0].strip()), 1)
+                _hi = min(int(_b[1].strip()), max_day)
+                if _lo <= _hi:
+                    days.extend(range(_lo, _hi + 1))
     return days
 
 
@@ -1538,6 +1545,8 @@ def _expand_dates(task, start_date, end_date):
 
     def _expand_days_in_month(year, month, day_str):
         """Generate dates for a specific month based on cycle_month_days syntax."""
+        if day_str and ':' in day_str:
+            day_str = day_str.split(':')[-1].strip()  # 兼容前端"月:号"前缀写法(如1,7:20~25), 取冒号后号数
         if not day_str:
             fw = _first_workday_in_month(year, month)
             if fw:
