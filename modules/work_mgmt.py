@@ -157,6 +157,10 @@ def api_recurring_update(task_id):
         
         # Compute fixed_end_time from fixed_start_time + duration
         fst = data.get('fixed_start_time') or None
+        if not fst:
+            _prev_f = conn.execute('SELECT fixed_start_time FROM recurring_tasks WHERE id=?', (task_id,)).fetchone()
+            if _prev_f and _prev_f['fixed_start_time']:
+                fst = _prev_f['fixed_start_time']  # 表单未填固定时间时保留原值, 防改周期误清 (kay 2026-10-27)
         fet = None
         if fst:
             try:
@@ -1198,6 +1202,10 @@ def api_recurring_set_split_pattern(recurring_id):
             pattern_json = json.dumps(pattern, ensure_ascii=False)
             conn.execute("UPDATE recurring_tasks SET split_pattern=?, updated_at=datetime('now','localtime') WHERE id=?",
                          (pattern_json, recurring_id))
+            # 重设拆分模式: 先清除未来全部拆分实例(含locked的自动拆分兜底段)再按新模式重建 (kay 2026-10-27)
+            from datetime import date as _d_sp2
+            conn.execute("DELETE FROM calendar_instances WHERE source_type='recurring' AND source_id=? AND date>=? AND ifnull(split_total,1)>1",
+                         (recurring_id, _d_sp2.today().isoformat()))
             _regenerate_split_instances(recurring_id, conn)
             conn.commit()
             return jsonify({'success': True, 'message': '拆分模式已设置', 'pattern': pattern})
@@ -1335,6 +1343,64 @@ def _auto_save_split_pattern(inst, conn):
     except Exception:
         pass
 
+
+
+def _sync_future_fixed(task_id, conn):
+    """固定时间变更后, 将该周期任务未来未锁定且未拆分的动态实例对齐到固定时段 (kay 2026-10-27).
+    仅当固定时段当日无冲突时对齐并锁定; 有冲突保持原时段交由用户调整."""
+    try:
+        rec = conn.execute('SELECT fixed_start_time, fixed_end_time, executor_id FROM recurring_tasks WHERE id=? AND is_active=1', (task_id,)).fetchone()
+        if not rec or not rec['fixed_start_time'] or not rec['fixed_end_time']: return 0
+        fst, fet = rec['fixed_start_time'], rec['fixed_end_time']
+        today = _g_dt_now.now().strftime('%Y-%m-%d')
+        rows = conn.execute(
+            "SELECT id, date FROM calendar_instances WHERE source_type='recurring' AND source_id=? AND date>=? AND status='normal' AND ifnull(time_locked,0)=0 AND ifnull(split_total,1)<=1",
+            (task_id, today)).fetchall()
+        n = 0
+        for r in rows:
+            conflict = conn.execute(
+                "SELECT 1 FROM calendar_instances WHERE executor_id=? AND date=? AND id!=? AND status!='leave' AND start_time<? AND end_time>?",
+                (rec['executor_id'], r['date'], r['id'], fet, fst)).fetchone()
+            if conflict: continue
+            is_ot = 1 if _g_dt_now.strptime(fet, '%H:%M') > _g_dt_now.strptime('18:30', '%H:%M') else 0
+            conn.execute("UPDATE calendar_instances SET start_time=?, end_time=?, is_overtime=?, time_locked=1, updated_at=datetime('now','localtime') WHERE id=?",
+                         (fst, fet, is_ot, r['id']))
+            n += 1
+        return n
+    except Exception:
+        return 0
+
+
+def _book_split_fallback(task, d0, dur, conn):
+    """拆分兜底: >=240分钟周期任务在整块+3个工作日overflow均排不进时, 自动拆为2段排入
+    (kay 2026-10-27: 初始阶段自动拆分, 用户可在管理页自行改拆几块). 段实例 time_locked=1, 不写split_pattern."""
+    try:
+        dur = int(dur or 0)
+        if dur < 240: return 0
+        first = -(-dur // 2)
+        second = dur - first
+        d = d0
+        placed = 0
+        for si, seg in ((1, first), (2, second)):
+            ok = False
+            for _ in range(10):
+                slot = _next_available_slot(task['executor_id'], d, seg, conn)
+                if slot:
+                    st, et, ot = slot
+                    conn.execute(
+                        "INSERT INTO calendar_instances (source_type, source_id, executor_id, date, start_time, end_time, status, is_overtime, split_index, split_total, time_locked) VALUES (?, ?, ?, ?, ?, ?, 'normal', ?, ?, 2, 1)",
+                        ('recurring', task['id'], task['executor_id'], d, st, et, ot, si))
+                    placed += 1
+                    ok = True
+                    break
+                nd = _next_workday(d)
+                if not nd: break
+                d = nd
+            if not ok:
+                return placed
+        return placed
+    except Exception:
+        return 0
 
 
 def _book_long_task(executor_id, recurring_id, d0, total_minutes, conn):
@@ -2069,7 +2135,9 @@ def _generate_instances(start_date, end_date, executor_id=None):
                             break
                         nd = _next_workday(nd)
                     else:
-                        skipped += 1
+                        # 拆分兜底: 整块+overflow均排不进时自动拆2段 (kay 2026-10-27)
+                        if not _book_split_fallback({'id': tid, 'executor_id': eid}, d, dur, conn):
+                            skipped += 1
         # Also book active one-time tasks (backward scheduling from deadline)
         task_sql = """SELECT t.id, t.executor_id, t.expected_end, t.estimated_minutes, t.status, t.task_no
                       FROM tasks t WHERE t.status IN ('pending','in_progress','pending_review')
@@ -2103,6 +2171,13 @@ def _generate_instances(start_date, end_date, executor_id=None):
                     errors.append(f"Task {at['task_no']}: no available slot before deadline")
             except Exception as e:
                 errors.append(f"Task {at['task_no']}: {str(e)}")
+        # 固定时间对齐: 生成后将带固定时间的周期任务之未来未锁定动态实例对齐 (kay 2026-10-27)
+        try:
+            _fixed_recs = conn.execute("SELECT id FROM recurring_tasks WHERE is_active=1 AND fixed_start_time IS NOT NULL AND fixed_end_time IS NOT NULL").fetchall()
+            for _fr in _fixed_recs:
+                _sync_future_fixed(_fr['id'], conn)
+        except Exception:
+            pass
         conn.commit()
         return {'created': created, 'skipped': skipped, 'errors': errors[:10]}
     except Exception as e:
@@ -2244,6 +2319,8 @@ def _book_recurring_instance(recurring_id, conn):
             if dur > 570:
                 _book_long_task(task['executor_id'], task['id'], d, dur, conn)
                 continue
+            d_start = d
+            booked = False
             max_overflow = 3
             for _ in range(max_overflow):
                 slot = _next_available_slot(task['executor_id'], d, dur, conn)
@@ -2252,10 +2329,14 @@ def _book_recurring_instance(recurring_id, conn):
                     conn.execute(
                         "INSERT INTO calendar_instances (source_type, source_id, executor_id, date, start_time, end_time, status, is_overtime) VALUES (?, ?, ?, ?, ?, ?, 'normal', ?)",
                         ('recurring', task['id'], task['executor_id'], d, st, et, is_ot))
+                    booked = True
                     break
                 nd = _next_workday(d)
                 if not nd: break
                 d = nd
+            if not booked:
+                # 拆分兜底: 整块+overflow均排不进时自动拆2段 (kay 2026-10-27)
+                _book_split_fallback(task, d_start, dur, conn)
     except Exception:
         pass
 
