@@ -1530,6 +1530,31 @@ def _first_workday_in_month(year, month):
 
 
 
+def _next_workday_after(year, month, day):
+    """从指定日期(含当天)起向后找首个工作日(day超月末自动进位, 最多向后60天)。返回 'YYYY-MM-DD' 或 None。
+    kay 2026-10-27 A口径: 窗口/指定号内无工作日时向后顺延。"""
+    import calendar as _cal
+    from datetime import date as _date, timedelta as _td
+    while True:
+        try:
+            d0 = _date(year, month, day)
+            break
+        except ValueError:
+            day -= _cal.monthrange(year, month)[1]
+            month += 1
+            if month > 12:
+                month, year = 1, year + 1
+    conn = get_db()
+    try:
+        d1 = (d0 + _td(days=59)).strftime('%Y-%m-%d')
+        row = conn.execute(
+            "SELECT date FROM dws_dim_date WHERE date >= ? AND date <= ? AND holiday_type IN (?, ?) ORDER BY date LIMIT 1",
+            (d0.strftime('%Y-%m-%d'), d1, '工作日', '工作日-补班')).fetchone()
+        return row['date'] if row else None
+    finally:
+        pass
+
+
 def _first_workday_in_range(year, month, day_range_str):
     """Find the first workday in a date range like '5~10' or '7~12' or '10'.
     Returns date string 'YYYY-MM-DD' or None."""
@@ -1545,7 +1570,10 @@ def _first_workday_in_range(year, month, day_range_str):
         row = conn.execute(
             f"SELECT date FROM dws_dim_date WHERE ({day_conditions}) AND holiday_type IN ('\u5de5\u4f5c\u65e5','\u5de5\u4f5c\u65e5-\u8865\u73ed') ORDER BY date LIMIT 1"
         ).fetchone()
-        return row['date'] if row else None
+        if row:
+            return row['date']
+        # 窗口内无工作日(单日逢假日/整段假日) → 从窗口结束次日起向后顺延首个工作日(可跨月, kay 2026-10-27 A口径)
+        return _next_workday_after(year, month, days[-1] + 1)
     finally:
         pass
 
@@ -1612,11 +1640,11 @@ def _expand_dates(task, start_date, end_date):
         else:
             day_list = _parse_day_range(day_str, year, month)
             for dy in day_list:
-                try:
-                    fd = _date(year, month, dy)
-                    if sd <= fd <= ed: _add(fd)
-                except ValueError:
-                    pass
+                fw = _next_workday_after(year, month, dy)  # 指定号逢假日向后顺延首个工作日(kay 2026-10-27 A口径)
+                if not fw:
+                    continue
+                fd = _g_dt_now.strptime(fw, '%Y-%m-%d').date()
+                if sd <= fd <= ed: _add(fd)
 
     if cycle_type == 'on_demand':
         return dates
