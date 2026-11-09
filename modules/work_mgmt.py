@@ -1468,26 +1468,10 @@ def _regenerate_split_instances(recurring_id, conn):
         end = (_g_dt_now.now() + _g_td(days=14)).strftime('%Y-%m-%d')
         task_dates = _expand_dates(rec, today, end)
         for d in task_dates:
-            if rec['cycle_type'] in ('daily',):
-                exists = conn.execute(
-                    'SELECT 1 FROM calendar_instances WHERE source_type=? AND source_id=? AND date=?',
-                    ('recurring', rec['id'], d)).fetchone()
-            elif rec['cycle_type'] in ('weekly', 'biweekly'):
-                dt_obj = _g_dt_now.strptime(d, '%Y-%m-%d')
-                iso = dt_obj.isocalendar()
-                week_start = (dt_obj - _g_td(days=iso[2]-1)).strftime('%Y-%m-%d')
-                week_end = (dt_obj + _g_td(days=7-iso[2])).strftime('%Y-%m-%d')
-                exists = conn.execute(
-                    'SELECT 1 FROM calendar_instances WHERE source_type=? AND source_id=? AND date>=? AND date<=?',
-                    ('recurring', rec['id'], week_start, week_end)).fetchone()
-            else:
-                month_start = d[:7] + '-01'
-                import calendar as _cal
-                y, m = int(d[:4]), int(d[5:7])
-                month_end = "{}-{}".format(d[:7], _cal.monthrange(y, m)[1])
-                exists = conn.execute(
-                    'SELECT 1 FROM calendar_instances WHERE source_type=? AND source_id=? AND date>=? AND date<=?',
-                    ('recurring', rec['id'], month_start, month_end)).fetchone()
+            # Same-day idempotent check (week/month windows skipped valid later dates)
+            exists = conn.execute(
+                'SELECT 1 FROM calendar_instances WHERE source_type=? AND source_id=? AND date=?',
+                ('recurring', rec['id'], d)).fetchone()
             if exists: continue
             for i, piece in enumerate(pattern):
                 piece_date = _advance_workdays(d, piece['day_offset'])
@@ -2034,29 +2018,12 @@ def _generate_instances(start_date, end_date, executor_id=None):
             try:
                 task_dates = _expand_dates(task, start_date, end_date)
                 for d in task_dates:
-                    # Period-level check: if user moved the event within the same period, don't regenerate
-                    if task['cycle_type'] in ('daily',):
-                        exists = conn.execute(
-                            'SELECT 1 FROM calendar_instances WHERE source_type=? AND source_id=? AND date=?',
-                            ('recurring', task['id'], d)).fetchone()
-                    elif task['cycle_type'] in ('weekly', 'biweekly'):
-                        # Same ISO week
-                        dt_obj = _g_dt_now.strptime(d, '%Y-%m-%d')
-                        iso = dt_obj.isocalendar()
-                        week_start = (dt_obj - _g_td(days=iso[2]-1)).strftime('%Y-%m-%d')
-                        week_end = (dt_obj + _g_td(days=7-iso[2])).strftime('%Y-%m-%d')
-                        exists = conn.execute(
-                            'SELECT 1 FROM calendar_instances WHERE source_type=? AND source_id=? AND date>=? AND date<=?',
-                            ('recurring', task['id'], week_start, week_end)).fetchone()
-                    else:
-                        # monthly/bimonthly/quarterly/yearly: same month
-                        month_start = d[:7] + '-01'
-                        import calendar as _cal
-                        y, m = int(d[:4]), int(d[5:7])
-                        month_end = f"{d[:7]}-{_cal.monthrange(y, m)[1]:02d}"
-                        exists = conn.execute(
-                            'SELECT 1 FROM calendar_instances WHERE source_type=? AND source_id=? AND date>=? AND date<=?',
-                            ('recurring', task['id'], month_start, month_end)).fetchone()
+                    # Idempotent same-day check: _expand_dates already decides which dates
+                    # deserve an instance; week/month-level windows wrongly skipped later
+                    # dates of multi-date tasks (e.g. weekly Tue-Fri, monthly 5,7,10).
+                    exists = conn.execute(
+                        'SELECT 1 FROM calendar_instances WHERE source_type=? AND source_id=? AND date=?',
+                        ('recurring', task['id'], d)).fetchone()
                     if exists:
                         skipped += 1; continue
                     groups[(d, task['executor_id'])].append((task['id'], task['duration_minutes'] or 30))
