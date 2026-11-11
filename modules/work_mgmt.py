@@ -528,7 +528,12 @@ def api_tasks_update(task_id):
             if sets:
                 sets.append("updated_at=datetime('now','localtime')")
                 conn.execute(f"UPDATE tasks SET {','.join(sets)} WHERE id=?", vals + [task_id])
-        _book_task_instance(task_id, conn, confirmed_slot=data.get('confirmed_slot'))
+        # Only re-book the calendar slot for partial updates (title/executor/time changes).
+        # Status actions (start/complete/submit_review/approve/reject/feedback) must NOT
+        # re-book, otherwise a user-adjusted instance time gets overwritten back to the
+        # auto-computed slot ("task jumps back to its old time").
+        if not data.get('action'):
+            _book_task_instance(task_id, conn, confirmed_slot=data.get('confirmed_slot'))
         conn.commit()
         return jsonify({'success': True, 'message': '更新成功'})
     except Exception as e:
