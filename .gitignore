@@ -5,3 +5,4 @@ __pycache__/
 .env
 uploads/
 *.bak
+instance_secret.key

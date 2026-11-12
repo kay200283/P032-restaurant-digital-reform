@@ -11,7 +11,17 @@ init_database()
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
-app.secret_key = 'p032_rdr_7k9m2x4v8b1n5q7w3e6r9t0y2u4i6o8p'
+# secret_key 文件化(2026-11-13 安全整改): instance_secret.key 权限600, 首次启动自动生成
+_secret_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance_secret.key')
+try:
+    with open(_secret_file) as _sf:
+        app.secret_key = _sf.read().strip()
+except FileNotFoundError:
+    import secrets as _secrets
+    app.secret_key = _secrets.token_hex(32)
+    with open(_secret_file, 'w') as _sf:
+        _sf.write(app.secret_key)
+    os.chmod(_secret_file, 0o600)
 app.config['SESSION_COOKIE_SECURE'] = False
 app.config['SESSION_COOKIE_NAME'] = 'p032_session'
 app.permanent_session_lifetime = timedelta(hours=12)
@@ -30,6 +40,21 @@ err_logger.setLevel(logging.ERROR)
 err_handler = logging.FileHandler(os.path.join(LOG_DIR, 'error.log'), encoding='utf-8')
 err_handler.setFormatter(logging.Formatter('[%(asctime)s] %(levelname)s %(message)s'))
 err_logger.addHandler(err_handler)
+
+
+# 全局登录门(2026-11-13 安全整改, 参照P027): 白名单严格相等/login /api/login, 前缀/static/与/favicon.ico
+_PUBLIC_PATHS = ('/login', '/api/login')
+
+@app.before_request
+def global_auth_gate():
+    _p = request.path
+    if _p in _PUBLIC_PATHS or _p.startswith('/static/') or _p == '/favicon.ico':
+        return None
+    if session.get('user_id') or session.get('user'):
+        return None
+    if _p.startswith('/api/'):
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+    return redirect('/login')
 
 @app.after_request
 def log_request(resp):
