@@ -397,7 +397,7 @@ function sendAiMessage(){
           <input type="text" id="editWeekDays" placeholder="如：1,3,5 或 1~5" style="width:140px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
           <span style="font-size:0.78rem;color:#666;">(1=一,2=二,...,6=六,7=日)</span>
         </div>
-        <div style="font-size:0.72rem;color:#999;margin-top:3px;">逗号分隔=每天各执行一次，~范围=窗口模式(期内完成1次)</div>
+        <div style="font-size:0.72rem;color:#999;margin-top:3px;">逗号分隔=每天各执行一次，~或-范围=窗口模式(期内完成1次)</div>
       </div>
 
       <!-- monthly: 几号 -->
@@ -423,7 +423,7 @@ function sendAiMessage(){
           <input type="text" id="editBiweekDays" placeholder="如：1,3,5 或 1~5" style="width:120px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
           <span style="font-size:0.78rem;color:#666;">(1=一,2=二,...,7=日)</span>
         </div>
-        <div style="font-size:0.72rem;color:#999;margin-top:3px;">逗号分隔=每天各执行一次，~范围=窗口模式</div>
+        <div style="font-size:0.72rem;color:#999;margin-top:3px;">逗号分隔=每天各执行一次，~或-范围=窗口模式</div>
       </div>
 
       <!-- quarterly: 季度内第几月+号数 -->
@@ -624,7 +624,7 @@ function calcFreq(ct, wd, md){
   }
   if(ct==='monthly'){
     if(!md) return 1;
-    // 逗号分隔=每个日期各执行一次，~范围=窗口模式1次
+    // 逗号分隔=每个日期各执行一次，~或-范围=窗口模式1次
     if(md.includes(',')){
       return md.split(',').filter(Boolean).length;
     }
@@ -671,7 +671,7 @@ function autoFillRule(){
     if(wd){
       const dayNames = parseWeekDays(wd);
       rule = '每周' + dayNames;
-      // 频次: 逗号=每天各一次×4, ~范围=窗口模式×4, 单日=1×4
+      // 频次: 逗号=每天各一次×4, ~或-范围=窗口模式×4, 单日=1×4
       if(wd.includes(',')){
         freq = wd.split(',').filter(Boolean).length * 4;
       } else if(wd.includes('~') || wd.includes('-')){

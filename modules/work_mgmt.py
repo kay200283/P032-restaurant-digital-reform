@@ -1711,6 +1711,7 @@ def _expand_dates(task, start_date, end_date):
         # Parse weekdays
         wd_set = set()
         if cycle_weekdays:
+            cycle_weekdays = cycle_weekdays.replace('-', '~')  # 兼容连字符范围写法(与前端一致, evelyn 2026-11-18)
             if '~' in cycle_weekdays:
                 parts = cycle_weekdays.split('~')
                 if len(parts) == 2:
