@@ -371,32 +371,11 @@ def api_qa_upload():
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     is_img = ext in IMG_EXT
 
+    # 2026-11-23 用户反馈预览模糊：取消缩放/转JPEG/降质压缩，图片原图直存（原格式原字节）
     if is_img:
-        try:
-            from PIL import Image
-            img = Image.open(f.stream)
-            original_mode = img.mode
-            if original_mode in ('RGBA', 'P', 'LA', 'PA'):
-                bg = Image.new('RGB', img.size, (255, 255, 255))
-                if original_mode == 'P':
-                    img = img.convert('RGBA')
-                bg.paste(img, mask=img.split()[-1] if 'A' in img.mode else None)
-                img = bg
-            elif img.mode != 'RGB':
-                img = img.convert('RGB')
-            max_dim = 1200
-            w, h = img.size
-            if max(w, h) > max_dim:
-                ratio = max_dim / max(w, h)
-                img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
-            unique_name = f"{uuid.uuid4().hex[:8]}.jpg"
-            save_path = os.path.join(UPLOAD_FOLDER, unique_name)
-            img.save(save_path, 'JPEG', quality=80, optimize=True)
-        except Exception:
-            f.stream.seek(0)
-            unique_name = f"{uuid.uuid4().hex[:8]}.{ext}"
-            save_path = os.path.join(UPLOAD_FOLDER, unique_name)
-            f.save(save_path)
+        unique_name = f"{uuid.uuid4().hex[:8]}.{ext}"
+        save_path = os.path.join(UPLOAD_FOLDER, unique_name)
+        f.save(save_path)
     else:
         unique_name = f"{uuid.uuid4().hex[:8]}.{ext}"
         save_path = os.path.join(UPLOAD_FOLDER, unique_name)
