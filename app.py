@@ -42,13 +42,14 @@ err_handler.setFormatter(logging.Formatter('[%(asctime)s] %(levelname)s %(messag
 err_logger.addHandler(err_handler)
 
 
-# 全局登录门(2026-11-13 安全整改, 参照P027): 白名单严格相等/login /api/login, 前缀/static/与/favicon.ico
+# 全局登录门(2026-11-13 安全整改, 参照P027): 白名单严格相等/login /api/login, 前缀/static/、/uploads/与/favicon.ico
+# 2026-11-25 补 /uploads/ 附件白名单: nginx alias 正常时静态直出不经过此处, 直连 Flask(8007/其他反代)时避免附件被 302 到 /login 导致"附件打不开"(hexin 反馈)
 _PUBLIC_PATHS = ('/login', '/api/login')
 
 @app.before_request
 def global_auth_gate():
     _p = request.path
-    if _p in _PUBLIC_PATHS or _p.startswith('/static/') or _p == '/favicon.ico':
+    if _p in _PUBLIC_PATHS or _p.startswith('/static/') or _p.startswith('/uploads/') or _p == '/favicon.ico':
         return None
     if session.get('user_id') or session.get('user'):
         return None
